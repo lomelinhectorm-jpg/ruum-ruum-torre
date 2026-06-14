@@ -743,7 +743,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
             <div className="space-y-4">
               <div>
                 <Label req>Tipo de servicio</Label>
-                <select value={form.tipoServicio} onChange={e => set('tipoServicio', e.target.value)} className={SelectCls('tipoServicio')}>
+                <select value={form.tipoServicio} onChange={e => set('tipoServicio', e.target.value.toUpperCase())} className={SelectCls('tipoServicio')}>
                   <option value="">Seleccionar...</option>
                   {TIPOS_SERVICIO.map(t => <option key={t}>{t}</option>)}
                 </select>
@@ -752,20 +752,20 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label req>Empresa / Cliente</Label>
-                  <select value={form.empresa} onChange={e => set('empresa', e.target.value)} className={SelectCls('empresa')}>
+                  <select value={form.empresa} onChange={e => set('empresa', e.target.value.toUpperCase())} className={SelectCls('empresa')}>
                     <option value="">Seleccionar...</option>
                     {EMPRESAS.map(e => <option key={e}>{e}</option>)}
                   </select>
                   <Err field="empresa" />
                 </div>
                 <div>
-                  <Label req>Nombre del solicitante</Label>
-                  <input type="text" placeholder="Nombre completo" value={form.usuario} onChange={e => set('usuario', e.target.value)} className={InputCls('usuario')} />
+                  <Label req>Nombre(s) del solicitante</Label>
+                  <input type="text" placeholder="NOMBRE(S)" value={form.usuario} onChange={e => set('usuario', e.target.value.toUpperCase())} className={InputCls('usuario')} />
                   <Err field="usuario" />
                 </div>
                 <div>
                   <Label>Teléfono de contacto</Label>
-                  <input type="tel" placeholder="+52 55 0000 0000" value={form.telefono} onChange={e => set('telefono', e.target.value)} className={InputCls('telefono')} />
+                  <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/[^0-9]/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} />
                 </div>
                 <div>
                   <Label>Correo electrónico</Label>
@@ -780,7 +780,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
             <div className="space-y-4">
               <div>
                 <Label>Vehículo registrado (opcional)</Label>
-                <select value={form.vehiculoId} onChange={e => set('vehiculoId', e.target.value)} className={SelectCls('vehiculoId')}>
+                <select value={form.vehiculoId} onChange={e => set('vehiculoId', e.target.value.toUpperCase())} className={SelectCls('vehiculoId')}>
                   <option value="">Ingresar manualmente...</option>
                   {VEHICULOS_LISTA.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
                 </select>
@@ -789,21 +789,21 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label req>Marca</Label>
-                  <input type="text" placeholder="Toyota, Honda, Ford..." value={form.marca} onChange={e => set('marca', e.target.value)} className={InputCls('marca')} />
+                  <input type="text" placeholder="Toyota, Honda, Ford..." value={form.marca} onChange={e => set('marca', e.target.value.toUpperCase())} className={InputCls('marca')} />
                   <Err field="marca" />
                 </div>
                 <div>
                   <Label req>Modelo</Label>
-                  <input type="text" placeholder="Hilux, Civic, F-150..." value={form.modelo} onChange={e => set('modelo', e.target.value)} className={InputCls('modelo')} />
+                  <input type="text" placeholder="Hilux, Civic, F-150..." value={form.modelo} onChange={e => set('modelo', e.target.value.toUpperCase())} className={InputCls('modelo')} />
                   <Err field="modelo" />
                 </div>
                 <div>
                   <Label>Año</Label>
-                  <input type="text" placeholder="2022" value={form.anio} onChange={e => set('anio', e.target.value)} className={InputCls('anio')} />
+                  <input type="text" placeholder="2022" value={form.anio} onChange={e => set('anio', e.target.value.toUpperCase())} className={InputCls('anio')} />
                 </div>
                 <div>
                   <Label>Color</Label>
-                  <input type="text" placeholder="Blanco, Gris, Negro..." value={form.color} onChange={e => set('color', e.target.value)} className={InputCls('color')} />
+                  <input type="text" placeholder="Blanco, Gris, Negro..." value={form.color} onChange={e => set('color', e.target.value.toUpperCase())} className={InputCls('color')} />
                 </div>
                 <div>
                   <Label req>Placas</Label>
@@ -816,7 +816,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
                 </div>
                 <div>
                   <Label>Transmisión</Label>
-                  <select value={form.transmision} onChange={e => set('transmision', e.target.value)} className={SelectCls('transmision')}>
+                  <select value={form.transmision} onChange={e => set('transmision', e.target.value.toUpperCase())} className={SelectCls('transmision')}>
                     <option value="">Seleccionar...</option>
                     {TRANSMISIONES.map(t => <option key={t}>{t}</option>)}
                   </select>
@@ -824,7 +824,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
               </div>
               <div>
                 <Label>Observaciones del vehículo</Label>
-                <textarea rows={2} placeholder="Rasguños, daños preexistentes, equipo especial..." value={form.obsVehiculo} onChange={e => set('obsVehiculo', e.target.value)} className={InputCls('obsVehiculo')} />
+                <textarea rows={2} placeholder="Rasguños, daños preexistentes, equipo especial..." value={form.obsVehiculo} onChange={e => set('obsVehiculo', e.target.value.toUpperCase())} className={InputCls('obsVehiculo')} />
               </div>
             </div>
           )}
@@ -850,31 +850,31 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-1">📍 Origen</p>
                   <div>
                     <Label req>Dirección de origen</Label>
-                    <input type="text" placeholder="Calle, número, colonia, ciudad" value={form.origen} onChange={e => set('origen', e.target.value)} className={InputCls('origen')} />
+                    <input type="text" placeholder="Calle, número, colonia, ciudad" value={form.origen} onChange={e => set('origen', e.target.value.toUpperCase())} className={InputCls('origen')} />
                     <Err field="origen" />
                   </div>
                   <div>
                     <Label>Contacto en origen</Label>
-                    <input type="text" placeholder="Nombre · Teléfono" value={form.origenContacto} onChange={e => set('origenContacto', e.target.value)} className={InputCls('origenContacto')} />
+                    <input type="text" placeholder="NOMBRE · 55-0000-0000" value={form.origenContacto} onChange={e => set('origenContacto', e.target.value.toUpperCase())} className={InputCls('origenContacto')} />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-1">🏁 Destino</p>
                   <div>
                     <Label req>Dirección de destino</Label>
-                    <input type="text" placeholder="Calle, número, colonia, ciudad" value={form.destino} onChange={e => set('destino', e.target.value)} className={InputCls('destino')} />
+                    <input type="text" placeholder="Calle, número, colonia, ciudad" value={form.destino} onChange={e => set('destino', e.target.value.toUpperCase())} className={InputCls('destino')} />
                     <Err field="destino" />
                   </div>
                   <div>
                     <Label>Contacto en destino</Label>
-                    <input type="text" placeholder="Nombre · Teléfono" value={form.destinoContacto} onChange={e => set('destinoContacto', e.target.value)} className={InputCls('destinoContacto')} />
+                    <input type="text" placeholder="NOMBRE · 55-0000-0000" value={form.destinoContacto} onChange={e => set('destinoContacto', e.target.value.toUpperCase())} className={InputCls('destinoContacto')} />
                   </div>
                 </div>
               </div>
 
               <div>
                 <Label>Referencias del lugar</Label>
-                <input type="text" placeholder="Entre calles, punto de referencia, color de fachada..." value={form.referencias} onChange={e => set('referencias', e.target.value)} className={InputCls('referencias')} />
+                <input type="text" placeholder="Entre calles, punto de referencia, color de fachada..." value={form.referencias} onChange={e => set('referencias', e.target.value.toUpperCase())} className={InputCls('referencias')} />
               </div>
               <div>
                 <Label>Instrucciones especiales</Label>
@@ -888,7 +888,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
             <div className="space-y-4">
               <div>
                 <Label>Conductor asignado</Label>
-                <select value={form.conductor} onChange={e => set('conductor', e.target.value)} className={SelectCls('conductor')}>
+                <select value={form.conductor} onChange={e => set('conductor', e.target.value.toUpperCase())} className={SelectCls('conductor')}>
                   <option value="">Asignar después...</option>
                   {CONDUCTORES.map(c => <option key={c}>{c}</option>)}
                 </select>
@@ -900,7 +900,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
                   <Label req>Tarifa al cliente (MXN)</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                    <input type="number" min="0" placeholder="0.00" value={form.tarifaCliente} onChange={e => set('tarifaCliente', e.target.value)} className={`${InputCls('tarifaCliente')} pl-7`} />
+                    <input type="number" min="0" placeholder="0.00" value={form.tarifaCliente} onChange={e => set('tarifaCliente', e.target.value.toUpperCase())} className={`${InputCls('tarifaCliente')} pl-7`} />
                   </div>
                   <Err field="tarifaCliente" />
                 </div>
@@ -908,7 +908,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
                   <Label req>Pago al conductor (MXN)</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                    <input type="number" min="0" placeholder="0.00" value={form.pagoConductor} onChange={e => set('pagoConductor', e.target.value)} className={`${InputCls('pagoConductor')} pl-7`} />
+                    <input type="number" min="0" placeholder="0.00" value={form.pagoConductor} onChange={e => set('pagoConductor', e.target.value.toUpperCase())} className={`${InputCls('pagoConductor')} pl-7`} />
                   </div>
                   <Err field="pagoConductor" />
                 </div>
@@ -916,7 +916,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
                   <Label>Gastos autorizados (MXN)</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                    <input type="number" min="0" placeholder="0.00" value={form.gastosAutorizados} onChange={e => set('gastosAutorizados', e.target.value)} className={`${InputCls('gastosAutorizados')} pl-7`} />
+                    <input type="number" min="0" placeholder="0.00" value={form.gastosAutorizados} onChange={e => set('gastosAutorizados', e.target.value.toUpperCase())} className={`${InputCls('gastosAutorizados')} pl-7`} />
                   </div>
                 </div>
               </div>

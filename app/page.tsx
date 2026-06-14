@@ -39,7 +39,7 @@ export default function Home() {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView />
+        return <DashboardView onNavigate={setActiveView} />
       case 'viajes':
         return <ViajesView />
       case 'conductores':
@@ -63,7 +63,7 @@ export default function Home() {
       case 'configuracion':
         return <ConfiguracionView />
       default:
-        return <DashboardView />
+        return <DashboardView onNavigate={setActiveView} />
     }
   }
 

@@ -551,11 +551,11 @@ function Field({ label, value, editable, mono }: { label: string; value: string 
 // ─── NUEVO USUARIO FORM ───────────────────────────────────────────────────────
 function NuevoUsuarioForm({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({ nombre: '', apellido: '', curp: '', email: '', telefono: '', tipo: '' as TipoUsuario | '', razonSocial: '', rfc: '', regimenFiscal: '', domicilioFiscal: '', cfdi: '' })
-  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
+  const [errors, setErrors] = useState<Partial<typeof form>>({})
   const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
   const validate = () => {
-    const e: Partial<Record<keyof typeof form, string>> = {}
+    const e: Partial<typeof form> = {}
     if (!form.nombre) e.nombre = 'Requerido'
     if (!form.apellido) e.apellido = 'Requerido'
     if (!form.email) e.email = 'Requerido'
@@ -591,18 +591,18 @@ function NuevoUsuarioForm({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">👤 Datos personales</p>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label req>Nombre</Label><input type="text" placeholder="Nombre(s)" value={form.nombre} onChange={e => set('nombre', e.target.value)} className={InputCls('nombre')} /><Err k="nombre" /></div>
-              <div><Label req>Apellido(s)</Label><input type="text" placeholder="Apellidos" value={form.apellido} onChange={e => set('apellido', e.target.value)} className={InputCls('apellido')} /><Err k="apellido" /></div>
-              <div><Label>CURP</Label><input type="text" placeholder="18 caracteres" value={form.curp} onChange={e => set('curp', e.target.value.toUpperCase())} className={InputCls('curp')} /></div>
+              <div><Label req>Nombre(s)</Label><input type="text" placeholder="NOMBRE(S)" value={form.nombre} onChange={e => set('nombre', e.target.value.toUpperCase())} className={InputCls('nombre')} /><Err k="nombre" /></div>
+              <div><Label req>Apellido(s)</Label><input type="text" placeholder="APELLIDO(S)" value={form.apellido} onChange={e => set('apellido', e.target.value.toUpperCase())} className={InputCls('apellido')} /><Err k="apellido" /></div>
+              <div><Label>CURP</Label><input type="text" placeholder="18 CARACTERES" value={form.curp} onChange={e => set('curp', e.target.value.toUpperCase())} className={InputCls('curp')} /></div>
               <div><Label req>Tipo de usuario</Label>
-                <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={InputCls('tipo')}>
+                <select value={form.tipo} onChange={e => set('tipo', e.target.value.toUpperCase())} className={InputCls('tipo')}>
                   <option value="">Seleccionar...</option>
                   {TIPOS.map(t => <option key={t}>{t}</option>)}
                 </select>
                 <Err k="tipo" />
               </div>
               <div><Label req>Correo electrónico</Label><input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} /><Err k="email" /></div>
-              <div><Label req>Teléfono</Label><input type="tel" placeholder="+52 55 0000 0000" value={form.telefono} onChange={e => set('telefono', e.target.value)} className={InputCls('telefono')} /><Err k="telefono" /></div>
+              <div><Label req>Teléfono</Label><input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} /><Err k="telefono" /></div>
             </div>
           </div>
 
@@ -612,11 +612,11 @@ function NuevoUsuarioForm({ onClose }: { onClose: () => void }) {
               🧾 Información fiscal {!needsFiscal && <span className="font-normal normal-case text-slate-400">(opcional para usuario Personal)</span>}
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2"><Label>Razón social</Label><input type="text" placeholder="Nombre o empresa" value={form.razonSocial} onChange={e => set('razonSocial', e.target.value)} className={InputCls('razonSocial')} /></div>
+              <div className="col-span-2"><Label>Razón social</Label><input type="text" placeholder="Nombre o empresa" value={form.razonSocial} onChange={e => set('razonSocial', e.target.value.toUpperCase())} className={InputCls('razonSocial')} /></div>
               <div><Label>RFC</Label><input type="text" placeholder="RFC 12 o 13 dígitos" value={form.rfc} onChange={e => set('rfc', e.target.value.toUpperCase())} className={InputCls('rfc')} /></div>
               <div><Label>CFDI</Label><input type="text" placeholder="Ej. G03 - Gastos generales" value={form.cfdi} onChange={e => set('cfdi', e.target.value)} className={InputCls('cfdi')} /></div>
-              <div><Label>Régimen fiscal</Label><input type="text" placeholder="601 - General de Ley..." value={form.regimenFiscal} onChange={e => set('regimenFiscal', e.target.value)} className={InputCls('regimenFiscal')} /></div>
-              <div><Label>Domicilio fiscal</Label><input type="text" placeholder="Calle, número, ciudad" value={form.domicilioFiscal} onChange={e => set('domicilioFiscal', e.target.value)} className={InputCls('domicilioFiscal')} /></div>
+              <div><Label>Régimen fiscal</Label><input type="text" placeholder="601 - General de Ley..." value={form.regimenFiscal} onChange={e => set('regimenFiscal', e.target.value.toUpperCase())} className={InputCls('regimenFiscal')} /></div>
+              <div><Label>Domicilio fiscal</Label><input type="text" placeholder="Calle, número, ciudad" value={form.domicilioFiscal} onChange={e => set('domicilioFiscal', e.target.value.toUpperCase())} className={InputCls('domicilioFiscal')} /></div>
             </div>
           </div>
         </div>

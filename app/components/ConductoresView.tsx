@@ -740,20 +740,20 @@ function NuevoConductorForm({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">👤 Datos personales</p>
             <div className="grid grid-cols-2 gap-4">
-              <div><L c="Nombre" req /><input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)} className={I('nombre')} /><E k="nombre" /></div>
-              <div><L c="Apellido(s)" req /><input type="text" value={form.apellido} onChange={e => set('apellido', e.target.value)} className={I('apellido')} /><E k="apellido" /></div>
-              <div><L c="CURP" /><input type="text" value={form.curp} onChange={e => set('curp', e.target.value.toUpperCase())} placeholder="18 caracteres" className={I('curp')} /></div>
-              <div><L c="Teléfono" req /><input type="tel" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="+52 55 0000 0000" className={I('telefono')} /><E k="telefono" /></div>
+              <div><L c="Nombre(s)" req /><input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value.toUpperCase())} placeholder="NOMBRE(S)" className={I('nombre')} /><E k="nombre" /></div>
+              <div><L c="Apellido(s)" req /><input type="text" value={form.apellido} onChange={e => set('apellido', e.target.value.toUpperCase())} placeholder="APELLIDO(S)" className={I('apellido')} /><E k="apellido" /></div>
+              <div><L c="CURP" /><input type="text" value={form.curp} onChange={e => set('curp', e.target.value.toUpperCase())} placeholder="18 CARACTERES" className={I('curp')} /></div>
+              <div><L c="Teléfono" req /><input type="tel" value={form.telefono} maxLength={12} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} placeholder="55-0000-0000" className={I('telefono')} /><E k="telefono" /></div>
               <div className="col-span-2"><L c="Correo electrónico" req /><input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" className={I('email')} /><E k="email" /></div>
-              <div><L c="Municipio" req /><input type="text" value={form.municipio} onChange={e => set('municipio', e.target.value)} placeholder="Municipio o alcaldía" className={I('municipio')} /><E k="municipio" /></div>
-              <div><L c="Estado" req /><input type="text" value={form.estado} onChange={e => set('estado', e.target.value)} placeholder="Estado de la república" className={I('estado')} /><E k="estado" /></div>
+              <div><L c="Municipio" req /><input type="text" value={form.municipio} onChange={e => set('municipio', e.target.value.toUpperCase())} placeholder="MUNICIPIO O ALCALDÍA" className={I('municipio')} /><E k="municipio" /></div>
+              <div><L c="Estado" req /><input type="text" value={form.estado} onChange={e => set('estado', e.target.value.toUpperCase())} placeholder="ESTADO" className={I('estado')} /><E k="estado" /></div>
             </div>
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">🏦 Cuenta bancaria</p>
             <div className="grid grid-cols-2 gap-4">
-              <div><L c="Banco" /><input type="text" value={form.banco} onChange={e => set('banco', e.target.value)} placeholder="BBVA, Santander..." className={I('banco')} /></div>
-              <div><L c="Titular de la cuenta" /><input type="text" value={form.titular} onChange={e => set('titular', e.target.value)} placeholder="Nombre completo" className={I('titular')} /></div>
+              <div><L c="Banco" /><input type="text" value={form.banco} onChange={e => set('banco', e.target.value.toUpperCase())} placeholder="BBVA, Santander..." className={I('banco')} /></div>
+              <div><L c="Titular de la cuenta" /><input type="text" value={form.titular} onChange={e => set('titular', e.target.value.toUpperCase())} placeholder="Nombre completo" className={I('titular')} /></div>
               <div className="col-span-2"><L c="CLABE interbancaria" /><input type="text" value={form.clabe} onChange={e => set('clabe', e.target.value)} placeholder="18 dígitos" className={I('clabe')} /></div>
             </div>
           </div>

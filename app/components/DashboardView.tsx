@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   TruckIcon,
   CheckCircleIcon,
@@ -11,6 +12,7 @@ import {
   CalendarDaysIcon,
   MapPinIcon,
   ClockIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline'
 
 // ─── KPI DATA ─────────────────────────────────────────────────────────────────
@@ -42,6 +44,20 @@ const kpiCards = [
     icon: UserGroupIcon,
     color: 'purple',
     trend: '16 disponibles • 45 total',
+  },
+  {
+    title: 'Pendientes asignación',
+    value: '4',
+    icon: ClockIcon,
+    color: 'amber',
+    trend: '2 sin conductor en <1h',
+  },
+  {
+    title: 'Conductores disponibles',
+    value: '16',
+    icon: UserGroupIcon,
+    color: 'emerald',
+    trend: 'De 45 registrados',
   },
   {
     title: 'Docs. pendientes revisión',
@@ -237,12 +253,23 @@ const tripStatusStyle: Record<string, string> = {
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
-export default function DashboardView() {
+export default function DashboardView({ onNavigate }: { onNavigate?: (view: string) => void }) {
+  const [showNuevoViaje, setShowNuevoViaje] = useState(false)
   return (
     <div className="space-y-6 animate-fade-in">
 
+      {/* Nuevo viaje button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => onNavigate ? onNavigate('viajes') : setShowNuevoViaje(true)}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm">
+          <PlusIcon className="w-4 h-4" />
+          Nuevo viaje
+        </button>
+      </div>
+
       {/* ── KPI GRID ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3">
         {kpiCards.map((card, idx) => {
           const Icon = card.icon
           const c = colorMap[card.color] ?? colorMap.blue
@@ -370,7 +397,7 @@ export default function DashboardView() {
               </div>
             ))}
           </div>
-          <button className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium text-center">
+          <button onClick={() => onNavigate?.('incidencias')} className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium text-center w-full">
             Ver todas las alertas →
           </button>
         </div>
@@ -399,7 +426,7 @@ export default function DashboardView() {
               </li>
             ))}
           </ol>
-          <button className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium">
+          <button onClick={() => onNavigate?.('viajes')} className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium">
             Ver historial completo →
           </button>
         </div>
@@ -442,7 +469,7 @@ export default function DashboardView() {
               </div>
             ))}
           </div>
-          <button className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium">
+          <button onClick={() => onNavigate?.('viajes')} className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium">
             Ver todos los viajes →
           </button>
         </div>

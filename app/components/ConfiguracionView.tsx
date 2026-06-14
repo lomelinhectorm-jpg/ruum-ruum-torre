@@ -549,7 +549,7 @@ function TabFiscal() {
     domicilio: 'Av. Paseo de la Reforma 250, Cuauhtémoc, CDMX',
     codigoPostal: '06600',
     email: 'facturacion@movilax.mx',
-    telefono: '+52 55 4000 1200',
+    telefono: '55-4000-1200',
     serie: 'A',
     folioActual: '1441',
     certificado: 'CSD-2024-MXT-001',
@@ -561,19 +561,19 @@ function TabFiscal() {
     <div className="space-y-4">
       <SCard title="🧾 Datos fiscales del emisor" subtitle="Información para la emisión de CFDI">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div className="sm:col-span-2"><label className="block text-xs text-slate-500 font-medium mb-1">Razón social</label><input value={form.razonSocial} onChange={e => set('razonSocial', e.target.value)} className={iCls()} /></div>
+          <div className="sm:col-span-2"><label className="block text-xs text-slate-500 font-medium mb-1">Razón social</label><input value={form.razonSocial} onChange={e => set('razonSocial', e.target.value.toUpperCase())} className={iCls()} /></div>
           <div><label className="block text-xs text-slate-500 font-medium mb-1">RFC</label><input value={form.rfc} onChange={e => set('rfc', e.target.value)} className={`${iCls()} font-mono`} /></div>
-          <div><label className="block text-xs text-slate-500 font-medium mb-1">Régimen fiscal</label><input value={form.regimen} onChange={e => set('regimen', e.target.value)} className={iCls()} /></div>
-          <div className="sm:col-span-2"><label className="block text-xs text-slate-500 font-medium mb-1">Domicilio fiscal</label><input value={form.domicilio} onChange={e => set('domicilio', e.target.value)} className={iCls()} /></div>
-          <div><label className="block text-xs text-slate-500 font-medium mb-1">Código postal</label><input value={form.codigoPostal} onChange={e => set('codigoPostal', e.target.value)} className={iCls()} /></div>
+          <div><label className="block text-xs text-slate-500 font-medium mb-1">Régimen fiscal</label><input value={form.regimen} onChange={e => set('regimen', e.target.value.toUpperCase())} className={iCls()} /></div>
+          <div className="sm:col-span-2"><label className="block text-xs text-slate-500 font-medium mb-1">Domicilio fiscal</label><input value={form.domicilio} onChange={e => set('domicilio', e.target.value.toUpperCase())} className={iCls()} /></div>
+          <div><label className="block text-xs text-slate-500 font-medium mb-1">Código postal</label><input value={form.codigoPostal} onChange={e => set('codigoPostal', e.target.value.toUpperCase())} className={iCls()} /></div>
           <div><label className="block text-xs text-slate-500 font-medium mb-1">Correo de facturación</label><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={iCls()} /></div>
         </div>
       </SCard>
       <SCard title="📄 Configuración de folios CFDI">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div><label className="block text-xs text-slate-500 font-medium mb-1">Serie</label><input value={form.serie} onChange={e => set('serie', e.target.value)} className={`${iCls()} font-mono uppercase`} /></div>
+          <div><label className="block text-xs text-slate-500 font-medium mb-1">Serie</label><input value={form.serie} onChange={e => set('serie', e.target.value.toUpperCase())} className={`${iCls()} font-mono uppercase`} /></div>
           <div><label className="block text-xs text-slate-500 font-medium mb-1">Folio actual</label><input value={form.folioActual} onChange={e => set('folioActual', e.target.value)} className={`${iCls()} font-mono`} /></div>
-          <div><label className="block text-xs text-slate-500 font-medium mb-1">Certificado CSD</label><input value={form.certificado} onChange={e => set('certificado', e.target.value)} className={iCls()} /></div>
+          <div><label className="block text-xs text-slate-500 font-medium mb-1">Certificado CSD</label><input value={form.certificado} onChange={e => set('certificado', e.target.value.toUpperCase())} className={iCls()} /></div>
         </div>
         <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
           <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500" />
@@ -649,7 +649,7 @@ function TabSeguridad() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-slate-500 font-medium mb-1">Frecuencia</label>
-            <select value={config.frecuenciaBackup} onChange={e => set('frecuenciaBackup', e.target.value)} className={`${iCls()} bg-white`}>
+            <select value={config.frecuenciaBackup} onChange={e => set('frecuenciaBackup', e.target.value.toUpperCase())} className={`${iCls()} bg-white`}>
               <option>Horario</option>
               <option>Diario</option>
               <option>Semanal</option>

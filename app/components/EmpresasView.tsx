@@ -648,7 +648,7 @@ function NuevaEmpresaForm({ onClose }: { onClose: () => void }) {
               <div><L c="Nombre comercial" /><input type="text" className={iCls} /></div>
               <div><L c="RFC" req /><input type="text" placeholder="12 o 13 caracteres" className={iCls} /></div>
               <div><L c="Contacto principal" req /><input type="text" className={iCls} /></div>
-              <div><L c="Teléfono" req /><input type="tel" className={iCls} /></div>
+              <div><L c="Teléfono" req /><input type="tel" placeholder="55-0000-0000" maxLength={12} className={iCls} /></div>
               <div className="col-span-2"><L c="Correo electrónico" req /><input type="email" className={iCls} /></div>
               <div className="col-span-2"><L c="Dirección" /><input type="text" className={iCls} /></div>
             </div>

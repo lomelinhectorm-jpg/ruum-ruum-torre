@@ -599,11 +599,11 @@ function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
     viajeId: '', usuario: '', conductor: '', tipo: '' as TipoIncidencia | '',
     fecha: '', hora: '', descripcion: '', evidencia: '', responsable: '', prioridad: '' as Prioridad | '',
   })
-  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
+  const [errors, setErrors] = useState<Partial<typeof form>>({})
   const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
   const validate = () => {
-    const e: Partial<Record<keyof typeof form, string>> = {}
+    const e: Partial<typeof form> = {}
     if (!form.viajeId)     e.viajeId     = 'Requerido'
     if (!form.tipo)        e.tipo        = 'Requerido'
     if (!form.fecha)       e.fecha       = 'Requerido'
