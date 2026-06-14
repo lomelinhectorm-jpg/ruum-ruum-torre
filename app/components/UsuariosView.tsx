@@ -551,11 +551,11 @@ function Field({ label, value, editable, mono }: { label: string; value: string 
 // ─── NUEVO USUARIO FORM ───────────────────────────────────────────────────────
 function NuevoUsuarioForm({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({ nombre: '', apellido: '', curp: '', email: '', telefono: '', tipo: '' as TipoUsuario | '', razonSocial: '', rfc: '', regimenFiscal: '', domicilioFiscal: '', cfdi: '' })
-  const [errors, setErrors] = useState<Partial<typeof form>>({})
+  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
   const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
   const validate = () => {
-    const e: Partial<typeof form> = {}
+    const e: Partial<Record<keyof typeof form, string>> = {}
     if (!form.nombre) e.nombre = 'Requerido'
     if (!form.apellido) e.apellido = 'Requerido'
     if (!form.email) e.email = 'Requerido'
