@@ -12,6 +12,8 @@ import IncidenciasView from './components/IncidenciasView'
 import PagosView from './components/PagosView'
 import DocumentosView from './components/DocumentosView'
 import TarifasView from './components/TarifasView'
+import EmpresasView from './components/EmpresasView'
+import ReportesView from './components/ReportesView'
 import ConfiguracionView from './components/ConfiguracionView'
 import { useSidebar } from './hooks/useSidebar'
 
@@ -25,6 +27,8 @@ const titles: Record<string, string> = {
   pagos: 'Pagos y Finanzas',
   documentos: 'Validación Documental',
   tarifas: 'Configuración de Tarifas',
+  empresas: 'Gestión de Empresas',
+  reportes: 'Reportes y Analítica',
   configuracion: 'Configuración del Sistema',
 }
 
@@ -52,6 +56,10 @@ export default function Home() {
         return <DocumentosView />
       case 'tarifas':
         return <TarifasView />
+      case 'empresas':
+        return <EmpresasView />
+      case 'reportes':
+        return <ReportesView />
       case 'configuracion':
         return <ConfiguracionView />
       default:

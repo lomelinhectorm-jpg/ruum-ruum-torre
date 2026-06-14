@@ -10,6 +10,8 @@ import {
   WalletIcon,
   DocumentTextIcon,
   TagIcon,
+  BuildingOffice2Icon,
+  PresentationChartLineIcon,
   Cog6ToothIcon
 } from '@heroicons/react/24/outline'
 
@@ -29,6 +31,8 @@ const navItems: NavItem[] = [
   { id: 'pagos', name: 'Pagos', icon: <WalletIcon className="w-5 h-5" /> },
   { id: 'documentos', name: 'Documentos', icon: <DocumentTextIcon className="w-5 h-5" /> },
   { id: 'tarifas', name: 'Tarifas', icon: <TagIcon className="w-5 h-5" /> },
+  { id: 'empresas', name: 'Empresas', icon: <BuildingOffice2Icon className="w-5 h-5" /> },
+  { id: 'reportes', name: 'Reportes', icon: <PresentationChartLineIcon className="w-5 h-5" /> },
   { id: 'configuracion', name: 'Configuración', icon: <Cog6ToothIcon className="w-5 h-5" /> },
 ]
 
