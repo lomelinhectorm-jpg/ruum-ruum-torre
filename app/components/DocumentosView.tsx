@@ -1,350 +1,383 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
   XMarkIcon,
   ChevronLeftIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ArrowDownTrayIcon,
-  ArrowPathIcon,
-  ChatBubbleLeftEllipsisIcon,
-  ExclamationTriangleIcon,
-  DocumentTextIcon,
-  UserCircleIcon,
-  BuildingOfficeIcon,
-  EyeIcon,
   PaperAirplaneIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  UserPlusIcon,
+  BellAlertIcon,
+  ArrowUpCircleIcon,
+  DocumentArrowUpIcon,
+  ChatBubbleLeftEllipsisIcon,
+  ClockIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-type EstatusDoc =
-  | 'Pendiente de carga'
+type TipoIncidencia =
+  | 'Daños reportados'
+  | 'Retraso'
+  | 'Falta de evidencia'
+  | 'Contacto no disponible'
+  | 'Problema con documentación'
+  | 'Problema con pago'
+  | 'Cancelación'
+  | 'Diferencia de kilometraje'
+  | 'Diferencia de combustible'
+  | 'Problema con conductor'
+  | 'Problema con usuario'
+  | 'Otro'
+
+type EstatusIncidencia =
+  | 'Nueva'
   | 'En revisión'
-  | 'Aprobado'
-  | 'Rechazado'
-  | 'Vencido'
-  | 'Pendiente de actualización'
+  | 'Requiere información'
+  | 'En seguimiento'
+  | 'Resuelta'
+  | 'Cerrada'
+  | 'Escalada'
 
-type TipoEntidad = 'Conductor' | 'Usuario' | 'Empresa'
+type Prioridad = 'Alta' | 'Media' | 'Baja'
 
-type TipoDocConductor =
-  | 'Licencia de conducir'
-  | 'Identificación oficial'
-  | 'Comprobante de domicilio'
-  | 'Constancia de situación fiscal'
-  | 'Antecedentes no penales'
-  | 'Fotografía'
+interface NotaIncidencia { autor: string; texto: string; hora: string }
+interface EventoTimeline { evento: string; hora: string; actor: string; tipo: 'sistema' | 'admin' | 'conductor' | 'usuario' }
 
-type TipoDocUsuario =
-  | 'Constancia de situación fiscal'
-  | 'Datos fiscales'
-  | 'Convenio comercial'
-  | 'Documento de autorización'
-  | 'Identificación representante'
-  | 'Acta constitutiva'
-
-type TipoDoc = TipoDocConductor | TipoDocUsuario
-
-interface ComentarioInterno { autor: string; texto: string; hora: string }
-
-interface Documento {
+interface Incidencia {
   id: string
-  entidadId: string
-  entidadNombre: string
-  entidadTipo: TipoEntidad
-  tipoDoc: TipoDoc
-  folio: string
-  fechaEmision: string
-  fechaVencimiento: string
-  cargadoEl: string
-  revisadoPor: string
-  estatus: EstatusDoc
-  notaRechazo: string
-  comentarios: ComentarioInterno[]
-  historial: { evento: string; hora: string; actor: string }[]
+  viajeId: string
+  usuario: string
+  conductor: string
+  tipo: TipoIncidencia
+  fecha: string
+  hora: string
+  descripcion: string
+  evidenciaAsociada: string
+  responsable: string
+  estatus: EstatusIncidencia
+  prioridad: Prioridad
+  resolucion: string
+  notas: NotaIncidencia[]
+  documentos: string[]
+  timeline: EventoTimeline[]
 }
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
-const DOCUMENTOS: Documento[] = [
-  // Conductores
+const TIPOS: TipoIncidencia[] = [
+  'Daños reportados','Retraso','Falta de evidencia','Contacto no disponible',
+  'Problema con documentación','Problema con pago','Cancelación',
+  'Diferencia de kilometraje','Diferencia de combustible',
+  'Problema con conductor','Problema con usuario','Otro',
+]
+
+const RESPONSABLES = ['Ops. Central','Coordinador','Admin','Finanzas','Soporte']
+
+const INCIDENCIAS: Incidencia[] = [
   {
-    id: 'DOC-001', entidadId: 'CON-001', entidadNombre: 'Carlos Méndez Ruiz', entidadTipo: 'Conductor',
-    tipoDoc: 'Licencia de conducir', folio: 'LIC-2021-CX9842',
-    fechaEmision: '15 Ene 2021', fechaVencimiento: '15 Ene 2026', cargadoEl: '10 Mar 2023',
-    revisadoPor: 'Admin', estatus: 'Aprobado', notaRechazo: '',
-    comentarios: [{ autor: 'Admin', texto: 'Verificada físicamente. Todo en orden.', hora: '10 Mar 2023' }],
-    historial: [
-      { evento: 'Documento cargado', hora: '10 Mar 2023', actor: 'Carlos M.' },
-      { evento: 'Enviado a revisión', hora: '10 Mar 2023', actor: 'Sistema' },
-      { evento: 'Aprobado', hora: '11 Mar 2023', actor: 'Admin' },
+    id: '#INC-001',
+    viajeId: '#TR-8841',
+    usuario: 'Luis Hernández',
+    conductor: 'Ana Rodríguez',
+    tipo: 'Daños reportados',
+    fecha: '13 Jun 2025',
+    hora: '16:30',
+    descripcion: 'Rayón en puerta delantera derecha reportado por el conductor al recibir el vehículo. Cliente alega que el daño no existía antes del traslado.',
+    evidenciaAsociada: 'EV-002',
+    responsable: 'Ops. Central',
+    estatus: 'Cerrada',
+    prioridad: 'Alta',
+    resolucion: 'Se revisaron fotografías de evidencia inicial y final. El rayón aparece en la foto inicial. Caso cerrado sin cargo.',
+    notas: [
+      { autor: 'Ops. Central', texto: 'Revisión de evidencia confirma que el daño preexistía.', hora: '17:00' },
+      { autor: 'Admin', texto: 'Se notificó al cliente y al conductor. Caso cerrado.', hora: '17:35' },
+    ],
+    documentos: ['Fotos evidencia inicial', 'Fotos evidencia final'],
+    timeline: [
+      { evento: 'Incidencia creada', hora: '16:30', actor: 'Ana R.', tipo: 'conductor' },
+      { evento: 'Asignada a Ops. Central', hora: '16:35', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Revisión de evidencia fotográfica', hora: '17:00', actor: 'Ops. Central', tipo: 'admin' },
+      { evento: 'Conductor notificado', hora: '17:30', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Usuario notificado', hora: '17:32', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Resolución registrada', hora: '17:35', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Incidencia cerrada', hora: '17:35', actor: 'Admin', tipo: 'admin' },
     ],
   },
   {
-    id: 'DOC-002', entidadId: 'CON-001', entidadNombre: 'Carlos Méndez Ruiz', entidadTipo: 'Conductor',
-    tipoDoc: 'Antecedentes no penales', folio: 'AP-2024-001',
-    fechaEmision: '01 Mar 2024', fechaVencimiento: '01 Mar 2025', cargadoEl: '02 Mar 2024',
-    revisadoPor: 'Admin', estatus: 'Vencido', notaRechazo: '',
-    comentarios: [],
-    historial: [
-      { evento: 'Documento cargado', hora: '02 Mar 2024', actor: 'Carlos M.' },
-      { evento: 'Aprobado', hora: '03 Mar 2024', actor: 'Admin' },
-      { evento: 'Marcado como vencido', hora: '02 Mar 2025', actor: 'Sistema' },
-      { evento: 'Solicitud de actualización enviada', hora: '10 Jun 2025', actor: 'Admin' },
+    id: '#INC-002',
+    viajeId: '#TR-8839',
+    usuario: 'Ricardo Torres',
+    conductor: 'Mario García',
+    tipo: 'Retraso',
+    fecha: '13 Jun 2025',
+    hora: '14:45',
+    descripcion: 'Retraso de 45 minutos en llegada al origen por tráfico en Periférico Norte. Cliente solicitó compensación.',
+    evidenciaAsociada: '—',
+    responsable: 'Coordinador',
+    estatus: 'Resuelta',
+    prioridad: 'Media',
+    resolucion: 'Se ofreció descuento del 10% en próximo servicio. Cliente aceptó.',
+    notas: [
+      { autor: 'Coordinador', texto: 'El conductor avisó con 20 min de anticipación del retraso.', hora: '15:00' },
+    ],
+    documentos: [],
+    timeline: [
+      { evento: 'Incidencia creada', hora: '14:45', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Asignada a Coordinador', hora: '14:50', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Contacto con usuario', hora: '15:05', actor: 'Coordinador', tipo: 'admin' },
+      { evento: 'Resolución: descuento en próximo servicio', hora: '15:20', actor: 'Coordinador', tipo: 'admin' },
+      { evento: 'Incidencia resuelta', hora: '15:25', actor: 'Coordinador', tipo: 'admin' },
     ],
   },
   {
-    id: 'DOC-003', entidadId: 'CON-002', entidadNombre: 'Ana Rodríguez López', entidadTipo: 'Conductor',
-    tipoDoc: 'Licencia de conducir', folio: 'LIC-2022-AR5531',
-    fechaEmision: '20 Mar 2022', fechaVencimiento: '20 Mar 2027', cargadoEl: '15 Jun 2023',
-    revisadoPor: 'Ops. Central', estatus: 'Aprobado', notaRechazo: '',
-    comentarios: [],
-    historial: [
-      { evento: 'Documento cargado', hora: '15 Jun 2023', actor: 'Ana R.' },
-      { evento: 'Aprobado', hora: '16 Jun 2023', actor: 'Ops. Central' },
+    id: '#INC-003',
+    viajeId: '#TR-8838',
+    usuario: 'Pedro Castillo',
+    conductor: 'Sandra Pérez',
+    tipo: 'Cancelación',
+    fecha: '12 Jun 2025',
+    hora: '10:00',
+    descripcion: 'Cliente canceló el servicio con menos de 30 minutos de anticipación. Conductor ya se encontraba en camino.',
+    evidenciaAsociada: '—',
+    responsable: 'Admin',
+    estatus: 'Cerrada',
+    prioridad: 'Baja',
+    resolucion: 'Se aplicó política de cancelación. Cliente acepta cargo del 50% de la tarifa.',
+    notas: [
+      { autor: 'Admin', texto: 'Revisar política de cancelación tardía con el cliente.', hora: '10:10' },
+    ],
+    documentos: ['Política de cancelación'],
+    timeline: [
+      { evento: 'Cancelación registrada', hora: '10:00', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Incidencia creada automáticamente', hora: '10:01', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Política de cancelación aplicada', hora: '10:10', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Usuario notificado del cargo', hora: '10:15', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Incidencia cerrada', hora: '10:30', actor: 'Admin', tipo: 'admin' },
     ],
   },
   {
-    id: 'DOC-004', entidadId: 'CON-003', entidadNombre: 'Mario García Vega', entidadTipo: 'Conductor',
-    tipoDoc: 'Licencia de conducir', folio: 'LIC-2020-MG3310',
-    fechaEmision: '19 Jun 2020', fechaVencimiento: '19 Jun 2025', cargadoEl: '01 Ago 2023',
-    revisadoPor: 'Admin', estatus: 'Pendiente de actualización', notaRechazo: '',
-    comentarios: [{ autor: 'Admin', texto: 'Licencia próxima a vencer. Se solicitó renovación.', hora: '12 Jun 2025' }],
-    historial: [
-      { evento: 'Documento cargado', hora: '01 Ago 2023', actor: 'Mario G.' },
-      { evento: 'Aprobado', hora: '02 Ago 2023', actor: 'Admin' },
-      { evento: 'Alerta: vence en 7 días', hora: '12 Jun 2025', actor: 'Sistema' },
-      { evento: 'Actualización solicitada al conductor', hora: '12 Jun 2025', actor: 'Admin' },
+    id: '#INC-004',
+    viajeId: '#TR-8845',
+    usuario: 'Fernanda López',
+    conductor: 'Ana Rodríguez',
+    tipo: 'Retraso',
+    fecha: '14 Jun 2025',
+    hora: '11:20',
+    descripcion: 'Conductor lleva 20 minutos de retraso en llegada al origen. No hay respuesta en llamadas.',
+    evidenciaAsociada: '—',
+    responsable: 'Coordinador',
+    estatus: 'En seguimiento',
+    prioridad: 'Alta',
+    resolucion: '',
+    notas: [
+      { autor: 'Coordinador', texto: 'Se intentó contactar al conductor 3 veces sin respuesta.', hora: '11:25' },
+    ],
+    documentos: [],
+    timeline: [
+      { evento: 'Alerta de retraso generada', hora: '11:10', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Incidencia creada', hora: '11:20', actor: 'Coordinador', tipo: 'admin' },
+      { evento: 'Intentos de contacto al conductor (x3)', hora: '11:25', actor: 'Coordinador', tipo: 'admin' },
     ],
   },
   {
-    id: 'DOC-005', entidadId: 'CON-004', entidadNombre: 'Sandra Pérez Castillo', entidadTipo: 'Conductor',
-    tipoDoc: 'Constancia de situación fiscal', folio: '—',
-    fechaEmision: '—', fechaVencimiento: '—', cargadoEl: '—',
-    revisadoPor: '—', estatus: 'Pendiente de carga', notaRechazo: '',
-    comentarios: [{ autor: 'Admin', texto: 'Pendiente de carga para activar cuenta.', hora: '10 Jun 2025' }],
-    historial: [{ evento: 'Documento solicitado', hora: '10 Jun 2025', actor: 'Admin' }],
-  },
-  {
-    id: 'DOC-006', entidadId: 'CON-004', entidadNombre: 'Sandra Pérez Castillo', entidadTipo: 'Conductor',
-    tipoDoc: 'Antecedentes no penales', folio: '—',
-    fechaEmision: '—', fechaVencimiento: '—', cargadoEl: '—',
-    revisadoPor: '—', estatus: 'Pendiente de carga', notaRechazo: '',
-    comentarios: [],
-    historial: [{ evento: 'Documento solicitado', hora: '10 Jun 2025', actor: 'Admin' }],
-  },
-  {
-    id: 'DOC-007', entidadId: 'CON-005', entidadNombre: 'Pedro Castillo Mora', entidadTipo: 'Conductor',
-    tipoDoc: 'Licencia de conducir', folio: 'LIC-2019-PC2241',
-    fechaEmision: '05 Ago 2019', fechaVencimiento: '05 Ago 2024', cargadoEl: '10 Ene 2024',
-    revisadoPor: 'Admin', estatus: 'Vencido', notaRechazo: '',
-    comentarios: [{ autor: 'Coordinador', texto: 'Licencia vencida. No asignar viajes hasta renovar.', hora: '14 Jun 2025' }],
-    historial: [
-      { evento: 'Documento cargado', hora: '10 Ene 2024', actor: 'Pedro C.' },
-      { evento: 'Aprobado', hora: '11 Ene 2024', actor: 'Admin' },
-      { evento: 'Marcado como vencido', hora: '06 Ago 2024', actor: 'Sistema' },
+    id: '#INC-005',
+    viajeId: '#TR-8844',
+    usuario: 'Sandra Pérez (Empresa)',
+    conductor: 'Pedro Castillo',
+    tipo: 'Daños reportados',
+    fecha: '14 Jun 2025',
+    hora: '11:40',
+    descripcion: 'Fisura en parabrisas se extendió durante el traslado. El conductor reporta que la fisura preexistía pero se agravó por las condiciones del camino.',
+    evidenciaAsociada: 'EV-003',
+    responsable: 'Ops. Central',
+    estatus: 'En revisión',
+    prioridad: 'Alta',
+    resolucion: '',
+    notas: [
+      { autor: 'Coordinador', texto: 'En espera de respuesta de aseguradora antes de resolver.', hora: '12:10' },
+      { autor: 'Ops. Central', texto: 'Se solicitó cotización de reparación al taller destino.', hora: '12:30' },
+    ],
+    documentos: ['Fotos evidencia EV-003', 'Solicitud cotización taller'],
+    timeline: [
+      { evento: 'Incidencia reportada por conductor', hora: '11:40', actor: 'Pedro C.', tipo: 'conductor' },
+      { evento: 'Evidencia vinculada (EV-003)', hora: '12:05', actor: 'Coordinador', tipo: 'admin' },
+      { evento: 'Asignada a Ops. Central', hora: '12:08', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Contacto con aseguradora iniciado', hora: '12:25', actor: 'Ops. Central', tipo: 'admin' },
+      { evento: 'Cotización solicitada a taller', hora: '12:30', actor: 'Ops. Central', tipo: 'admin' },
     ],
   },
   {
-    id: 'DOC-008', entidadId: 'CON-002', entidadNombre: 'Ana Rodríguez López', entidadTipo: 'Conductor',
-    tipoDoc: 'Identificación oficial', folio: 'IFE-ROLA920821',
-    fechaEmision: '01 Feb 2022', fechaVencimiento: '01 Feb 2028', cargadoEl: '15 Jun 2023',
-    revisadoPor: 'Ops. Central', estatus: 'En revisión', notaRechazo: '',
-    comentarios: [],
-    historial: [
-      { evento: 'Documento cargado', hora: '14 Jun 2025', actor: 'Ana R.' },
-      { evento: 'Enviado a revisión', hora: '14 Jun 2025', actor: 'Sistema' },
-    ],
-  },
-  // Usuarios / Empresas
-  {
-    id: 'DOC-009', entidadId: 'USR-001', entidadNombre: 'Grupo Logístico CDMX', entidadTipo: 'Empresa',
-    tipoDoc: 'Constancia de situación fiscal', folio: 'GLC230310XX1',
-    fechaEmision: '10 Mar 2023', fechaVencimiento: '31 Dic 2025', cargadoEl: '11 Mar 2023',
-    revisadoPor: 'Finanzas', estatus: 'Aprobado', notaRechazo: '',
-    comentarios: [],
-    historial: [
-      { evento: 'Documento cargado', hora: '11 Mar 2023', actor: 'Ricardo T.' },
-      { evento: 'Aprobado', hora: '12 Mar 2023', actor: 'Finanzas' },
-    ],
-  },
-  {
-    id: 'DOC-010', entidadId: 'USR-001', entidadNombre: 'Grupo Logístico CDMX', entidadTipo: 'Empresa',
-    tipoDoc: 'Convenio comercial', folio: 'CONV-GLC-2023-001',
-    fechaEmision: '10 Mar 2023', fechaVencimiento: '10 Mar 2025', cargadoEl: '10 Mar 2023',
-    revisadoPor: 'Admin', estatus: 'Pendiente de actualización', notaRechazo: '',
-    comentarios: [{ autor: 'Admin', texto: 'Convenio vencido. Solicitar renovación.', hora: '11 Mar 2025' }],
-    historial: [
-      { evento: 'Convenio firmado y cargado', hora: '10 Mar 2023', actor: 'Ricardo T.' },
-      { evento: 'Aprobado', hora: '10 Mar 2023', actor: 'Admin' },
-      { evento: 'Vencido — renovación pendiente', hora: '11 Mar 2025', actor: 'Sistema' },
+    id: '#INC-006',
+    viajeId: '#TR-8844',
+    usuario: 'Sandra Pérez (Empresa)',
+    conductor: 'Pedro Castillo',
+    tipo: 'Diferencia de kilometraje',
+    fecha: '14 Jun 2025',
+    hora: '12:00',
+    descripcion: 'El kilometraje final no fue registrado correctamente. Falta evidencia del odómetro al finalizar.',
+    evidenciaAsociada: 'EV-003',
+    responsable: 'Admin',
+    estatus: 'Requiere información',
+    prioridad: 'Media',
+    resolucion: '',
+    notas: [],
+    documentos: [],
+    timeline: [
+      { evento: 'Incidencia creada', hora: '12:00', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Aclaración solicitada al conductor', hora: '12:05', actor: 'Admin', tipo: 'admin' },
     ],
   },
   {
-    id: 'DOC-011', entidadId: 'USR-002', entidadNombre: 'AutoMóviles del Norte SA', entidadTipo: 'Empresa',
-    tipoDoc: 'Constancia de situación fiscal', folio: 'ANO230615YZ2',
-    fechaEmision: '15 Jun 2023', fechaVencimiento: '31 Dic 2025', cargadoEl: '15 Jun 2023',
-    revisadoPor: 'Finanzas', estatus: 'Aprobado', notaRechazo: '',
-    comentarios: [],
-    historial: [
-      { evento: 'Documento cargado', hora: '15 Jun 2023', actor: 'Fernanda L.' },
-      { evento: 'Aprobado', hora: '16 Jun 2023', actor: 'Finanzas' },
+    id: '#INC-007',
+    viajeId: '#TR-8847',
+    usuario: 'Claudia Ríos',
+    conductor: 'Mario García',
+    tipo: 'Problema con documentación',
+    fecha: '14 Jun 2025',
+    hora: '08:50',
+    descripcion: 'Los antecedentes penales del conductor están vencidos. Viaje programado para mañana pero el documento no está vigente.',
+    evidenciaAsociada: '—',
+    responsable: 'Admin',
+    estatus: 'Escalada',
+    prioridad: 'Alta',
+    resolucion: '',
+    notas: [
+      { autor: 'Admin', texto: 'Se escaló a coordinación para decidir si reasignar el viaje.', hora: '09:00' },
     ],
-  },
-  {
-    id: 'DOC-012', entidadId: 'USR-004', entidadNombre: 'Distribuidora Bajío', entidadTipo: 'Empresa',
-    tipoDoc: 'Constancia de situación fiscal', folio: '—',
-    fechaEmision: '—', fechaVencimiento: '—', cargadoEl: '—',
-    revisadoPor: '—', estatus: 'Pendiente de carga', notaRechazo: '',
-    comentarios: [{ autor: 'Admin', texto: 'Pendiente para activar cuenta. RFC no validado.', hora: '05 May 2024' }],
-    historial: [{ evento: 'Documento solicitado al usuario', hora: '05 May 2024', actor: 'Admin' }],
-  },
-  {
-    id: 'DOC-013', entidadId: 'USR-002', entidadNombre: 'AutoMóviles del Norte SA', entidadTipo: 'Empresa',
-    tipoDoc: 'Convenio comercial', folio: 'CONV-ANO-2023-002',
-    fechaEmision: '15 Jun 2023', fechaVencimiento: '15 Jun 2026', cargadoEl: '15 Jun 2023',
-    revisadoPor: 'Admin', estatus: 'En revisión', notaRechazo: '',
-    comentarios: [],
-    historial: [
-      { evento: 'Convenio actualizado cargado', hora: '14 Jun 2025', actor: 'Fernanda L.' },
-      { evento: 'Enviado a revisión', hora: '14 Jun 2025', actor: 'Sistema' },
-    ],
-  },
-  {
-    id: 'DOC-014', entidadId: 'USR-004', entidadNombre: 'Distribuidora Bajío', entidadTipo: 'Empresa',
-    tipoDoc: 'Datos fiscales', folio: 'DF-BAJIO-001',
-    fechaEmision: '05 May 2024', fechaVencimiento: '—', cargadoEl: '06 May 2024',
-    revisadoPor: 'Finanzas', estatus: 'Rechazado', notaRechazo: 'Datos incompletos. Falta CFDI de uso y régimen fiscal.',
-    comentarios: [{ autor: 'Finanzas', texto: 'Se rechazó por datos incompletos. Solicitar nueva versión.', hora: '07 May 2024' }],
-    historial: [
-      { evento: 'Documento cargado', hora: '06 May 2024', actor: 'Claudia R.' },
-      { evento: 'Enviado a revisión', hora: '06 May 2024', actor: 'Sistema' },
-      { evento: 'Rechazado por datos incompletos', hora: '07 May 2024', actor: 'Finanzas' },
+    documentos: ['Copia licencia vencida'],
+    timeline: [
+      { evento: 'Alerta de documento vencido detectada', hora: '08:45', actor: 'Sistema', tipo: 'sistema' },
+      { evento: 'Incidencia creada', hora: '08:50', actor: 'Admin', tipo: 'admin' },
+      { evento: 'Escalada a coordinación', hora: '09:00', actor: 'Admin', tipo: 'admin' },
     ],
   },
 ]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const TIPOS_CONDUCTOR: TipoDocConductor[] = [
-  'Licencia de conducir','Identificación oficial','Comprobante de domicilio',
-  'Constancia de situación fiscal','Antecedentes no penales','Fotografía',
+const estatusStyle: Record<EstatusIncidencia, string> = {
+  'Nueva':                'bg-blue-100 text-blue-700',
+  'En revisión':          'bg-purple-100 text-purple-700',
+  'Requiere información': 'bg-amber-100 text-amber-700',
+  'En seguimiento':       'bg-sky-100 text-sky-700',
+  'Resuelta':             'bg-green-100 text-green-700',
+  'Cerrada':              'bg-slate-100 text-slate-500',
+  'Escalada':             'bg-red-100 text-red-700',
+}
+
+const estatusDot: Record<EstatusIncidencia, string> = {
+  'Nueva':                'bg-blue-500',
+  'En revisión':          'bg-purple-500',
+  'Requiere información': 'bg-amber-500',
+  'En seguimiento':       'bg-sky-500',
+  'Resuelta':             'bg-green-500',
+  'Cerrada':              'bg-slate-400',
+  'Escalada':             'bg-red-500',
+}
+
+const prioridadStyle: Record<Prioridad, string> = {
+  Alta:  'bg-red-50 text-red-700 border border-red-200',
+  Media: 'bg-amber-50 text-amber-700 border border-amber-200',
+  Baja:  'bg-slate-50 text-slate-500 border border-slate-200',
+}
+
+const tipoIcon: Record<TipoIncidencia, string> = {
+  'Daños reportados':          '🚗',
+  'Retraso':                   '⏱️',
+  'Falta de evidencia':        '📷',
+  'Contacto no disponible':    '📵',
+  'Problema con documentación':'📄',
+  'Problema con pago':         '💳',
+  'Cancelación':               '🚫',
+  'Diferencia de kilometraje': '🛣️',
+  'Diferencia de combustible': '⛽',
+  'Problema con conductor':    '👤',
+  'Problema con usuario':      '👥',
+  'Otro':                      '❓',
+}
+
+const timelineColor: Record<string, string> = {
+  sistema:   'bg-slate-400',
+  admin:     'bg-blue-500',
+  conductor: 'bg-purple-500',
+  usuario:   'bg-green-500',
+}
+
+const TODOS_ESTATUS: (EstatusIncidencia | 'Todos')[] = [
+  'Todos','Nueva','En revisión','Requiere información','En seguimiento','Resuelta','Cerrada','Escalada',
 ]
-const TIPOS_USUARIO: TipoDocUsuario[] = [
-  'Constancia de situación fiscal','Datos fiscales','Convenio comercial',
-  'Documento de autorización','Identificación representante','Acta constitutiva',
-]
-
-const estatusStyle: Record<EstatusDoc, string> = {
-  'Pendiente de carga':         'bg-slate-100 text-slate-500',
-  'En revisión':                'bg-purple-100 text-purple-700',
-  'Aprobado':                   'bg-green-100 text-green-700',
-  'Rechazado':                  'bg-red-100 text-red-700',
-  'Vencido':                    'bg-orange-100 text-orange-700',
-  'Pendiente de actualización': 'bg-amber-100 text-amber-700',
-}
-
-const estatusDot: Record<EstatusDoc, string> = {
-  'Pendiente de carga':         'bg-slate-400',
-  'En revisión':                'bg-purple-500',
-  'Aprobado':                   'bg-green-500',
-  'Rechazado':                  'bg-red-500',
-  'Vencido':                    'bg-orange-500',
-  'Pendiente de actualización': 'bg-amber-500',
-}
-
-const tipoEntidadStyle: Record<TipoEntidad, string> = {
-  Conductor: 'bg-blue-50 text-blue-700',
-  Usuario:   'bg-purple-50 text-purple-700',
-  Empresa:   'bg-indigo-50 text-indigo-700',
-}
-
-const TODOS_ESTATUS: EstatusDoc[] = [
-  'Pendiente de carga','En revisión','Aprobado','Rechazado','Vencido','Pendiente de actualización',
-]
-
-function EBadge({ e }: { e: EstatusDoc }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${estatusStyle[e]}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[e]}`} />
-      {e}
-    </span>
-  )
-}
-
-function diasHastaVencimiento(fecha: string): number | null {
-  if (!fecha || fecha === '—') return null
-  const partes = fecha.split(' ')
-  const meses: Record<string, number> = {
-    Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11,
-  }
-  const d = parseInt(partes[0])
-  const m = meses[partes[1]]
-  const y = parseInt(partes[2])
-  if (isNaN(d) || m === undefined || isNaN(y)) return null
-  const hoy = new Date(2025, 5, 14)
-  const vence = new Date(y, m, d)
-  return Math.floor((vence.getTime() - hoy.getTime()) / 86400000)
-}
-
-function VencimientoTag({ fecha }: { fecha: string }) {
-  const dias = diasHastaVencimiento(fecha)
-  if (dias === null) return <span className="text-slate-300 text-xs">—</span>
-  if (dias < 0)   return <span className="text-xs text-red-600 font-semibold">Vencido hace {Math.abs(dias)} días</span>
-  if (dias <= 30) return <span className="text-xs text-amber-600 font-semibold">Vence en {dias} días</span>
-  return <span className="text-xs text-slate-500">{fecha}</span>
-}
 
 // ─── MODAL DETALLE ────────────────────────────────────────────────────────────
-function DocumentoDetalle({ doc, onClose }: { doc: Documento; onClose: () => void }) {
-  const [estatus, setEstatus]       = useState<EstatusDoc>(doc.estatus)
-  const [comentarios, setComentarios] = useState(doc.comentarios)
-  const [nuevoComentario, setNuevoComentario] = useState('')
-  const [notaRechazo, setNotaRechazo] = useState(doc.notaRechazo)
-  const [showRechazar, setShowRechazar] = useState(false)
-  const [historial, setHistorial]   = useState(doc.historial)
+function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => void }) {
+  const [estatus, setEstatus]       = useState<EstatusIncidencia>(inc.estatus)
+  const [responsable, setResponsable] = useState(inc.responsable)
+  const [resolucion, setResolucion] = useState(inc.resolucion)
+  const [editRes, setEditRes]       = useState(false)
+  const [notas, setNotas]           = useState(inc.notas)
+  const [nuevaNota, setNuevaNota]   = useState('')
+  const [docs, setDocs]             = useState(inc.documentos)
+  const [nuevoDoc, setNuevoDoc]     = useState('')
+  const [timeline, setTimeline]     = useState(inc.timeline)
+  const [showNotif, setShowNotif]   = useState<'usuario' | 'conductor' | null>(null)
+  const [notifMsg, setNotifMsg]     = useState('')
 
-  const addHistorial = (evento: string) =>
-    setHistorial(h => [...h, { evento, hora: 'Ahora', actor: 'Admin' }])
+  const addTimeline = (evento: string, tipo: 'admin' | 'sistema' = 'admin') =>
+    setTimeline(t => [...t, { evento, hora: 'Ahora', actor: 'Admin', tipo }])
 
-  const aprobar = () => { setEstatus('Aprobado'); addHistorial('Documento aprobado') }
-  const rechazar = () => {
-    if (!notaRechazo.trim()) return
-    setEstatus('Rechazado')
-    addHistorial('Documento rechazado')
-    setShowRechazar(false)
-  }
-  const solicitarActualizacion = () => {
-    setEstatus('Pendiente de actualización')
-    addHistorial('Actualización solicitada al titular')
-  }
-  const addComentario = () => {
-    if (!nuevoComentario.trim()) return
-    setComentarios(c => [...c, { autor: 'Admin', texto: nuevoComentario.trim(), hora: 'Ahora' }])
-    addHistorial('Comentario interno agregado')
-    setNuevoComentario('')
+  const addNota = () => {
+    if (!nuevaNota.trim()) return
+    setNotas(n => [...n, { autor: 'Admin', texto: nuevaNota.trim(), hora: 'Ahora' }])
+    addTimeline('Nota interna agregada')
+    setNuevaNota('')
   }
 
-  const dias = diasHastaVencimiento(doc.fechaVencimiento)
+  const addDoc = () => {
+    if (!nuevoDoc.trim()) return
+    setDocs(d => [...d, nuevoDoc.trim()])
+    addTimeline(`Documento asociado: ${nuevoDoc.trim()}`)
+    setNuevoDoc('')
+  }
+
+  const cambiarEstatus = (e: EstatusIncidencia) => {
+    setEstatus(e)
+    addTimeline(`Estatus cambiado a: ${e}`)
+  }
+
+  const enviarNotif = (dest: 'usuario' | 'conductor') => {
+    if (!notifMsg.trim()) return
+    addTimeline(`${dest === 'usuario' ? 'Usuario' : 'Conductor'} notificado`)
+    setNotifMsg('')
+    setShowNotif(null)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
-      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-2xl">
+      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-3xl">
 
         {/* Header */}
         <div className="bg-white rounded-t-2xl px-6 py-4 border-b border-slate-200 sticky top-0 z-10">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><ChevronLeftIcon className="w-4 h-4 text-slate-500" /></button>
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100">
+                <ChevronLeftIcon className="w-4 h-4 text-slate-500" />
+              </button>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="font-bold text-slate-800">{doc.tipoDoc}</h2>
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${tipoEntidadStyle[doc.entidadTipo]}`}>{doc.entidadTipo}</span>
+                  <h2 className="font-bold text-slate-800 text-lg">{inc.id}</h2>
+                  <span className="text-2xl">{tipoIcon[inc.tipo]}</span>
+                  <span className="font-medium text-slate-600 text-sm">{inc.tipo}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <EBadge e={estatus} />
-                  <span className="text-xs text-slate-400">{doc.entidadNombre}</span>
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${estatusStyle[estatus]}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[estatus]}`} />
+                    {estatus}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${prioridadStyle[inc.prioridad]}`}>
+                    {inc.prioridad} prioridad
+                  </span>
+                  <span className="text-xs text-slate-400">{inc.viajeId} · {inc.fecha} {inc.hora}</span>
                 </div>
               </div>
             </div>
@@ -353,215 +386,316 @@ function DocumentoDetalle({ doc, onClose }: { doc: Documento; onClose: () => voi
 
           {/* Acciones rápidas */}
           <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-            <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-              <EyeIcon className="w-3.5 h-3.5" />Ver documento
+            <button onClick={() => { }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+              <UserPlusIcon className="w-3.5 h-3.5" />Asignar responsable
             </button>
-            <button onClick={aprobar} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-              <CheckCircleIcon className="w-3.5 h-3.5" />Aprobar
+            <button onClick={() => setEditRes(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+              <CheckCircleIcon className="w-3.5 h-3.5" />Registrar resolución
             </button>
-            <button onClick={() => setShowRechazar(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-              <XCircleIcon className="w-3.5 h-3.5" />Rechazar
+            <button onClick={() => setShowNotif('usuario')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+              <BellAlertIcon className="w-3.5 h-3.5" />Notificar usuario
             </button>
-            <button onClick={solicitarActualizacion} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
-              <ArrowPathIcon className="w-3.5 h-3.5" />Solicitar actualización
+            <button onClick={() => setShowNotif('conductor')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+              <BellAlertIcon className="w-3.5 h-3.5" />Notificar conductor
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-              <ArrowDownTrayIcon className="w-3.5 h-3.5" />Descargar
+            <button onClick={() => cambiarEstatus('Escalada')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+              <ArrowUpCircleIcon className="w-3.5 h-3.5" />Escalar
             </button>
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-5">
 
-          {/* Rechazo inline */}
-          {showRechazar && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-red-700">Motivo del rechazo</p>
-              <textarea rows={2} value={notaRechazo} onChange={e => setNotaRechazo(e.target.value)}
-                placeholder="Describe la razón del rechazo para notificar al titular..."
-                className="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+          {/* Notificación modal inline */}
+          {showNotif && (
+            <div className="bg-white rounded-xl border-2 border-blue-200 p-5 space-y-3">
+              <p className="font-semibold text-slate-800 text-sm">
+                Notificar al {showNotif === 'usuario' ? `usuario — ${inc.usuario}` : `conductor — ${inc.conductor}`}
+              </p>
+              <textarea rows={3} value={notifMsg} onChange={e => setNotifMsg(e.target.value)}
+                placeholder={`Escribe el mensaje para el ${showNotif}...`}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowRechazar(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-red-100 rounded-lg">Cancelar</button>
-                <button onClick={rechazar} className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-xs rounded-lg font-medium transition-colors">
-                  Confirmar rechazo
+                <button onClick={() => setShowNotif(null)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                <button onClick={() => enviarNotif(showNotif)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
+                  <PaperAirplaneIcon className="w-3.5 h-3.5" />Enviar notificación
                 </button>
               </div>
             </div>
           )}
 
-          {/* Nota de rechazo activa */}
-          {estatus === 'Rechazado' && notaRechazo && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
-              <p className="text-xs font-semibold mb-1 text-red-600">Motivo de rechazo</p>
-              {notaRechazo}
+          {/* ── INFO PRINCIPAL ── */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-4">📋 Información de la Incidencia</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4">
+              <F label="ID Interno" value={inc.id} />
+              <F label="Viaje relacionado" value={<span className="font-semibold text-blue-600">{inc.viajeId}</span>} />
+              <F label="Tipo" value={<span className="flex items-center gap-1">{tipoIcon[inc.tipo]} {inc.tipo}</span>} />
+              <F label="Usuario" value={inc.usuario} />
+              <F label="Conductor" value={inc.conductor} />
+              <F label="Fecha y hora" value={`${inc.fecha} · ${inc.hora}`} />
+              <F label="Evidencia asociada" value={inc.evidenciaAsociada !== '—'
+                ? <span className="text-purple-600 font-semibold">{inc.evidenciaAsociada}</span>
+                : <span className="text-slate-300">Sin evidencia</span>} />
+              <div>
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Responsable interno</p>
+                <select value={responsable} onChange={e => { setResponsable(e.target.value); addTimeline(`Responsable cambiado a ${e.target.value}`) }}
+                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
+                  {RESPONSABLES.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </div>
+              <F label="Prioridad" value={<span className={`px-2 py-1 rounded text-xs font-semibold ${prioridadStyle[inc.prioridad]}`}>{inc.prioridad}</span>} />
             </div>
-          )}
 
-          {/* Alerta vencimiento */}
-          {dias !== null && dias <= 30 && dias >= 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
-              <ExclamationTriangleIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
-              Este documento vence en <strong>{dias} días</strong>. Considera solicitar actualización.
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-2">Descripción</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{inc.descripcion}</p>
             </div>
-          )}
-          {dias !== null && dias < 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 text-sm text-red-800">
-              <ExclamationTriangleIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
-              Este documento venció hace <strong>{Math.abs(dias)} días</strong>.
-            </div>
-          )}
+          </div>
 
-          {/* Info principal */}
-          <SCard title="📄 Información del Documento">
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-              <F label="Tipo de documento" value={doc.tipoDoc} />
-              <F label="Titular" value={doc.entidadNombre} />
-              <F label="Tipo de entidad" value={<span className={`px-2 py-0.5 rounded text-xs font-semibold ${tipoEntidadStyle[doc.entidadTipo]}`}>{doc.entidadTipo}</span>} />
-              <F label="Folio / Número" value={<span className="font-mono text-xs">{doc.folio}</span>} />
-              <F label="Fecha de emisión" value={doc.fechaEmision} />
-              <F label="Fecha de vencimiento" value={<VencimientoTag fecha={doc.fechaVencimiento} />} />
-              <F label="Fecha de carga" value={doc.cargadoEl} />
-              <F label="Revisado por" value={doc.revisadoPor} />
-              <F label="Estatus" value={<EBadge e={estatus} />} />
-            </div>
-          </SCard>
-
-          {/* Selector de estatus */}
-          <SCard title="⚙️ Cambiar Estatus">
+          {/* ── ESTATUS ── */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-2">
+              <ArrowPathIcon className="w-4 h-4 text-slate-400" />
+              Cambiar Estatus
+            </h3>
             <div className="flex flex-wrap gap-2">
-              {TODOS_ESTATUS.map(e => (
-                <button key={e} onClick={() => { setEstatus(e); addHistorial(`Estatus cambiado a: ${e}`) }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    estatus === e ? `${estatusStyle[e]} border-current shadow-sm` : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+              {(['Nueva','En revisión','Requiere información','En seguimiento','Resuelta','Cerrada','Escalada'] as EstatusIncidencia[]).map(e => (
+                <button key={e} onClick={() => cambiarEstatus(e)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    estatus === e
+                      ? estatusStyle[e] + ' border-current shadow-sm'
+                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
                   }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[e]}`} />
                   {e}
                 </button>
               ))}
             </div>
-          </SCard>
+          </div>
 
-          {/* Comentarios internos */}
-          <SCard title="💬 Comentarios Internos">
-            <p className="text-xs text-slate-400 italic -mt-2">Solo visibles para el equipo administrativo.</p>
-            <div className="space-y-2">
-              {comentarios.length === 0 && <p className="text-xs text-slate-400 italic">Sin comentarios aún.</p>}
-              {comentarios.map((c, i) => (
+          {/* ── RESOLUCIÓN ── */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-2">
+              <CheckCircleIcon className="w-4 h-4 text-green-500" />
+              Resolución
+            </h3>
+            {editRes ? (
+              <div className="space-y-3">
+                <textarea rows={3} value={resolucion} onChange={e => setResolucion(e.target.value)}
+                  placeholder="Describe cómo se resolvió la incidencia..."
+                  className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditRes(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                  <button onClick={() => {
+                    setEditRes(false)
+                    cambiarEstatus('Resuelta')
+                    addTimeline('Resolución registrada')
+                  }} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
+                    <CheckCircleIcon className="w-3.5 h-3.5" />Guardar resolución
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className={`rounded-xl border p-3 text-sm cursor-pointer transition-colors hover:border-green-300 ${resolucion ? 'bg-green-50 border-green-100 text-green-800' : 'bg-slate-50 border-slate-200 text-slate-400 italic'}`}
+                onClick={() => setEditRes(true)}>
+                {resolucion || 'Sin resolución registrada. Clic para agregar.'}
+              </div>
+            )}
+          </div>
+
+          {/* ── NOTAS ── */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-4 flex items-center gap-2">
+              <ChatBubbleLeftEllipsisIcon className="w-4 h-4 text-slate-400" />
+              Notas Internas
+            </h3>
+            <div className="space-y-2 mb-4">
+              {notas.length === 0 && <p className="text-xs text-slate-400 italic">Sin notas aún.</p>}
+              {notas.map((n, i) => (
                 <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-amber-700">{c.autor} · {c.hora}</p>
-                  <p className="text-sm text-slate-700 mt-0.5">{c.texto}</p>
+                  <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
+                  <p className="text-sm text-slate-700 mt-0.5">{n.texto}</p>
                 </div>
               ))}
             </div>
-            <div className="flex gap-2 pt-1">
-              <input type="text" value={nuevoComentario} onChange={e => setNuevoComentario(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addComentario()}
-                placeholder="Agregar comentario interno..."
+            <div className="flex gap-2">
+              <input type="text" value={nuevaNota} onChange={e => setNuevaNota(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addNota()}
+                placeholder="Agregar nota interna..."
                 className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-              <button onClick={addComentario} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg transition-colors">
+              <button onClick={addNota} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg transition-colors">
                 <PaperAirplaneIcon className="w-4 h-4" />
               </button>
             </div>
-          </SCard>
+          </div>
 
-          {/* Historial */}
-          <SCard title="⏱️ Historial del Documento">
-            <ol className="relative border-l-2 border-slate-200 space-y-3 ml-3">
-              {historial.map((h, i) => (
+          {/* ── DOCUMENTOS ── */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-4 flex items-center gap-2">
+              <DocumentArrowUpIcon className="w-4 h-4 text-slate-400" />
+              Documentos Asociados
+            </h3>
+            <div className="space-y-2 mb-4">
+              {docs.length === 0 && <p className="text-xs text-slate-400 italic">Sin documentos asociados.</p>}
+              {docs.map((d, i) => (
+                <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  <span className="text-sm text-slate-700">📎 {d}</span>
+                  <button className="text-xs text-blue-600 hover:underline">Ver</button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input type="text" value={nuevoDoc} onChange={e => setNuevoDoc(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addDoc()}
+                placeholder="Nombre del documento..."
+                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <button onClick={addDoc} className="bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg transition-colors">
+                <DocumentArrowUpIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* ── TIMELINE ── */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-4 flex items-center gap-2">
+              <ClockIcon className="w-4 h-4 text-slate-400" />
+              Historial de Actividad
+            </h3>
+            <ol className="relative border-l-2 border-slate-200 space-y-4 ml-3">
+              {timeline.map((t, i) => (
                 <li key={i} className="ml-5">
-                  <span className="absolute -left-2 w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                  <span className={`absolute -left-2 w-4 h-4 rounded-full flex items-center justify-center ${timelineColor[t.tipo]}`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   </span>
-                  <p className="text-sm font-medium text-slate-800">{h.evento}</p>
-                  <p className="text-xs text-slate-400">{h.hora} · {h.actor}</p>
+                  <p className="text-sm font-medium text-slate-800">{t.evento}</p>
+                  <p className="text-xs text-slate-400">{t.hora} · <span className={`font-medium ${
+                    t.tipo === 'conductor' ? 'text-purple-600' :
+                    t.tipo === 'usuario' ? 'text-green-600' :
+                    t.tipo === 'sistema' ? 'text-slate-500' : 'text-blue-600'
+                  }`}>{t.actor}</span></p>
                 </li>
               ))}
             </ol>
-          </SCard>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-3 text-xs text-slate-400">
+              {[['admin','bg-blue-500','Admin'],['conductor','bg-purple-500','Conductor'],['usuario','bg-green-500','Usuario'],['sistema','bg-slate-400','Sistema']].map(([tipo, color, label]) => (
+                <span key={tipo} className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${color}`} />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── NUEVO DOCUMENTO FORM ─────────────────────────────────────────────────────
-function NuevoDocumentoForm({ onClose }: { onClose: () => void }) {
-  const [entidadTipo, setEntidadTipo] = useState<TipoEntidad>('Conductor')
-  const iCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-  const sCls = `${iCls} bg-white`
+// ─── NUEVA INCIDENCIA FORM ────────────────────────────────────────────────────
+function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({
+    viajeId: '', usuario: '', conductor: '', tipo: '' as TipoIncidencia | '',
+    fecha: '', hora: '', descripcion: '', evidencia: '', responsable: '', prioridad: '' as Prioridad | '',
+  })
+  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
+  const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
+
+  const validate = () => {
+    const e: Partial<Record<keyof typeof form, string>> = {}
+    if (!form.viajeId)     e.viajeId     = 'Requerido'
+    if (!form.tipo)        e.tipo        = 'Requerido'
+    if (!form.fecha)       e.fecha       = 'Requerido'
+    if (!form.descripcion) e.descripcion = 'Requerido'
+    if (!form.prioridad)   e.prioridad   = 'Requerido'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const I = (k: keyof typeof form) =>
+    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+  const E = ({ k }: { k: keyof typeof form }) => errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
   )
-  const tiposActuales = entidadTipo === 'Conductor' ? TIPOS_CONDUCTOR : TIPOS_USUARIO
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
           <div>
-            <h2 className="font-bold text-slate-800 text-lg">Nuevo Documento</h2>
-            <p className="text-xs text-slate-400">Registrar un documento en el sistema</p>
+            <h2 className="font-bold text-slate-800 text-lg">Registrar Incidencia</h2>
+            <p className="text-xs text-slate-400">Se creará en estatus "Nueva"</p>
           </div>
           <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
         </div>
         <div className="p-6 space-y-4">
-          <div>
-            <L c="Tipo de entidad" req />
-            <div className="flex gap-2">
-              {(['Conductor','Usuario','Empresa'] as TipoEntidad[]).map(t => (
-                <button key={t} onClick={() => setEntidadTipo(t)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium border-2 transition-colors ${entidadTipo === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                  {t === 'Conductor' ? '👤' : t === 'Usuario' ? '🧑' : '🏢'} {t}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <L c="Titular" req />
-              <input type="text" placeholder="Nombre del conductor o empresa" className={iCls} />
+              <L c="Viaje relacionado" req />
+              <input type="text" value={form.viajeId} onChange={e => set('viajeId', e.target.value)} placeholder="#TR-0000" className={I('viajeId')} />
+              <E k="viajeId" />
             </div>
             <div>
-              <L c="Tipo de documento" req />
-              <select className={sCls}>
+              <L c="Tipo de incidencia" req />
+              <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={I('tipo')}>
                 <option value="">Seleccionar...</option>
-                {tiposActuales.map(t => <option key={t}>{t}</option>)}
+                {TIPOS.map(t => <option key={t} value={t}>{tipoIcon[t]} {t}</option>)}
               </select>
+              <E k="tipo" />
             </div>
             <div>
-              <L c="Folio / Número" />
-              <input type="text" placeholder="Número de documento" className={iCls} />
+              <L c="Usuario" />
+              <input type="text" value={form.usuario} onChange={e => set('usuario', e.target.value)} placeholder="Nombre del usuario" className={I('usuario')} />
             </div>
             <div>
-              <L c="Fecha de emisión" />
-              <input type="date" className={iCls} />
+              <L c="Conductor" />
+              <input type="text" value={form.conductor} onChange={e => set('conductor', e.target.value)} placeholder="Nombre del conductor" className={I('conductor')} />
             </div>
             <div>
-              <L c="Fecha de vencimiento" />
-              <input type="date" className={iCls} />
+              <L c="Fecha" req />
+              <input type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} className={I('fecha')} />
+              <E k="fecha" />
             </div>
             <div>
-              <L c="Revisado por" />
-              <select className={sCls}>
+              <L c="Hora" />
+              <input type="time" value={form.hora} onChange={e => set('hora', e.target.value)} className={I('hora')} />
+            </div>
+            <div>
+              <L c="Prioridad" req />
+              <select value={form.prioridad} onChange={e => set('prioridad', e.target.value)} className={I('prioridad')}>
+                <option value="">Seleccionar...</option>
+                {(['Alta','Media','Baja'] as Prioridad[]).map(p => <option key={p}>{p}</option>)}
+              </select>
+              <E k="prioridad" />
+            </div>
+            <div>
+              <L c="Responsable" />
+              <select value={form.responsable} onChange={e => set('responsable', e.target.value)} className={I('responsable')}>
                 <option value="">Sin asignar</option>
-                {['Admin','Ops. Central','Finanzas','Coordinador'].map(r => <option key={r}>{r}</option>)}
+                {RESPONSABLES.map(r => <option key={r}>{r}</option>)}
               </select>
+            </div>
+            <div>
+              <L c="Evidencia asociada" />
+              <input type="text" value={form.evidencia} onChange={e => set('evidencia', e.target.value)} placeholder="Ej. EV-001" className={I('evidencia')} />
             </div>
           </div>
           <div>
-            <L c="Comentario inicial (opcional)" />
-            <textarea rows={2} placeholder="Observaciones o instrucciones para este documento..." className={iCls} />
-          </div>
-          <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-            <DocumentTextIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-500 font-medium">Arrastra el archivo aquí o haz clic para subir</p>
-            <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG — máx. 10 MB</p>
+            <L c="Descripción" req />
+            <textarea rows={4} value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
+              placeholder="Describe con detalle lo ocurrido..."
+              className={I('descripcion')} />
+            <E k="descripcion" />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-          <button onClick={onClose} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckCircleIcon className="w-4 h-4" />Registrar documento
+          <button onClick={() => { if (validate()) onClose() }}
+            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <ExclamationTriangleIcon className="w-4 h-4" />
+            Registrar incidencia
           </button>
         </div>
       </div>
@@ -570,14 +704,6 @@ function NuevoDocumentoForm({ onClose }: { onClose: () => void }) {
 }
 
 // ─── SMALL HELPERS ────────────────────────────────────────────────────────────
-function SCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-      <h3 className="font-semibold text-slate-800 text-sm">{title}</h3>
-      {children}
-    </div>
-  )
-}
 function F({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -588,174 +714,195 @@ function F({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-type MainTab = 'conductores' | 'usuarios'
+export default function IncidenciasView() {
+  const [search, setSearch]         = useState('')
+  const [filtroEstatus, setFiltroEstatus] = useState<EstatusIncidencia | 'Todos'>('Todos')
+  const [filtroTipo, setFiltroTipo] = useState<TipoIncidencia | 'Todos'>('Todos')
+  const [filtroPrio, setFiltroPrio] = useState<Prioridad | 'Todos'>('Todos')
+  const [detalle, setDetalle]       = useState<Incidencia | null>(null)
+  const [showForm, setShowForm]     = useState(false)
+  const [incidencias, setIncidencias] = useState<Incidencia[]>([])
+  const [cargando, setCargando]     = useState(true)
 
-export default function DocumentosView() {
-  const [tab, setTab]             = useState<MainTab>('conductores')
-  const [search, setSearch]       = useState('')
-  const [filtroEstatus, setFiltroEstatus] = useState<EstatusDoc | 'Todos'>('Todos')
-  const [filtroTipoDoc, setFiltroTipoDoc] = useState<TipoDoc | 'Todos'>('Todos')
-  const [detalle, setDetalle]     = useState<Documento | null>(null)
-  const [showForm, setShowForm]   = useState(false)
+  const cargarIncidencias = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const { data, error } = await sb
+      .from('incidencias')
+      .select(`
+        id, tipo, descripcion, estatus, prioridad, responsable, resolucion, created_at,
+        viajes(folio),
+        usuarios(nombre, apellido),
+        conductores(nombre, apellido)
+      `)
+      .order('created_at', { ascending: false })
+    if (!error && data) {
+      setIncidencias((data as Record<string, unknown>[]).map(i => {
+        const v = i.viajes as Record<string,string>|null
+        const u = i.usuarios as Record<string,string>|null
+        const c = i.conductores as Record<string,string>|null
+        return {
+          id:               String(i.id ?? '').slice(0,8).toUpperCase(),
+          viajeId:          v?.folio ?? '—',
+          usuario:          u ? `${u.nombre} ${u.apellido}` : '—',
+          conductor:        c ? `${c.nombre} ${c.apellido}` : '—',
+          tipo:             (i.tipo as TipoIncidencia) ?? 'Otro',
+          fecha:            String((i.created_at as string)?.slice(0,10) ?? ''),
+          hora:             String((i.created_at as string)?.slice(11,16) ?? ''),
+          descripcion:      String(i.descripcion ?? ''),
+          evidenciaAsociada:'',
+          responsable:      String(i.responsable ?? ''),
+          estatus:          (i.estatus as EstatusIncidencia) ?? 'Nueva',
+          prioridad:        (i.prioridad as Prioridad) ?? 'Media',
+          resolucion:       String(i.resolucion ?? ''),
+          notas: [], documentos: [], timeline: [],
+        }
+      }))
+    }
+    setCargando(false)
+  }, [])
 
-  const docsConductores = DOCUMENTOS.filter(d => d.entidadTipo === 'Conductor')
-  const docsUsuarios    = DOCUMENTOS.filter(d => d.entidadTipo !== 'Conductor')
-  const docsActivos     = tab === 'conductores' ? docsConductores : docsUsuarios
-  const tiposActivos    = tab === 'conductores' ? TIPOS_CONDUCTOR : TIPOS_USUARIO
+  useEffect(() => { cargarIncidencias() }, [cargarIncidencias])
 
-  const filtered = docsActivos.filter(d => {
+  const filtered = incidencias.filter(inc => {
     const q = search.toLowerCase()
-    const matchSearch = !q || d.entidadNombre.toLowerCase().includes(q) || d.tipoDoc.toLowerCase().includes(q) || d.folio.toLowerCase().includes(q)
-    const matchEstatus  = filtroEstatus  === 'Todos' || d.estatus   === filtroEstatus
-    const matchTipoDoc  = filtroTipoDoc  === 'Todos' || d.tipoDoc   === filtroTipoDoc
-    return matchSearch && matchEstatus && matchTipoDoc
+    const matchSearch = !q || inc.id.toLowerCase().includes(q) || inc.viajeId.toLowerCase().includes(q) ||
+      inc.usuario.toLowerCase().includes(q) || inc.conductor.toLowerCase().includes(q) || inc.tipo.toLowerCase().includes(q)
+    const matchEstatus = filtroEstatus === 'Todos' || inc.estatus === filtroEstatus
+    const matchTipo    = filtroTipo    === 'Todos' || inc.tipo    === filtroTipo
+    const matchPrio    = filtroPrio    === 'Todos' || inc.prioridad === filtroPrio
+    return matchSearch && matchEstatus && matchTipo && matchPrio
   })
 
-  // KPIs globales
-  const pendCarga  = DOCUMENTOS.filter(d => d.estatus === 'Pendiente de carga').length
-  const enRevision = DOCUMENTOS.filter(d => d.estatus === 'En revisión').length
-  const aprobados  = DOCUMENTOS.filter(d => d.estatus === 'Aprobado').length
-  const vencidos   = DOCUMENTOS.filter(d => d.estatus === 'Vencido').length
-  const pendAct    = DOCUMENTOS.filter(d => d.estatus === 'Pendiente de actualización').length
-
-  const contarEstatus = (e: EstatusDoc | 'Todos') =>
-    e === 'Todos' ? docsActivos.length : docsActivos.filter(d => d.estatus === e).length
+  const counts = TODOS_ESTATUS.reduce((acc, e) => {
+    acc[e] = e === 'Todos' ? incidencias.length : incidencias.filter(i => i.estatus === e).length
+    return acc
+  }, {} as Record<string, number>)
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {detalle   && <DocumentoDetalle   doc={detalle}   onClose={() => setDetalle(null)} />}
-      {showForm  && <NuevoDocumentoForm onClose={() => setShowForm(false)} />}
+      {showForm && <NuevaIncidenciaForm onClose={() => setShowForm(false)} />}
+      {detalle && <IncidenciaDetalle inc={detalle} onClose={() => setDetalle(null)} />}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { label: 'Aprobados',           value: aprobados,  color: 'text-green-600',  bg: 'bg-green-50',  icon: <CheckCircleIcon className="w-5 h-5 text-green-500" /> },
-          { label: 'En revisión',         value: enRevision, color: 'text-purple-600', bg: 'bg-purple-50', icon: <EyeIcon className="w-5 h-5 text-purple-500" /> },
-          { label: 'Pendiente de carga',  value: pendCarga,  color: 'text-slate-600',  bg: 'bg-slate-50',  icon: <DocumentTextIcon className="w-5 h-5 text-slate-400" /> },
-          { label: 'Pendiente actualiz.', value: pendAct,    color: 'text-amber-600',  bg: 'bg-amber-50',  icon: <ArrowPathIcon className="w-5 h-5 text-amber-500" /> },
-          { label: 'Vencidos',            value: vencidos,   color: 'text-red-600',    bg: 'bg-red-50',    icon: <ExclamationTriangleIcon className="w-5 h-5 text-red-500" /> },
-        ].map((k, i) => (
-          <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-xs text-slate-500 font-medium">{k.label}</p>
-              <div className={`p-1.5 ${k.bg} rounded-lg`}>{k.icon}</div>
-            </div>
-            <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        {([
+          ['Total',                incidencias.length,                                        'text-slate-800'],
+          ['Nuevas',               counts['Nueva'],                                            'text-blue-600'],
+          ['En revisión',          counts['En revisión'],                                      'text-purple-600'],
+          ['Requiere info',        counts['Requiere información'],                             'text-amber-600'],
+          ['En seguimiento',       counts['En seguimiento'],                                   'text-sky-600'],
+          ['Resueltas',            counts['Resuelta'],                                         'text-green-600'],
+          ['Escaladas',            counts['Escalada'],                                         'text-red-600'],
+        ] as [string,number,string][]).map(([label, value, color]) => (
+          <div key={label} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-center">
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{label}</p>
           </div>
         ))}
       </div>
 
-      {/* Card principal */}
+      {/* Filtros + tabla */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        {/* Tabs */}
-        <div className="border-b border-slate-200 px-6 pt-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4">
-            <div className="flex gap-1">
-              {([
-                { id: 'conductores', label: 'Documentos de Conductores', icon: <UserCircleIcon className="w-4 h-4" />, count: docsConductores.length },
-                { id: 'usuarios',    label: 'Documentos de Usuarios / Empresas', icon: <BuildingOfficeIcon className="w-4 h-4" />, count: docsUsuarios.length },
-              ] as { id: MainTab; label: string; icon: React.ReactNode; count: number }[]).map(t => (
-                <button key={t.id} onClick={() => { setTab(t.id); setFiltroEstatus('Todos'); setFiltroTipoDoc('Todos'); setSearch('') }}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                    tab === t.id ? 'border-blue-600 text-blue-600 bg-blue-50/30' : 'border-transparent text-slate-500 hover:text-slate-700'
-                  }`}>
-                  {t.icon}{t.label}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === t.id ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>{t.count}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2 pb-1">
-              <select value={filtroTipoDoc} onChange={e => setFiltroTipoDoc(e.target.value as TipoDoc | 'Todos')}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="Todos">Todos los tipos</option>
-                {tiposActivos.map(t => <option key={t}>{t}</option>)}
-              </select>
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44" />
-              </div>
-              <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                <PlusIcon className="w-4 h-4" />Nuevo
-              </button>
-            </div>
-          </div>
-
+        <div className="p-5 border-b border-slate-200 space-y-3">
           {/* Estatus chips */}
-          <div className="flex flex-wrap gap-1.5 pb-4">
-            {(['Todos', ...TODOS_ESTATUS] as (EstatusDoc | 'Todos')[]).map(e => (
-              <button key={e} onClick={() => setFiltroEstatus(e)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+          <div className="flex flex-wrap gap-1.5">
+            {TODOS_ESTATUS.map(e => (
+              <button key={e} onClick={() => setFiltroEstatus(e as EstatusIncidencia | 'Todos')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                   filtroEstatus === e ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}>
-                {e !== 'Todos' && <span className={`w-1.5 h-1.5 rounded-full ${filtroEstatus === e ? 'bg-white' : estatusDot[e as EstatusDoc]}`} />}
-                {e}
-                <span className="opacity-60">{contarEstatus(e)}</span>
+                {e !== 'Todos' && <span className={`w-1.5 h-1.5 rounded-full ${filtroEstatus === e ? 'bg-white' : estatusDot[e as EstatusIncidencia]}`} />}
+                {e} <span className={`text-xs ${filtroEstatus === e ? 'text-white/60' : 'text-slate-400'}`}>{counts[e]}</span>
               </button>
             ))}
           </div>
+
+          {/* Tipo + prioridad + search + new */}
+          <div className="flex flex-col sm:flex-row justify-between gap-3 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
+              <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value as TipoIncidencia | 'Todos')}
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="Todos">Todos los tipos</option>
+                {TIPOS.map(t => <option key={t} value={t}>{tipoIcon[t]} {t}</option>)}
+              </select>
+              <select value={filtroPrio} onChange={e => setFiltroPrio(e.target.value as Prioridad | 'Todos')}
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="Todos">Toda prioridad</option>
+                {(['Alta','Media','Baja'] as Prioridad[]).map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input type="text" placeholder="Buscar incidencia..." value={search} onChange={e => setSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56" />
+              </div>
+              <button onClick={() => setShowForm(true)}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                <PlusIcon className="w-4 h-4" />Nueva
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Tabla */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
               <tr>
                 <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Titular</th>
-                <th className="px-4 py-3">Tipo de documento</th>
-                <th className="px-4 py-3">Folio</th>
-                <th className="px-4 py-3">Emisión</th>
-                <th className="px-4 py-3">Vencimiento</th>
-                <th className="px-4 py-3">Revisado por</th>
+                <th className="px-4 py-3">Viaje</th>
+                <th className="px-4 py-3">Tipo</th>
+                <th className="px-4 py-3">Usuario / Conductor</th>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Responsable</th>
+                <th className="px-4 py-3">Prioridad</th>
                 <th className="px-4 py-3">Estatus</th>
+                <th className="px-4 py-3">Evidencia</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-10 text-slate-400 italic text-sm">Sin documentos en esta categoría.</td></tr>
+                <tr><td colSpan={10} className="text-center py-10 text-slate-400 italic text-sm">Sin incidencias en esta categoría.</td></tr>
               )}
-              {filtered.map((doc, i) => {
-                const dias = diasHastaVencimiento(doc.fechaVencimiento)
-                return (
-                  <tr key={i} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setDetalle(doc)}>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-400">{doc.id}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800 text-xs">{doc.entidadNombre}</div>
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${tipoEntidadStyle[doc.entidadTipo]}`}>{doc.entidadTipo}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-medium text-slate-700">{doc.tipoDoc}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{doc.folio}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{doc.fechaEmision}</td>
-                    <td className="px-4 py-3"><VencimientoTag fecha={doc.fechaVencimiento} /></td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{doc.revisadoPor}</td>
-                    <td className="px-4 py-3"><EBadge e={doc.estatus} /></td>
-                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => setDetalle(doc)} title="Ver"
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                        <button title="Descargar"
-                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                          <ArrowDownTrayIcon className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setDetalle(doc)} title="Comentar"
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
-                          <ChatBubbleLeftEllipsisIcon className="w-4 h-4" />
-                        </button>
-                        {(doc.estatus === 'Vencido' || doc.estatus === 'Pendiente de actualización' || (dias !== null && dias <= 30)) && (
-                          <button onClick={() => setDetalle(doc)} title="Solicitar actualización"
-                            className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors">
-                            <ArrowPathIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
+              {filtered.map((inc, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setDetalle(inc)}>
+                  <td className="px-4 py-3 font-semibold text-slate-700">{inc.id}</td>
+                  <td className="px-4 py-3 font-semibold text-blue-600">{inc.viajeId}</td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 whitespace-nowrap">
+                      <span>{tipoIcon[inc.tipo]}</span>{inc.tipo}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-xs font-medium text-slate-700">{inc.usuario}</div>
+                    <div className="text-xs text-slate-400">{inc.conductor}</div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{inc.fecha}<br />{inc.hora}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{inc.responsable}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${prioridadStyle[inc.prioridad]}`}>{inc.prioridad}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${estatusStyle[inc.estatus]}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[inc.estatus]}`} />
+                      {inc.estatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {inc.evidenciaAsociada !== '—'
+                      ? <span className="text-purple-600 font-semibold text-xs">{inc.evidenciaAsociada}</span>
+                      : <span className="text-slate-300 text-xs">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setDetalle(inc)}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

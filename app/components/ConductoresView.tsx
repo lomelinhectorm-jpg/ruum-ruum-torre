@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -700,12 +700,15 @@ function AccionesMenu({
 }
 
 // ─── NUEVO CONDUCTOR FORM ─────────────────────────────────────────────────────
-function NuevoConductorForm({ onClose }: { onClose: () => void }) {
+function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
   const [form, setForm] = useState({
     nombre: '', apellido: '', curp: '', telefono: '', email: '',
     municipio: '', estado: '', banco: '', clabe: '', titular: '',
   })
   const [errors, setErrors] = useState<Partial<typeof form>>({})
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
+
   const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
   const validate = () => {
@@ -718,6 +721,42 @@ function NuevoConductorForm({ onClose }: { onClose: () => void }) {
     if (!form.estado)    e.estado    = 'Requerido'
     setErrors(e)
     return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
+    setGuardando(true)
+    setErrorGuardar('')
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const { error } = await sb.from('conductores').insert({
+        nombre:        form.nombre.toUpperCase(),
+        apellido:      form.apellido.toUpperCase(),
+        curp:          form.curp.toUpperCase() || null,
+        telefono:      form.telefono,
+        email:         form.email.toLowerCase(),
+        municipio:     form.municipio.toUpperCase(),
+        estado_geo:    form.estado.toUpperCase(),
+        cuenta_banco:  form.banco.toUpperCase() || null,
+        cuenta_clabe:  form.clabe || null,
+        cuenta_titular:form.titular.toUpperCase() || null,
+        disponibilidad: 'No disponible',
+        certificacion:  'Pendiente de validación',
+        calificacion:   0,
+      })
+      if (error) throw error
+      onSave()
+      onClose()
+    } catch (e) {
+      console.error(e)
+      setErrorGuardar('Error al guardar. Verifica los datos e intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const I = (k: keyof typeof form) => `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
@@ -761,12 +800,15 @@ function NuevoConductorForm({ onClose }: { onClose: () => void }) {
             ⚠️ El conductor quedará en estado <strong>Pendiente de validación</strong>. Para activarlo deberás aprobar sus documentos desde su perfil.
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between items-center">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-          <button onClick={() => { if (validate()) onClose() }} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckCircleIcon className="w-4 h-4" />
-            Registrar conductor
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            {errorGuardar && <p className="text-xs text-red-500">{errorGuardar}</p>}
+            <button onClick={handleSubmit} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <CheckCircleIcon className="w-4 h-4" />
+              {guardando ? 'Guardando...' : 'Registrar conductor'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -802,8 +844,61 @@ export default function ConductoresView() {
   const [actionConductor, setActionConductor] = useState<{ conductor: Conductor; idx: number } | null>(null)
   const [detailConductor, setDetailConductor] = useState<{ conductor: Conductor; idx: number; tab: DetailTab } | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [conductores, setConductores] = useState<Conductor[]>([])
+  const [cargando, setCargando] = useState(true)
 
-  const filtered = CONDUCTORES.filter((c, ) => {
+  const cargarConductores = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data, error } = await sb
+      .from('conductores')
+      .select(`
+        id, nombre, apellido, curp, telefono, email,
+        municipio, estado_geo,
+        disponibilidad, certificacion, calificacion,
+        cuenta_banco, cuenta_clabe, cuenta_titular,
+        created_at
+      `)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      // Mapear DB → interface Conductor
+      setConductores(data.map((c: Record<string, unknown>) => ({
+        id: String(c.id ?? ''),
+        nombre: String(c.nombre ?? ''),
+        apellido: String(c.apellido ?? ''),
+        curp: String(c.curp ?? ''),
+        telefono: String(c.telefono ?? ''),
+        email: String(c.email ?? ''),
+        municipio: String(c.municipio ?? ''),
+        estado: String(c.estado_geo ?? ''),
+        foto: '',
+        disponibilidad: (c.disponibilidad as EstatusDisponibilidad) ?? 'No disponible',
+        certificacion: (c.certificacion as EstatusCertificacion) ?? 'Pendiente de validación',
+        calificacion: Number(c.calificacion ?? 0),
+        viajesRealizados: 0,
+        gananciasTotal: 0,
+        cuentaBanco: String(c.cuenta_banco ?? ''),
+        cuentaClabe: String(c.cuenta_clabe ?? ''),
+        cuentaTitular: String(c.cuenta_titular ?? ''),
+        documentos: [],
+        viajes: [],
+        incidencias: [],
+        ganancias: [],
+        notas: [],
+      })))
+    }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => {
+    cargarConductores()
+  }, [cargarConductores])
+
+  const filtered = conductores.filter(c => {
     const q = search.toLowerCase()
     const matchSearch = !q || `${c.nombre} ${c.apellido}`.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
     const matchCert = certFiltro === 'Todos' || c.certificacion === certFiltro
@@ -812,22 +907,22 @@ export default function ConductoresView() {
   })
 
   const counts = {
-    total:      CONDUCTORES.length,
-    activos:    CONDUCTORES.filter(c => c.certificacion === 'Activo').length,
-    disponibles:CONDUCTORES.filter(c => c.disponibilidad === 'Disponible').length,
-    pendientes: CONDUCTORES.filter(c => c.certificacion === 'Pendiente de validación').length,
-    suspendidos:CONDUCTORES.filter(c => c.certificacion === 'Suspendido').length,
+    total:       conductores.length,
+    activos:     conductores.filter(c => c.certificacion === 'Activo').length,
+    disponibles: conductores.filter(c => c.disponibilidad === 'Disponible').length,
+    pendientes:  conductores.filter(c => c.certificacion === 'Pendiente de validación').length,
+    suspendidos: conductores.filter(c => c.certificacion === 'Suspendido').length,
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {showForm && <NuevoConductorForm onClose={() => setShowForm(false)} />}
+      {showForm && <NuevoConductorForm onClose={() => setShowForm(false)} onSave={cargarConductores} />}
       {detailConductor && (
         <ConductorDetalle
           conductor={detailConductor.conductor}
           idx={detailConductor.idx}
           onClose={() => setDetailConductor(null)}
-          onUpdate={() => {}}
+          onUpdate={() => cargarConductores()}
         />
       )}
       {actionConductor && (
@@ -893,6 +988,19 @@ export default function ConductoresView() {
         </div>
 
         <div className="overflow-x-auto">
+          {cargando ? (
+            <div className="p-8 space-y-3">
+              {[1,2,3,4].map(n => (
+                <div key={n} className="flex gap-4 animate-pulse">
+                  <div className="w-10 h-10 bg-slate-200 rounded-full" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-3 bg-slate-200 rounded w-1/3" />
+                    <div className="h-3 bg-slate-200 rounded w-1/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
               <tr>
@@ -912,10 +1020,10 @@ export default function ConductoresView() {
                 <tr><td colSpan={9} className="text-center py-10 text-slate-400 italic text-sm">Sin resultados.</td></tr>
               )}
               {filtered.map((c, i) => {
-                const globalIdx = CONDUCTORES.indexOf(c)
-                const color = avatarColors[globalIdx % avatarColors.length]
+                const globalIdx = i
+                const color = avatarColors[i % avatarColors.length]
                 return (
-                  <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  <tr key={c.id} className="hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={() => setDetailConductor({ conductor: c, idx: globalIdx, tab: 'perfil' })}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -956,6 +1064,7 @@ export default function ConductoresView() {
               })}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>

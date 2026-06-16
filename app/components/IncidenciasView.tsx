@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -721,8 +721,50 @@ export default function IncidenciasView() {
   const [filtroPrio, setFiltroPrio] = useState<Prioridad | 'Todos'>('Todos')
   const [detalle, setDetalle]       = useState<Incidencia | null>(null)
   const [showForm, setShowForm]     = useState(false)
+  const [incidencias, setIncidencias] = useState<Incidencia[]>([])
+  const [cargando, setCargando]     = useState(true)
 
-  const filtered = INCIDENCIAS.filter(inc => {
+  const cargarIncidencias = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const { data, error } = await sb
+      .from('incidencias')
+      .select(`
+        id, tipo, descripcion, estatus, prioridad, responsable, resolucion, created_at,
+        viajes(folio),
+        usuarios(nombre, apellido),
+        conductores(nombre, apellido)
+      `)
+      .order('created_at', { ascending: false })
+    if (!error && data) {
+      setIncidencias((data as Record<string, unknown>[]).map(i => {
+        const v = i.viajes as Record<string,string>|null
+        const u = i.usuarios as Record<string,string>|null
+        const c = i.conductores as Record<string,string>|null
+        return {
+          id:               String(i.id ?? '').slice(0,8).toUpperCase(),
+          viajeId:          v?.folio ?? '—',
+          usuario:          u ? `${u.nombre} ${u.apellido}` : '—',
+          conductor:        c ? `${c.nombre} ${c.apellido}` : '—',
+          tipo:             (i.tipo as TipoIncidencia) ?? 'Otro',
+          fecha:            String((i.created_at as string)?.slice(0,10) ?? ''),
+          hora:             String((i.created_at as string)?.slice(11,16) ?? ''),
+          descripcion:      String(i.descripcion ?? ''),
+          evidenciaAsociada:'',
+          responsable:      String(i.responsable ?? ''),
+          estatus:          (i.estatus as EstatusIncidencia) ?? 'Nueva',
+          prioridad:        (i.prioridad as Prioridad) ?? 'Media',
+          resolucion:       String(i.resolucion ?? ''),
+          notas: [], documentos: [], timeline: [],
+        }
+      }))
+    }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargarIncidencias() }, [cargarIncidencias])
+
+  const filtered = incidencias.filter(inc => {
     const q = search.toLowerCase()
     const matchSearch = !q || inc.id.toLowerCase().includes(q) || inc.viajeId.toLowerCase().includes(q) ||
       inc.usuario.toLowerCase().includes(q) || inc.conductor.toLowerCase().includes(q) || inc.tipo.toLowerCase().includes(q)
@@ -733,7 +775,7 @@ export default function IncidenciasView() {
   })
 
   const counts = TODOS_ESTATUS.reduce((acc, e) => {
-    acc[e] = e === 'Todos' ? INCIDENCIAS.length : INCIDENCIAS.filter(i => i.estatus === e).length
+    acc[e] = e === 'Todos' ? incidencias.length : incidencias.filter(i => i.estatus === e).length
     return acc
   }, {} as Record<string, number>)
 
@@ -745,7 +787,7 @@ export default function IncidenciasView() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {([
-          ['Total',                INCIDENCIAS.length,                                        'text-slate-800'],
+          ['Total',                incidencias.length,                                        'text-slate-800'],
           ['Nuevas',               counts['Nueva'],                                            'text-blue-600'],
           ['En revisión',          counts['En revisión'],                                      'text-purple-600'],
           ['Requiere info',        counts['Requiere información'],                             'text-amber-600'],

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MagnifyingGlassIcon,
   XMarkIcon,
@@ -598,8 +598,49 @@ export default function EvidenciaView() {
   const [search, setSearch]   = useState('')
   const [filtro, setFiltro]   = useState<EstatusEvidencia | 'Todos'>('Todos')
   const [detalle, setDetalle] = useState<EvidenciaViaje | null>(null)
+  const [evidencias, setEvidencias] = useState<EvidenciaViaje[]>([])
+  const [cargando, setCargando] = useState(true)
 
-  const filtered = EVIDENCIAS.filter(ev => {
+  const cargarEvidencias = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const { data, error } = await sb
+      .from('evidencias')
+      .select(`id, estatus, km_inicial, km_final, combustible_inicial, combustible_final, danos_iniciales, danos_finales, nota_aclaracion, created_at, viajes(folio, fecha_programada), conductores(nombre,apellido), vehiculos(marca,modelo,placas)`)
+      .order('created_at', { ascending: false })
+    if (!error && data) {
+      setEvidencias((data as Record<string,unknown>[]).map(e => {
+        const v = e.viajes as Record<string,string>|null
+        const c = e.conductores as Record<string,string>|null
+        const vh = e.vehiculos as Record<string,string>|null
+        return {
+          id: String(e.id??'').slice(0,8).toUpperCase(),
+          viajeId: v?.folio??'—',
+          conductor: c?`${c.nombre} ${c.apellido}`:'—',
+          vehiculo: vh?`${vh.marca} ${vh.modelo}`:'—',
+          placas: vh?.placas??'—',
+          fecha: String((e.created_at as string)?.slice(0,10)??''),
+          estatus: (e.estatus as EstatusEvidencia)??'Pendiente',
+          fotos: [...FOTOS_BASE],
+          kmInicial: e.km_inicial as number|null,
+          kmFinal: e.km_final as number|null,
+          combustibleInicial: String(e.combustible_inicial??''),
+          combustibleFinal: String(e.combustible_final??''),
+          llavesRecibidas: 1, llavesEntregadas: 1,
+          dañosIniciales: String(e.danos_iniciales??''),
+          dañosFinales: String(e.danos_finales??''),
+          firmaInicial: false, firmaFinal: false,
+          notaAclaracion: String(e.nota_aclaracion??''),
+          incidenciaVinculada: '', historial: [],
+        }
+      }))
+    }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargarEvidencias() }, [cargarEvidencias])
+
+  const filtered = evidencias.filter(ev => {
     const q = search.toLowerCase()
     const matchSearch = !q || ev.viajeId.toLowerCase().includes(q) || ev.conductor.toLowerCase().includes(q) || ev.vehiculo.toLowerCase().includes(q) || ev.placas.toLowerCase().includes(q)
     const matchFiltro = filtro === 'Todos' || ev.estatus === filtro
@@ -607,7 +648,7 @@ export default function EvidenciaView() {
   })
 
   const counts = TODOS_ESTATUS.reduce((acc, e) => {
-    acc[e] = e === 'Todos' ? EVIDENCIAS.length : EVIDENCIAS.filter(ev => ev.estatus === e).length
+    acc[e] = e === 'Todos' ? evidencias.length : evidencias.filter(ev => ev.estatus === e).length
     return acc
   }, {} as Record<string, number>)
 
@@ -618,7 +659,7 @@ export default function EvidenciaView() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {([
-          ['Total',                   EVIDENCIAS.length,                                    'text-slate-800'],
+          ['Total',                   evidencias.length,                                    'text-slate-800'],
           ['Pendientes',              counts['Pendiente'],                                  'text-slate-500'],
           ['Incompletas',             counts['Incompleta'],                                 'text-amber-600'],
           ['En revisión',             counts['En revisión'],                                'text-purple-600'],

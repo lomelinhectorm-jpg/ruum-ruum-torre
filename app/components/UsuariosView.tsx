@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -548,32 +548,145 @@ function Field({ label, value, editable, mono }: { label: string; value: string 
   )
 }
 
+// ─── CATÁLOGOS SAT ────────────────────────────────────────────────────────────
+const REGIMENES_FISCAL = [
+  { clave: '601', desc: '601 - General de Ley Personas Morales' },
+  { clave: '603', desc: '603 - Personas Morales con Fines no Lucrativos' },
+  { clave: '605', desc: '605 - Sueldos y Salarios e Ingresos Asimilados a Salarios' },
+  { clave: '606', desc: '606 - Arrendamiento' },
+  { clave: '607', desc: '607 - Régimen de Enajenación o Adquisición de Bienes' },
+  { clave: '608', desc: '608 - Demás Ingresos' },
+  { clave: '610', desc: '610 - Residentes en el Extranjero sin Establecimiento Permanente en México' },
+  { clave: '611', desc: '611 - Ingresos por Dividendos (socios y accionistas)' },
+  { clave: '612', desc: '612 - Personas Físicas con Actividades Empresariales y Profesionales' },
+  { clave: '614', desc: '614 - Ingresos por intereses' },
+  { clave: '615', desc: '615 - Régimen de los ingresos por obtención de premios' },
+  { clave: '616', desc: '616 - Sin obligaciones fiscales' },
+  { clave: '620', desc: '620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos' },
+  { clave: '621', desc: '621 - Incorporación Fiscal' },
+  { clave: '622', desc: '622 - Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras' },
+  { clave: '623', desc: '623 - Opcional para Grupos de Sociedades' },
+  { clave: '624', desc: '624 - Coordinados' },
+  { clave: '625', desc: '625 - Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas' },
+  { clave: '626', desc: '626 - Régimen Simplificado de Confianza' },
+]
+
+const USOS_CFDI = [
+  { clave: 'G01', desc: 'G01 - Adquisición de mercancias' },
+  { clave: 'G02', desc: 'G02 - Devoluciones, descuentos o bonificaciones' },
+  { clave: 'G03', desc: 'G03 - Gastos en general' },
+  { clave: 'I01', desc: 'I01 - Construcciones' },
+  { clave: 'I02', desc: 'I02 - Mobilario y equipo de oficina por inversiones' },
+  { clave: 'I03', desc: 'I03 - Equipo de transporte' },
+  { clave: 'I04', desc: 'I04 - Equipo de computo y accesorios' },
+  { clave: 'I05', desc: 'I05 - Dados, troqueles, moldes, matrices y herramental' },
+  { clave: 'I06', desc: 'I06 - Comunicaciones telefónicas' },
+  { clave: 'I07', desc: 'I07 - Comunicaciones satelitales' },
+  { clave: 'I08', desc: 'I08 - Otra maquinaria y equipo' },
+  { clave: 'D01', desc: 'D01 - Honorarios médicos, dentales y gastos hospitalarios' },
+  { clave: 'D02', desc: 'D02 - Gastos médicos por incapacidad o discapacidad' },
+  { clave: 'D03', desc: 'D03 - Gastos funerales' },
+  { clave: 'D04', desc: 'D04 - Donativos' },
+  { clave: 'D05', desc: 'D05 - Intereses reales efectivamente pagados por créditos hipotecarios (casa habitación)' },
+  { clave: 'D06', desc: 'D06 - Aportaciones voluntarias al SAR' },
+  { clave: 'D07', desc: 'D07 - Primas por seguros de gastos médicos' },
+  { clave: 'D08', desc: 'D08 - Gastos de transportación escolar obligatoria' },
+  { clave: 'D09', desc: 'D09 - Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones' },
+  { clave: 'D10', desc: 'D10 - Pagos por servicios educativos (colegiaturas)' },
+  { clave: 'S01', desc: 'S01 - Sin efectos fiscales' },
+  { clave: 'CP01', desc: 'CP01 - Pagos' },
+  { clave: 'CN01', desc: 'CN01 - Nómina' },
+]
+
 // ─── NUEVO USUARIO FORM ───────────────────────────────────────────────────────
-function NuevoUsuarioForm({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({ nombre: '', apellido: '', curp: '', email: '', telefono: '', tipo: '' as TipoUsuario | '', razonSocial: '', rfc: '', regimenFiscal: '', domicilioFiscal: '', cfdi: '' })
-  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
-  const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
+function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  const [form, setForm] = useState({
+    nombre: '', apellido: '', curp: '', email: '', telefono: '',
+    tipo: '' as TipoUsuario | '',
+    // Fiscal
+    requiereFactura: false,
+    razonSocial: '', rfc: '', regimenFiscal: '', cfdi: '',
+    fiscalCalle: '', fiscalNumero: '', fiscalColonia: '',
+    fiscalMunicipio: '', fiscalEstado: '', fiscalCp: '',
+  })
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({})
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
+
+  const set = (k: keyof typeof form, v: string | boolean) => {
+    setForm(f => ({ ...f, [k]: v }))
+    setErrors(e => ({ ...e, [k]: '' }))
+  }
 
   const validate = () => {
-    const e: Partial<Record<keyof typeof form, string>> = {}
-    if (!form.nombre) e.nombre = 'Requerido'
+    const e: Record<string, string> = {}
+    if (!form.nombre)   e.nombre   = 'Requerido'
     if (!form.apellido) e.apellido = 'Requerido'
-    if (!form.email) e.email = 'Requerido'
+    if (!form.email)    e.email    = 'Requerido'
     if (!form.telefono) e.telefono = 'Requerido'
-    if (!form.tipo) e.tipo = 'Requerido'
+    if (!form.tipo)     e.tipo     = 'Requerido'
+    if (form.requiereFactura) {
+      if (!form.razonSocial)   e.razonSocial   = 'Requerido para facturación'
+      if (!form.rfc)           e.rfc           = 'Requerido para facturación'
+      if (!form.regimenFiscal) e.regimenFiscal = 'Requerido para facturación'
+      if (!form.cfdi)          e.cfdi          = 'Requerido para facturación'
+      if (!form.fiscalCalle)   e.fiscalCalle   = 'Requerido para facturación'
+      if (!form.fiscalCp)      e.fiscalCp      = 'Requerido para facturación'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => { if (validate()) onClose() }
+  const handleSubmit = async () => {
+    if (!validate()) return
+    setGuardando(true)
+    setErrorGuardar('')
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
 
-  const InputCls = (k: keyof typeof form) => `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
-  const Err = ({ k }: { k: keyof typeof form }) => errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
+      const domicilioFiscal = form.requiereFactura
+        ? [form.fiscalCalle, form.fiscalNumero, form.fiscalColonia, form.fiscalMunicipio, form.fiscalEstado, form.fiscalCp]
+            .filter(Boolean).join(', ').toUpperCase()
+        : null
+
+      const { error } = await sb.from('usuarios').insert({
+        nombre:           form.nombre.toUpperCase(),
+        apellido:         form.apellido.toUpperCase(),
+        curp:             form.curp.toUpperCase() || null,
+        email:            form.email.toLowerCase(),
+        telefono:         form.telefono,
+        tipo:             form.tipo,
+        estatus:          'Activo',
+        razon_social:     form.requiereFactura ? form.razonSocial.toUpperCase() : null,
+        rfc:              form.requiereFactura ? form.rfc.toUpperCase() : null,
+        regimen_fiscal:   form.requiereFactura ? form.regimenFiscal : null,
+        cfdi:             form.requiereFactura ? form.cfdi : null,
+        domicilio_fiscal: domicilioFiscal,
+      })
+      if (error) throw error
+      onSave()
+      onClose()
+    } catch (e) {
+      console.error(e)
+      setErrorGuardar('Error al guardar. Verifica los datos e intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const cls = (k: string) =>
+    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+  const Err = ({ k }: { k: string }) =>
+    errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
   const Label = ({ children, req }: { children: React.ReactNode; req?: boolean }) => (
-    <label className="block text-xs font-medium text-slate-500 mb-1">{children}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
+    <label className="block text-xs font-medium text-slate-500 mb-1">
+      {children}{req && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
   )
-
-  const needsFiscal = form.tipo && form.tipo !== 'Personal'
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
@@ -587,46 +700,186 @@ function NuevoUsuarioForm({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Datos personales */}
+
+          {/* ── Datos personales ── */}
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">👤 Datos personales</p>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label req>Nombre(s)</Label><input type="text" placeholder="NOMBRE(S)" value={form.nombre} onChange={e => set('nombre', e.target.value.toUpperCase())} className={InputCls('nombre')} /><Err k="nombre" /></div>
-              <div><Label req>Apellido(s)</Label><input type="text" placeholder="APELLIDO(S)" value={form.apellido} onChange={e => set('apellido', e.target.value.toUpperCase())} className={InputCls('apellido')} /><Err k="apellido" /></div>
-              <div><Label>CURP</Label><input type="text" placeholder="18 CARACTERES" value={form.curp} onChange={e => set('curp', e.target.value.toUpperCase())} className={InputCls('curp')} /></div>
-              <div><Label req>Tipo de usuario</Label>
-                <select value={form.tipo} onChange={e => set('tipo', e.target.value.toUpperCase())} className={InputCls('tipo')}>
+              <div>
+                <Label req>Nombre(s)</Label>
+                <input type="text" placeholder="NOMBRE(S)" value={form.nombre}
+                  onChange={e => set('nombre', e.target.value.toUpperCase())} className={cls('nombre')} />
+                <Err k="nombre" />
+              </div>
+              <div>
+                <Label req>Apellido(s)</Label>
+                <input type="text" placeholder="APELLIDO(S)" value={form.apellido}
+                  onChange={e => set('apellido', e.target.value.toUpperCase())} className={cls('apellido')} />
+                <Err k="apellido" />
+              </div>
+              <div>
+                <Label>CURP</Label>
+                <input type="text" placeholder="18 CARACTERES" maxLength={18} value={form.curp}
+                  onChange={e => set('curp', e.target.value.toUpperCase())} className={cls('curp')} />
+              </div>
+              <div>
+                <Label req>Tipo de usuario</Label>
+                <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={cls('tipo')}>
                   <option value="">Seleccionar...</option>
-                  {TIPOS.map(t => <option key={t}>{t}</option>)}
+                  {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <Err k="tipo" />
               </div>
-              <div><Label req>Correo electrónico</Label><input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} /><Err k="email" /></div>
-              <div><Label req>Teléfono</Label><input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} /><Err k="telefono" /></div>
+              <div>
+                <Label req>Correo electrónico</Label>
+                <input type="email" placeholder="correo@ejemplo.com" value={form.email}
+                  onChange={e => set('email', e.target.value)} className={cls('email')} />
+                <Err k="email" />
+              </div>
+              <div>
+                <Label req>Teléfono</Label>
+                <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono}
+                  onChange={e => {
+                    const d = e.target.value.replace(/\D/g,'').slice(0,10)
+                    set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`)
+                  }} className={cls('telefono')} />
+                <Err k="telefono" />
+              </div>
             </div>
           </div>
 
-          {/* Información fiscal */}
+          {/* ── Toggle facturación ── */}
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">
-              🧾 Información fiscal {!needsFiscal && <span className="font-normal normal-case text-slate-400">(opcional para usuario Personal)</span>}
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2"><Label>Razón social</Label><input type="text" placeholder="Nombre o empresa" value={form.razonSocial} onChange={e => set('razonSocial', e.target.value.toUpperCase())} className={InputCls('razonSocial')} /></div>
-              <div><Label>RFC</Label><input type="text" placeholder="RFC 12 o 13 dígitos" value={form.rfc} onChange={e => set('rfc', e.target.value.toUpperCase())} className={InputCls('rfc')} /></div>
-              <div><Label>CFDI</Label><input type="text" placeholder="Ej. G03 - Gastos generales" value={form.cfdi} onChange={e => set('cfdi', e.target.value)} className={InputCls('cfdi')} /></div>
-              <div><Label>Régimen fiscal</Label><input type="text" placeholder="601 - General de Ley..." value={form.regimenFiscal} onChange={e => set('regimenFiscal', e.target.value.toUpperCase())} className={InputCls('regimenFiscal')} /></div>
-              <div><Label>Domicilio fiscal</Label><input type="text" placeholder="Calle, número, ciudad" value={form.domicilioFiscal} onChange={e => set('domicilioFiscal', e.target.value.toUpperCase())} className={InputCls('domicilioFiscal')} /></div>
-            </div>
+            <button
+              type="button"
+              onClick={() => set('requiereFactura', !form.requiereFactura)}
+              className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${
+                form.requiereFactura
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                  form.requiereFactura ? 'bg-blue-100' : 'bg-slate-200'
+                }`}>🧾</div>
+                <div className="text-left">
+                  <p className={`text-sm font-semibold ${form.requiereFactura ? 'text-blue-700' : 'text-slate-700'}`}>
+                    Requiere facturación
+                  </p>
+                  <p className="text-xs text-slate-400">Activa para capturar datos fiscales del cliente</p>
+                </div>
+              </div>
+              <div className={`w-11 h-6 rounded-full transition-colors relative ${
+                form.requiereFactura ? 'bg-blue-500' : 'bg-slate-300'
+              }`}>
+                <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${
+                  form.requiereFactura ? 'translate-x-5' : 'translate-x-0.5'
+                }`} />
+              </div>
+            </button>
           </div>
+
+          {/* ── Datos fiscales (condicional) ── */}
+          {form.requiereFactura && (
+            <div className="space-y-4 border border-blue-100 bg-blue-50/40 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide border-b border-blue-100 pb-2">
+                🧾 Información fiscal
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label req>Razón social</Label>
+                  <input type="text" placeholder="NOMBRE O RAZÓN SOCIAL COMPLETA" value={form.razonSocial}
+                    onChange={e => set('razonSocial', e.target.value.toUpperCase())} className={cls('razonSocial')} />
+                  <Err k="razonSocial" />
+                </div>
+                <div>
+                  <Label req>RFC</Label>
+                  <input type="text" placeholder="RFC 12 O 13 CARACTERES" maxLength={13} value={form.rfc}
+                    onChange={e => set('rfc', e.target.value.toUpperCase())} className={cls('rfc')} />
+                  <Err k="rfc" />
+                </div>
+                <div>
+                  {/* vacío para alinear grid */}
+                </div>
+                <div className="col-span-2">
+                  <Label req>Régimen fiscal</Label>
+                  <select value={form.regimenFiscal} onChange={e => set('regimenFiscal', e.target.value)} className={cls('regimenFiscal')}>
+                    <option value="">Seleccionar régimen...</option>
+                    {REGIMENES_FISCAL.map(r => (
+                      <option key={r.clave} value={r.clave}>{r.desc}</option>
+                    ))}
+                  </select>
+                  <Err k="regimenFiscal" />
+                </div>
+                <div className="col-span-2">
+                  <Label req>Uso de CFDI</Label>
+                  <select value={form.cfdi} onChange={e => set('cfdi', e.target.value)} className={cls('cfdi')}>
+                    <option value="">Seleccionar uso de CFDI...</option>
+                    {USOS_CFDI.map(c => (
+                      <option key={c.clave} value={c.clave}>{c.desc}</option>
+                    ))}
+                  </select>
+                  <Err k="cfdi" />
+                </div>
+              </div>
+
+              {/* Domicilio fiscal desglosado */}
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Domicilio fiscal</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 sm:col-span-1">
+                    <Label req>Calle</Label>
+                    <input type="text" placeholder="NOMBRE DE LA CALLE" value={form.fiscalCalle}
+                      onChange={e => set('fiscalCalle', e.target.value.toUpperCase())} className={cls('fiscalCalle')} />
+                    <Err k="fiscalCalle" />
+                  </div>
+                  <div>
+                    <Label>Número</Label>
+                    <input type="text" placeholder="EXT / INT" value={form.fiscalNumero}
+                      onChange={e => set('fiscalNumero', e.target.value.toUpperCase())} className={cls('fiscalNumero')} />
+                  </div>
+                  <div>
+                    <Label>Colonia</Label>
+                    <input type="text" placeholder="COLONIA" value={form.fiscalColonia}
+                      onChange={e => set('fiscalColonia', e.target.value.toUpperCase())} className={cls('fiscalColonia')} />
+                  </div>
+                  <div>
+                    <Label req>Código Postal</Label>
+                    <input type="text" placeholder="00000" maxLength={5} value={form.fiscalCp}
+                      onChange={e => set('fiscalCp', e.target.value.replace(/\D/g,'').slice(0,5))} className={cls('fiscalCp')} />
+                    <Err k="fiscalCp" />
+                  </div>
+                  <div>
+                    <Label>Municipio / Alcaldía</Label>
+                    <input type="text" placeholder="MUNICIPIO" value={form.fiscalMunicipio}
+                      onChange={e => set('fiscalMunicipio', e.target.value.toUpperCase())} className={cls('fiscalMunicipio')} />
+                  </div>
+                  <div>
+                    <Label>Estado</Label>
+                    <input type="text" placeholder="ESTADO" value={form.fiscalEstado}
+                      onChange={e => set('fiscalEstado', e.target.value.toUpperCase())} className={cls('fiscalEstado')} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-          <button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckCircleIcon className="w-4 h-4" />
-            Registrar usuario
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between items-center">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">
+            Cancelar
           </button>
+          <div className="flex flex-col items-end gap-1">
+            {errorGuardar && <p className="text-xs text-red-500">{errorGuardar}</p>}
+            <button onClick={handleSubmit} disabled={guardando}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <CheckCircleIcon className="w-4 h-4" />
+              {guardando ? 'Guardando...' : 'Registrar usuario'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -641,8 +894,46 @@ export default function UsuariosView() {
   const [actionUser, setActionUser] = useState<Usuario | null>(null)
   const [detailUser, setDetailUser] = useState<{ usuario: Usuario; tab: DetailTab } | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [cargando, setCargando] = useState(true)
 
-  const filtered = USUARIOS.filter(u => {
+  const cargarUsuarios = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data, error } = await sb
+      .from('usuarios')
+      .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setUsuarios(data.map((u: Record<string, unknown>) => ({
+        id:               String(u.id ?? ''),
+        nombre:           String(u.nombre ?? ''),
+        apellido:         String(u.apellido ?? ''),
+        curp:             String(u.curp ?? ''),
+        email:            String(u.email ?? ''),
+        telefono:         String(u.telefono ?? ''),
+        tipo:             (u.tipo as TipoUsuario) ?? 'Personal',
+        estatus:          (u.estatus as Estatus) ?? 'Activo',
+        fechaRegistro:    String((u.created_at as string)?.slice(0, 10) ?? ''),
+        viajesSolicitados: 0,
+        razonSocial:      String(u.razon_social ?? ''),
+        rfc:              String(u.rfc ?? ''),
+        regimenFiscal:    String(u.regimen_fiscal ?? ''),
+        domicilioFiscal:  String(u.domicilio_fiscal ?? ''),
+        cfdi:             String(u.cfdi ?? ''),
+        vehiculos: [], pagos: [], viajes: [], notas: [],
+      })))
+    }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargarUsuarios() }, [cargarUsuarios])
+
+  const filtered = usuarios.filter(u => {
     const q = search.toLowerCase()
     const matchSearch = !q || `${u.nombre} ${u.apellido}`.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.id.toLowerCase().includes(q)
     const matchTipo = tipoFiltro === 'Todos' || u.tipo === tipoFiltro
@@ -651,15 +942,15 @@ export default function UsuariosView() {
   })
 
   const counts = {
-    total: USUARIOS.length,
-    activos: USUARIOS.filter(u => u.estatus === 'Activo').length,
-    pendientes: USUARIOS.filter(u => u.estatus === 'Pendiente').length,
-    suspendidos: USUARIOS.filter(u => u.estatus === 'Suspendido').length,
+    total:      usuarios.length,
+    activos:    usuarios.filter(u => u.estatus === 'Activo').length,
+    pendientes: usuarios.filter(u => u.estatus === 'Pendiente').length,
+    suspendidos:usuarios.filter(u => u.estatus === 'Suspendido').length,
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {showForm && <NuevoUsuarioForm onClose={() => setShowForm(false)} />}
+      {showForm && <NuevoUsuarioForm onClose={() => setShowForm(false)} onSave={cargarUsuarios} />}
       {detailUser && <UsuarioDetalle usuario={detailUser.usuario} onClose={() => setDetailUser(null)} />}
       {actionUser && (
         <AccionesMenu
@@ -721,6 +1012,19 @@ export default function UsuariosView() {
         </div>
 
         <div className="overflow-x-auto">
+          {cargando ? (
+            <div className="p-8 space-y-3">
+              {[1,2,3,4].map(n => (
+                <div key={n} className="flex gap-4 animate-pulse">
+                  <div className="w-8 h-8 bg-slate-200 rounded-full" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-3 bg-slate-200 rounded w-1/3" />
+                    <div className="h-3 bg-slate-200 rounded w-1/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
               <tr>
@@ -740,8 +1044,8 @@ export default function UsuariosView() {
                 <tr><td colSpan={9} className="text-center py-10 text-slate-400 italic text-sm">Sin resultados.</td></tr>
               )}
               {filtered.map((u, i) => (
-                <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setDetailUser({ usuario: u, tab: 'perfil' })}>
-                  <td className="px-4 py-3 text-xs font-mono text-slate-400">{u.id}</td>
+                <tr key={u.id || i} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setDetailUser({ usuario: u, tab: 'perfil' })}>
+                  <td className="px-4 py-3 text-xs font-mono text-slate-400">{u.id.slice(0,8)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -776,6 +1080,7 @@ export default function UsuariosView() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>

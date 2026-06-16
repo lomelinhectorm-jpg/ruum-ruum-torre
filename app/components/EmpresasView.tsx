@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -609,8 +609,50 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
 }
 
 // ─── NUEVA EMPRESA FORM ───────────────────────────────────────────────────────
-function NuevaEmpresaForm({ onClose }: { onClose: () => void }) {
+function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
   const [tipo, setTipo] = useState<TipoEmpresa | ''>('')
+  const [form, setForm] = useState({
+    razonSocial: '', nombreComercial: '', rfc: '', contacto: '', telefono: '', email: '', direccion: '',
+    regimenFiscal: '', cfdi: '', domicilioFiscal: '',
+    descuento: '0', creditoDias: '0', limiteCredito: '0',
+  })
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
+
+  const set = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSubmit = async () => {
+    if (!tipo || !form.razonSocial || !form.rfc || !form.contacto || !form.telefono) {
+      setErrorGuardar('Completa los campos obligatorios (*)'); return
+    }
+    setGuardando(true); setErrorGuardar('')
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+      const { error } = await sb.from('empresas').insert({
+        tipo,
+        razon_social:      form.razonSocial.toUpperCase(),
+        nombre_comercial:  form.nombreComercial.toUpperCase() || form.razonSocial.toUpperCase(),
+        rfc:               form.rfc.toUpperCase(),
+        contacto_principal:form.contacto.toUpperCase(),
+        telefono:          form.telefono,
+        correo:            form.email.toLowerCase() || null,
+        direccion:         form.direccion.toUpperCase() || null,
+        regimen_fiscal:    form.regimenFiscal || null,
+        cfdi:              form.cfdi || null,
+        domicilio_fiscal:  form.domicilioFiscal.toUpperCase() || null,
+        descuento:         parseFloat(form.descuento) || 0,
+        credito_dias:      parseInt(form.creditoDias) || 0,
+        limite_credito:    parseFloat(form.limiteCredito) || 0,
+        estatus:           'Activa',
+      })
+      if (error) throw error
+      onSave(); onClose()
+    } catch (e) {
+      console.error(e); setErrorGuardar('Error al guardar. Intenta de nuevo.')
+    } finally { setGuardando(false) }
+  }
+
   const iCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -644,13 +686,13 @@ function NuevaEmpresaForm({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">🏢 Datos de la empresa</p>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2"><L c="Razón social" req /><input type="text" className={iCls} /></div>
-              <div><L c="Nombre comercial" /><input type="text" className={iCls} /></div>
-              <div><L c="RFC" req /><input type="text" placeholder="12 o 13 caracteres" className={iCls} /></div>
-              <div><L c="Contacto principal" req /><input type="text" className={iCls} /></div>
-              <div><L c="Teléfono" req /><input type="tel" placeholder="55-0000-0000" maxLength={12} className={iCls} /></div>
-              <div className="col-span-2"><L c="Correo electrónico" req /><input type="email" className={iCls} /></div>
-              <div className="col-span-2"><L c="Dirección" /><input type="text" className={iCls} /></div>
+              <div className="col-span-2"><L c="Razón social" req /><input type="text" value={form.razonSocial} onChange={e => set('razonSocial', e.target.value.toUpperCase())} className={iCls} /></div>
+              <div><L c="Nombre comercial" /><input type="text" value={form.nombreComercial} onChange={e => set('nombreComercial', e.target.value.toUpperCase())} className={iCls} /></div>
+              <div><L c="RFC" req /><input type="text" placeholder="12 O 13 CARACTERES" value={form.rfc} onChange={e => set('rfc', e.target.value.toUpperCase())} className={iCls} /></div>
+              <div><L c="Contacto principal" req /><input type="text" value={form.contacto} onChange={e => set('contacto', e.target.value.toUpperCase())} className={iCls} /></div>
+              <div><L c="Teléfono" req /><input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={iCls} /></div>
+              <div className="col-span-2"><L c="Correo electrónico" /><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={iCls} /></div>
+              <div className="col-span-2"><L c="Dirección" /><input type="text" value={form.direccion} onChange={e => set('direccion', e.target.value.toUpperCase())} className={iCls} /></div>
             </div>
           </div>
 
@@ -658,9 +700,9 @@ function NuevaEmpresaForm({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">🧾 Facturación</p>
             <div className="grid grid-cols-2 gap-4">
-              <div><L c="Régimen fiscal" /><input type="text" placeholder="601 - General de Ley..." className={iCls} /></div>
-              <div><L c="CFDI" /><input type="text" placeholder="G03 - Gastos en general" className={iCls} /></div>
-              <div className="col-span-2"><L c="Domicilio fiscal" /><input type="text" className={iCls} /></div>
+              <div><L c="Régimen fiscal" /><input type="text" placeholder="601 - GENERAL DE LEY..." value={form.regimenFiscal} onChange={e => set('regimenFiscal', e.target.value.toUpperCase())} className={iCls} /></div>
+              <div><L c="CFDI" /><input type="text" placeholder="G03 - GASTOS EN GENERAL" value={form.cfdi} onChange={e => set('cfdi', e.target.value.toUpperCase())} className={iCls} /></div>
+              <div className="col-span-2"><L c="Domicilio fiscal" /><input type="text" value={form.domicilioFiscal} onChange={e => set('domicilioFiscal', e.target.value.toUpperCase())} className={iCls} /></div>
             </div>
           </div>
 
@@ -668,17 +710,20 @@ function NuevaEmpresaForm({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">📋 Condiciones comerciales</p>
             <div className="grid grid-cols-3 gap-4">
-              <div><L c="Descuento (%)" /><input type="number" min="0" max="100" defaultValue={0} className={iCls} /></div>
-              <div><L c="Crédito (días)" /><input type="number" min="0" defaultValue={0} className={iCls} /></div>
-              <div><L c="Límite crédito ($)" /><input type="number" min="0" defaultValue={0} className={iCls} /></div>
+              <div><L c="Descuento (%)" /><input type="number" min="0" max="100" value={form.descuento} onChange={e => set('descuento', e.target.value)} className={iCls} /></div>
+              <div><L c="Crédito (días)" /><input type="number" min="0" value={form.creditoDias} onChange={e => set('creditoDias', e.target.value)} className={iCls} /></div>
+              <div><L c="Límite crédito ($)" /><input type="number" min="0" value={form.limiteCredito} onChange={e => set('limiteCredito', e.target.value)} className={iCls} /></div>
             </div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between items-center">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
-          <button onClick={onClose} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckCircleIcon className="w-4 h-4" />Registrar empresa
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            {errorGuardar && <p className="text-xs text-red-500">{errorGuardar}</p>}
+            <button onClick={handleSubmit} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Registrar empresa'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -715,8 +760,47 @@ export default function EmpresasView() {
   const [filtroEstatus, setFiltroEstatus] = useState<EstatusEmpresa | 'Todos'>('Todos')
   const [detalle, setDetalle]       = useState<{ empresa: Empresa; idx: number } | null>(null)
   const [showForm, setShowForm]     = useState(false)
+  const [empresas, setEmpresas]     = useState<Empresa[]>([])
+  const [cargando, setCargando]     = useState(true)
 
-  const filtered = EMPRESAS.filter(e => {
+  const cargarEmpresas = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const { data, error } = await sb
+      .from('empresas')
+      .select('id, razon_social, nombre_comercial, tipo, rfc, regimen_fiscal, domicilio_fiscal, cfdi, contacto_principal, telefono, correo, direccion, estatus, descuento, credito_dias, limite_credito, convenio, vigencia_convenio, created_at')
+      .order('created_at', { ascending: false })
+    if (!error && data) {
+      setEmpresas(data.map((e: Record<string, unknown>) => ({
+        id:               String(e.id ?? ''),
+        razonSocial:      String(e.razon_social ?? ''),
+        nombreComercial:  String(e.nombre_comercial ?? e.razon_social ?? ''),
+        tipo:             (e.tipo as TipoEmpresa) ?? 'Empresa general',
+        rfc:              String(e.rfc ?? ''),
+        regimenFiscal:    String(e.regimen_fiscal ?? ''),
+        domicilioFiscal:  String(e.domicilio_fiscal ?? ''),
+        cfdi:             String(e.cfdi ?? ''),
+        contactoPrincipal:String(e.contacto_principal ?? ''),
+        telefono:         String(e.telefono ?? ''),
+        correo:           String(e.correo ?? ''),
+        direccion:        String(e.direccion ?? ''),
+        estatus:          (e.estatus as EstatusEmpresa) ?? 'Activa',
+        fechaRegistro:    String((e.created_at as string)?.slice(0,10) ?? ''),
+        descuento:        Number(e.descuento ?? 0),
+        creditoDias:      Number(e.credito_dias ?? 0),
+        limiteCredito:    Number(e.limite_credito ?? 0),
+        convenio:         String(e.convenio ?? ''),
+        vigenciaConvenio: String(e.vigencia_convenio ?? ''),
+        usuariosVinculados: [], vehiculosFrecuentes: [], historialViajes: [], notas: [],
+        totalFacturado: 0, viajesTotal: 0,
+      })))
+    }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargarEmpresas() }, [cargarEmpresas])
+
+  const filtered = empresas.filter(e => {
     const q = search.toLowerCase()
     const matchSearch = !q || e.nombreComercial.toLowerCase().includes(q) || e.razonSocial.toLowerCase().includes(q) || e.rfc.toLowerCase().includes(q) || e.contactoPrincipal.toLowerCase().includes(q)
     const matchTipo    = filtroTipo    === 'Todos' || e.tipo    === filtroTipo
@@ -725,17 +809,17 @@ export default function EmpresasView() {
   })
 
   const counts = {
-    total:     EMPRESAS.length,
-    activas:   EMPRESAS.filter(e => e.estatus === 'Activa').length,
-    pendientes:EMPRESAS.filter(e => e.estatus === 'Pendiente').length,
-    suspendidas:EMPRESAS.filter(e => e.estatus === 'Suspendida').length,
-    totalFacturado: EMPRESAS.reduce((s, e) => s + e.totalFacturado, 0),
+    total:      empresas.length,
+    activas:    empresas.filter(e => e.estatus === 'Activa').length,
+    pendientes: empresas.filter(e => e.estatus === 'Pendiente').length,
+    suspendidas:empresas.filter(e => e.estatus === 'Suspendida').length,
+    totalFacturado: empresas.reduce((s, e) => s + e.totalFacturado, 0),
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       {detalle  && <EmpresaDetalle empresa={detalle.empresa} idx={detalle.idx} onClose={() => setDetalle(null)} />}
-      {showForm && <NuevaEmpresaForm onClose={() => setShowForm(false)} />}
+      {showForm && <NuevaEmpresaForm onClose={() => setShowForm(false)} onSave={cargarEmpresas} />}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -791,6 +875,9 @@ export default function EmpresasView() {
         </div>
 
         <div className="overflow-x-auto">
+          {cargando ? (
+            <div className="p-8 space-y-3">{[1,2,3].map(n => (<div key={n} className="flex gap-4 animate-pulse"><div className="w-9 h-9 bg-slate-200 rounded-xl" /><div className="flex-1 space-y-2 pt-1"><div className="h-3 bg-slate-200 rounded w-1/3" /><div className="h-3 bg-slate-200 rounded w-1/4" /></div></div>))}</div>
+          ) : (
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
               <tr>
@@ -810,10 +897,10 @@ export default function EmpresasView() {
                 <tr><td colSpan={9} className="text-center py-10 text-slate-400 italic text-sm">Sin resultados.</td></tr>
               )}
               {filtered.map((empresa, i) => {
-                const globalIdx = EMPRESAS.indexOf(empresa)
-                const grad = gradients[globalIdx % gradients.length]
+                const globalIdx = i
+                const grad = gradients[i % gradients.length]
                 return (
-                  <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  <tr key={empresa.id || i} className="hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={() => setDetalle({ empresa, idx: globalIdx })}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -853,6 +940,7 @@ export default function EmpresasView() {
               })}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>
