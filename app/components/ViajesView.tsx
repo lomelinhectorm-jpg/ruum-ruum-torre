@@ -626,7 +626,7 @@ const EMPTY_FORM: FormData = {
   conductor: '', tarifaCliente: '', pagoConductor: '', gastosAutorizados: '', notaInterna: '',
 }
 
-function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (data: FormData) => void }) {
+function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
@@ -665,10 +665,136 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
   const next = () => { if (validateStep()) setStep(s => (s < 4 ? (s + 1) as Step : s)) }
   const prev = () => setStep(s => (s > 1 ? (s - 1) as Step : s))
 
-  const handleSubmit = () => {
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
+
+  const handleSubmit = async () => {
     if (!validateStep()) return
-    onSave(form)
-    onClose()
+    setGuardando(true)
+    setErrorGuardar('')
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      // 1. Buscar o crear vehículo
+      let vehiculoId: string | null = null
+      if (form.placas) {
+        const { data: vExistente } = await sb
+          .from('vehiculos')
+          .select('id')
+          .eq('placas', form.placas.toUpperCase())
+          .single()
+
+        if (vExistente) {
+          vehiculoId = vExistente.id
+        } else {
+          const { data: vNuevo } = await sb
+            .from('vehiculos')
+            .insert({
+              marca: form.marca.toUpperCase() || null,
+              modelo: form.modelo.toUpperCase() || null,
+              anio: form.anio || null,
+              color: form.color.toUpperCase() || null,
+              placas: form.placas.toUpperCase(),
+              vin: form.vin.toUpperCase() || null,
+              transmision: form.transmision || null,
+            })
+            .select('id')
+            .single()
+          vehiculoId = vNuevo?.id ?? null
+        }
+      }
+
+      // 2. Buscar conductor por nombre si se capturó
+      let conductorId: string | null = null
+      if (form.conductor) {
+        const parts = form.conductor.trim().split(' ')
+        const { data: cond } = await sb
+          .from('conductores')
+          .select('id')
+          .ilike('nombre', `%${parts[0]}%`)
+          .single()
+        conductorId = cond?.id ?? null
+      }
+
+      // 3. Buscar usuario por nombre o email
+      let usuarioId: string | null = null
+      if (form.email) {
+        const { data: usr } = await sb
+          .from('usuarios')
+          .select('id')
+          .eq('email', form.email.toLowerCase())
+          .single()
+        usuarioId = usr?.id ?? null
+      }
+
+      // 4. Buscar empresa
+      let empresaId: string | null = null
+      if (form.empresa) {
+        const { data: emp } = await sb
+          .from('empresas')
+          .select('id')
+          .ilike('nombre_comercial', `%${form.empresa}%`)
+          .single()
+        empresaId = emp?.id ?? null
+      }
+
+      // 5. Crear el viaje
+      const { data: viaje, error } = await sb
+        .from('viajes')
+        .insert({
+          usuario_id: usuarioId,
+          empresa_id: empresaId,
+          conductor_id: conductorId,
+          vehiculo_id: vehiculoId,
+          origen_calle: form.origen.toUpperCase() || null,
+          origen_contacto: form.origenContacto.toUpperCase() || null,
+          destino_calle: form.destino.toUpperCase() || null,
+          destino_contacto: form.destinoContacto.toUpperCase() || null,
+          referencias: form.referencias || null,
+          instrucciones: form.instrucciones || null,
+          fecha_programada: form.fecha || null,
+          hora_programada: form.hora || null,
+          status: conductorId ? 'Conductor asignado' : 'Pendiente de asignación',
+          tarifa_cliente: parseFloat(form.tarifaCliente) || 0,
+          pago_conductor: parseFloat(form.pagoConductor) || 0,
+          gastos_autorizados: parseFloat(form.gastosAutorizados) || 0,
+        })
+        .select('id')
+        .single()
+
+      if (error) throw error
+
+      // 6. Timeline y nota interna
+      await sb.from('timeline_viaje').insert({
+        viaje_id: viaje.id,
+        evento: 'Viaje registrado por operaciones',
+        actor: 'Admin',
+        actor_tipo: 'admin',
+      })
+
+      if (form.notaInterna) {
+        await sb.from('notas_internas').insert({
+          entidad_tipo: 'viaje',
+          entidad_id: viaje.id,
+          nota: form.notaInterna,
+          autor: 'Admin',
+        })
+      }
+
+      onSave()
+      onClose()
+
+    } catch (e: unknown) {
+      console.error('Error guardando viaje:', e)
+      setErrorGuardar('Ocurrió un error al guardar. Verifica los datos e intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const steps = [
@@ -972,12 +1098,15 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
               ? <button onClick={next} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
                   Siguiente →
                 </button>
-              : <button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              : <button onClick={handleSubmit} disabled={guardando} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                   <CheckCircleIcon className="w-4 h-4" />
-                  Registrar Viaje
+                  {guardando ? 'Guardando...' : 'Registrar Viaje'}
                 </button>
             }
           </div>
+          {errorGuardar && (
+            <p className="text-xs text-red-500 text-right mt-2 pr-1">{errorGuardar}</p>
+          )}
         </div>
       </div>
     </div>
