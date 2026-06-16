@@ -589,7 +589,8 @@ interface FormData {
   // Step 1 – Cliente y servicio
   tipoServicio: string
   empresa: string
-  usuario: string
+  usuarioNombre: string
+  usuarioApellido: string
   telefono: string
   email: string
   // Step 2 – Vehículo
@@ -605,10 +606,24 @@ interface FormData {
   // Step 3 – Ruta y fecha
   fecha: string
   hora: string
-  origen: string
-  origenContacto: string
-  destino: string
-  destinoContacto: string
+  // Origen
+  origenCalle: string
+  origenNumero: string
+  origenColonia: string
+  origenMunicipio: string
+  origenEstado: string
+  origenCp: string
+  origenContactoNombre: string
+  origenContactoTel: string
+  // Destino
+  destinoCalle: string
+  destinoNumero: string
+  destinoColonia: string
+  destinoMunicipio: string
+  destinoEstado: string
+  destinoCp: string
+  destinoContactoNombre: string
+  destinoContactoTel: string
   referencias: string
   instrucciones: string
   // Step 4 – Asignación y tarifas
@@ -620,9 +635,14 @@ interface FormData {
 }
 
 const EMPTY_FORM: FormData = {
-  tipoServicio: '', empresa: '', usuario: '', telefono: '', email: '',
+  tipoServicio: '', empresa: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '',
   vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '', obsVehiculo: '',
-  fecha: '', hora: '', origen: '', origenContacto: '', destino: '', destinoContacto: '', referencias: '', instrucciones: '',
+  fecha: '', hora: '',
+  origenCalle: '', origenNumero: '', origenColonia: '', origenMunicipio: '', origenEstado: '', origenCp: '',
+  origenContactoNombre: '', origenContactoTel: '',
+  destinoCalle: '', destinoNumero: '', destinoColonia: '', destinoMunicipio: '', destinoEstado: '', destinoCp: '',
+  destinoContactoNombre: '', destinoContactoTel: '',
+  referencias: '', instrucciones: '',
   conductor: '', tarifaCliente: '', pagoConductor: '', gastosAutorizados: '', notaInterna: '',
 }
 
@@ -640,8 +660,9 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
     const newErrors: Partial<Record<keyof FormData, string>> = {}
     if (step === 1) {
       if (!form.tipoServicio) newErrors.tipoServicio = 'Requerido'
-      if (!form.usuario) newErrors.usuario = 'Requerido'
       if (!form.empresa) newErrors.empresa = 'Requerido'
+      if (!form.usuarioNombre) newErrors.usuarioNombre = 'Requerido'
+      if (!form.usuarioApellido) newErrors.usuarioApellido = 'Requerido'
     }
     if (step === 2) {
       if (!form.marca) newErrors.marca = 'Requerido'
@@ -651,8 +672,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
     if (step === 3) {
       if (!form.fecha) newErrors.fecha = 'Requerido'
       if (!form.hora) newErrors.hora = 'Requerido'
-      if (!form.origen) newErrors.origen = 'Requerido'
-      if (!form.destino) newErrors.destino = 'Requerido'
+      if (!form.origenCalle) newErrors.origenCalle = 'Requerido'
+      if (!form.destinoCalle) newErrors.destinoCalle = 'Requerido'
     }
     if (step === 4) {
       if (!form.tarifaCliente) newErrors.tarifaCliente = 'Requerido'
@@ -721,7 +742,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         conductorId = cond?.id ?? null
       }
 
-      // 3. Buscar usuario por nombre o email
+      // 3. Buscar usuario por email
       let usuarioId: string | null = null
       if (form.email) {
         const { data: usr } = await sb
@@ -744,6 +765,9 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       }
 
       // 5. Crear el viaje
+      const origenCalle = [form.origenCalle, form.origenNumero].filter(Boolean).join(' ').toUpperCase()
+      const destinoCalle = [form.destinoCalle, form.destinoNumero].filter(Boolean).join(' ').toUpperCase()
+
       const { data: viaje, error } = await sb
         .from('viajes')
         .insert({
@@ -751,10 +775,18 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
           empresa_id: empresaId,
           conductor_id: conductorId,
           vehiculo_id: vehiculoId,
-          origen_calle: form.origen.toUpperCase() || null,
-          origen_contacto: form.origenContacto.toUpperCase() || null,
-          destino_calle: form.destino.toUpperCase() || null,
-          destino_contacto: form.destinoContacto.toUpperCase() || null,
+          origen_calle: origenCalle || null,
+          origen_colonia: form.origenColonia.toUpperCase() || null,
+          origen_estado: [form.origenMunicipio, form.origenEstado].filter(Boolean).join(', ').toUpperCase() || null,
+          origen_cp: form.origenCp || null,
+          origen_contacto: form.origenContactoNombre.toUpperCase() || null,
+          origen_telefono: form.origenContactoTel || null,
+          destino_calle: destinoCalle || null,
+          destino_colonia: form.destinoColonia.toUpperCase() || null,
+          destino_estado: [form.destinoMunicipio, form.destinoEstado].filter(Boolean).join(', ').toUpperCase() || null,
+          destino_cp: form.destinoCp || null,
+          destino_contacto: form.destinoContactoNombre.toUpperCase() || null,
+          destino_telefono: form.destinoContactoTel || null,
           referencias: form.referencias || null,
           instrucciones: form.instrucciones || null,
           fecha_programada: form.fecha || null,
@@ -875,19 +907,24 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 </select>
                 <Err field="tipoServicio" />
               </div>
+              <div>
+                <Label req>Empresa / Cliente</Label>
+                <select value={form.empresa} onChange={e => set('empresa', e.target.value.toUpperCase())} className={SelectCls('empresa')}>
+                  <option value="">Seleccionar...</option>
+                  {EMPRESAS.map(e => <option key={e}>{e}</option>)}
+                </select>
+                <Err field="empresa" />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label req>Empresa / Cliente</Label>
-                  <select value={form.empresa} onChange={e => set('empresa', e.target.value.toUpperCase())} className={SelectCls('empresa')}>
-                    <option value="">Seleccionar...</option>
-                    {EMPRESAS.map(e => <option key={e}>{e}</option>)}
-                  </select>
-                  <Err field="empresa" />
+                  <Label req>Nombre(s) del solicitante</Label>
+                  <input type="text" placeholder="NOMBRE(S)" value={form.usuarioNombre} onChange={e => set('usuarioNombre', e.target.value.toUpperCase())} className={InputCls('usuarioNombre')} />
+                  <Err field="usuarioNombre" />
                 </div>
                 <div>
-                  <Label req>Nombre(s) del solicitante</Label>
-                  <input type="text" placeholder="NOMBRE(S)" value={form.usuario} onChange={e => set('usuario', e.target.value.toUpperCase())} className={InputCls('usuario')} />
-                  <Err field="usuario" />
+                  <Label req>Apellido(s)</Label>
+                  <input type="text" placeholder="APELLIDO(S)" value={form.usuarioApellido} onChange={e => set('usuarioApellido', e.target.value.toUpperCase())} className={InputCls('usuarioApellido')} />
+                  <Err field="usuarioApellido" />
                 </div>
                 <div>
                   <Label>Teléfono de contacto</Label>
@@ -957,7 +994,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 
           {/* ── STEP 3: Ruta y fecha ── */}
           {step === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label req>Fecha del viaje</Label>
@@ -971,40 +1008,97 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-1">📍 Origen</p>
-                  <div>
-                    <Label req>Dirección de origen</Label>
-                    <input type="text" placeholder="Calle, número, colonia, ciudad" value={form.origen} onChange={e => set('origen', e.target.value.toUpperCase())} className={InputCls('origen')} />
-                    <Err field="origen" />
+              {/* Origen */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide border-b border-green-100 pb-1">📍 Origen</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <Label req>Calle</Label>
+                    <input type="text" placeholder="AV. REFORMA" value={form.origenCalle} onChange={e => set('origenCalle', e.target.value.toUpperCase())} className={InputCls('origenCalle')} />
+                    <Err field="origenCalle" />
                   </div>
                   <div>
-                    <Label>Contacto en origen</Label>
-                    <input type="text" placeholder="NOMBRE · 55-0000-0000" value={form.origenContacto} onChange={e => set('origenContacto', e.target.value.toUpperCase())} className={InputCls('origenContacto')} />
+                    <Label>Número</Label>
+                    <input type="text" placeholder="222" value={form.origenNumero} onChange={e => set('origenNumero', e.target.value.toUpperCase())} className={InputCls('origenNumero')} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Colonia</Label>
+                    <input type="text" placeholder="CUAUHTÉMOC" value={form.origenColonia} onChange={e => set('origenColonia', e.target.value.toUpperCase())} className={InputCls('origenColonia')} />
+                  </div>
+                  <div>
+                    <Label>CP</Label>
+                    <input type="text" placeholder="06600" maxLength={5} value={form.origenCp} onChange={e => set('origenCp', e.target.value.replace(/\D/g,'').slice(0,5))} className={InputCls('origenCp')} />
+                  </div>
+                  <div>
+                    <Label>Municipio</Label>
+                    <input type="text" placeholder="CUAUHTÉMOC" value={form.origenMunicipio} onChange={e => set('origenMunicipio', e.target.value.toUpperCase())} className={InputCls('origenMunicipio')} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Estado</Label>
+                    <input type="text" placeholder="CIUDAD DE MÉXICO" value={form.origenEstado} onChange={e => set('origenEstado', e.target.value.toUpperCase())} className={InputCls('origenEstado')} />
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-1">🏁 Destino</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label req>Dirección de destino</Label>
-                    <input type="text" placeholder="Calle, número, colonia, ciudad" value={form.destino} onChange={e => set('destino', e.target.value.toUpperCase())} className={InputCls('destino')} />
-                    <Err field="destino" />
+                    <Label>Nombre del responsable</Label>
+                    <input type="text" placeholder="NOMBRE(S) APELLIDO(S)" value={form.origenContactoNombre} onChange={e => set('origenContactoNombre', e.target.value.toUpperCase())} className={InputCls('origenContactoNombre')} />
                   </div>
                   <div>
-                    <Label>Contacto en destino</Label>
-                    <input type="text" placeholder="NOMBRE · 55-0000-0000" value={form.destinoContacto} onChange={e => set('destinoContacto', e.target.value.toUpperCase())} className={InputCls('destinoContacto')} />
+                    <Label>Teléfono del responsable</Label>
+                    <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.origenContactoTel} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('origenContactoTel', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('origenContactoTel')} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Destino */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide border-b border-red-100 pb-1">🏁 Destino</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <Label req>Calle</Label>
+                    <input type="text" placeholder="TALLER NORTE" value={form.destinoCalle} onChange={e => set('destinoCalle', e.target.value.toUpperCase())} className={InputCls('destinoCalle')} />
+                    <Err field="destinoCalle" />
+                  </div>
+                  <div>
+                    <Label>Número</Label>
+                    <input type="text" placeholder="100" value={form.destinoNumero} onChange={e => set('destinoNumero', e.target.value.toUpperCase())} className={InputCls('destinoNumero')} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Colonia</Label>
+                    <input type="text" placeholder="SATÉLITE" value={form.destinoColonia} onChange={e => set('destinoColonia', e.target.value.toUpperCase())} className={InputCls('destinoColonia')} />
+                  </div>
+                  <div>
+                    <Label>CP</Label>
+                    <input type="text" placeholder="53100" maxLength={5} value={form.destinoCp} onChange={e => set('destinoCp', e.target.value.replace(/\D/g,'').slice(0,5))} className={InputCls('destinoCp')} />
+                  </div>
+                  <div>
+                    <Label>Municipio</Label>
+                    <input type="text" placeholder="NAUCALPAN" value={form.destinoMunicipio} onChange={e => set('destinoMunicipio', e.target.value.toUpperCase())} className={InputCls('destinoMunicipio')} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Estado</Label>
+                    <input type="text" placeholder="ESTADO DE MÉXICO" value={form.destinoEstado} onChange={e => set('destinoEstado', e.target.value.toUpperCase())} className={InputCls('destinoEstado')} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label>Nombre del responsable</Label>
+                    <input type="text" placeholder="NOMBRE(S) APELLIDO(S)" value={form.destinoContactoNombre} onChange={e => set('destinoContactoNombre', e.target.value.toUpperCase())} className={InputCls('destinoContactoNombre')} />
+                  </div>
+                  <div>
+                    <Label>Teléfono del responsable</Label>
+                    <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.destinoContactoTel} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('destinoContactoTel', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('destinoContactoTel')} />
                   </div>
                 </div>
               </div>
 
               <div>
                 <Label>Referencias del lugar</Label>
-                <input type="text" placeholder="Entre calles, punto de referencia, color de fachada..." value={form.referencias} onChange={e => set('referencias', e.target.value.toUpperCase())} className={InputCls('referencias')} />
+                <input type="text" placeholder="ENTRE CALLES, PUNTO DE REFERENCIA, COLOR DE FACHADA..." value={form.referencias} onChange={e => set('referencias', e.target.value.toUpperCase())} className={InputCls('referencias')} />
               </div>
               <div>
                 <Label>Instrucciones especiales</Label>
-                <textarea rows={2} placeholder="Llamar al llegar, pedir firma, acceso restringido..." value={form.instrucciones} onChange={e => set('instrucciones', e.target.value)} className={InputCls('instrucciones')} />
+                <textarea rows={2} placeholder="LLAMAR AL LLEGAR, PEDIR FIRMA, ACCESO RESTRINGIDO..." value={form.instrucciones} onChange={e => set('instrucciones', e.target.value.toUpperCase())} className={InputCls('instrucciones')} />
               </div>
             </div>
           )}
@@ -1070,10 +1164,10 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Resumen del viaje a registrar</p>
                 {[
                   ['Servicio', form.tipoServicio || '—'],
-                  ['Cliente', `${form.usuario || '—'} · ${form.empresa || '—'}`],
+                  ['Cliente', `${[form.usuarioNombre, form.usuarioApellido].filter(Boolean).join(' ') || '—'} · ${form.empresa || '—'}`],
                   ['Vehículo', form.marca ? `${form.marca} ${form.modelo} · ${form.placas}` : '—'],
                   ['Fecha / Hora', form.fecha ? `${form.fecha} · ${form.hora}` : '—'],
-                  ['Ruta', form.origen ? `${form.origen} → ${form.destino}` : '—'],
+                  ['Ruta', form.origenCalle ? `${form.origenCalle} → ${form.destinoCalle}` : '—'],
                   ['Conductor', form.conductor || 'Sin asignar'],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-start gap-2 text-xs">
