@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   PlusIcon,
   XMarkIcon,
@@ -336,38 +336,174 @@ export default function TarifasView() {
   const [tab, setTab]           = useState<MainTab>('bases')
   const [open, setOpen]         = useState<Record<string, boolean>>({ sim: true })
   const [editId, setEditId]     = useState<string | null>(null)
-  const [editData, setEditData] = useState<any>({})
+  const [editData, setEditData] = useState<Record<string, unknown>>({})
+  const [guardando, setGuardando] = useState(false)
 
-  // Estado mutable de cada sección
-  const [tarifasBase, setTarifasBase]     = useState<TarifaBase[]>(TARIFAS_BASE_INIT)
-  const [recargos, setRecargos]           = useState<Recargo[]>(RECARGOS_INIT)
-  const [pagosConductor, setPagosConductor] = useState<PagoConductor[]>(PAGOS_CONDUCTOR_INIT)
-  const [tarifasEmp, setTarifasEmp]       = useState<TarifaEmpresarial[]>(TARIFAS_EMPRESARIALES_INIT)
-  const [rutasFrecuentes, setRutasFrecuentes] = useState<RutaFrecuente[]>(RUTAS_FRECUENTES_INIT)
+  const [tarifasBase, setTarifasBase]         = useState<TarifaBase[]>([])
+  const [recargos, setRecargos]               = useState<Recargo[]>([])
+  const [pagosConductor, setPagosConductor]   = useState<PagoConductor[]>([])
+  const [tarifasEmp, setTarifasEmp]           = useState<TarifaEmpresarial[]>([])
+  const [rutasFrecuentes, setRutasFrecuentes] = useState<RutaFrecuente[]>([])
+  const [cargando, setCargando]               = useState(true)
 
-  const startEdit = (id: string, data: any) => { setEditId(id); setEditData({ ...data }) }
+  // ── SUPABASE HELPER ──────────────────────────────────────────────────────
+  const getSb = async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  }
+
+  // ── CARGA INICIAL ────────────────────────────────────────────────────────
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    const [tb, rc, pc, te, rf] = await Promise.all([
+      sb.from('tarifas_base').select('*').order('created_at'),
+      sb.from('recargos').select('*').order('created_at'),
+      sb.from('tarifas_conductor').select('*').order('created_at'),
+      sb.from('tarifas_empresariales').select('*').order('created_at'),
+      sb.from('rutas_frecuentes').select('*').order('created_at'),
+    ])
+
+    // Si no hay datos aún → seed con los valores iniciales
+    if (!tb.data?.length) {
+      await sb.from('tarifas_base').insert(TARIFAS_BASE_INIT.map(t => ({
+        nombre: t.nombre, tipo_vehiculo: t.tipoVehiculo, tipo_servicio: t.tipoServicio,
+        tarifa_base: t.tarifaBase, por_km: t.porKm, tarifa_minima: t.tarifaMinima,
+        tiempo_estimado: t.tiempoEstimado, activa: t.activa,
+      })))
+      const { data } = await sb.from('tarifas_base').select('*').order('created_at')
+      tb.data = data
+    }
+    if (!rc.data?.length) {
+      await sb.from('recargos').insert(RECARGOS_INIT.map(r => ({
+        nombre: r.nombre, tipo: r.tipo, valor: r.valor, aplica: r.aplica, activo: r.activo,
+      })))
+      const { data } = await sb.from('recargos').select('*').order('created_at')
+      rc.data = data
+    }
+    if (!pc.data?.length) {
+      await sb.from('tarifas_conductor').insert(PAGOS_CONDUCTOR_INIT.map(p => ({
+        tipo_servicio: p.tipoServicio, tipo_vehiculo: p.tipoVehiculo,
+        pago_base: p.pagoBase, por_km: p.porKm,
+        gastos_autorizados: p.gastosAutorizados, viaticos: p.viaticos, activo: p.activo,
+      })))
+      const { data } = await sb.from('tarifas_conductor').select('*').order('created_at')
+      pc.data = data
+    }
+    if (!rf.data?.length) {
+      await sb.from('rutas_frecuentes').insert(RUTAS_FRECUENTES_INIT.map(r => ({
+        nombre: r.nombre, origen: r.origen, destino: r.destino,
+        distancia_km: r.distanciaKm, tarifa_fija: r.tarifaFija,
+        pago_conductor: r.pagoConductor, tiempo_est: r.tiempoEst,
+        tipo_vehiculo: r.tipoVehiculo, activa: r.activa,
+      })))
+      const { data } = await sb.from('rutas_frecuentes').select('*').order('created_at')
+      rf.data = data
+    }
+
+    // Mapear BD → interfaces
+    if (tb.data) setTarifasBase(tb.data.map((r: Record<string,unknown>) => ({
+      id: String(r.id), nombre: String(r.nombre ?? ''),
+      tipoVehiculo: (r.tipo_vehiculo as TipoVehiculo) ?? 'Todos',
+      tipoServicio: (r.tipo_servicio as TipoServicio) ?? 'Traslado local',
+      tarifaBase: Number(r.tarifa_base ?? 0), porKm: Number(r.por_km ?? 0),
+      tarifaMinima: Number(r.tarifa_minima ?? 0), tiempoEstimado: Number(r.tiempo_estimado ?? 0),
+      activa: Boolean(r.activa),
+    })))
+    if (rc.data) setRecargos(rc.data.map((r: Record<string,unknown>) => ({
+      id: String(r.id), nombre: String(r.nombre ?? ''),
+      tipo: (r.tipo as 'porcentaje' | 'fijo') ?? 'porcentaje',
+      valor: Number(r.valor ?? 0), aplica: String(r.aplica ?? ''), activo: Boolean(r.activo),
+    })))
+    if (pc.data) setPagosConductor(pc.data.map((r: Record<string,unknown>) => ({
+      id: String(r.id),
+      tipoServicio: (r.tipo_servicio as TipoServicio) ?? 'Traslado local',
+      tipoVehiculo: (r.tipo_vehiculo as TipoVehiculo) ?? 'Todos',
+      pagoBase: Number(r.pago_base ?? 0), porKm: Number(r.por_km ?? 0),
+      gastosAutorizados: Number(r.gastos_autorizados ?? 0), viaticos: Number(r.viaticos ?? 0),
+      activo: Boolean(r.activo),
+    })))
+    if (te.data) setTarifasEmp(te.data.map((r: Record<string,unknown>) => ({
+      id: String(r.id), empresa: String(r.empresa ?? ''),
+      descuento: Number(r.descuento ?? 0),
+      tarifaFija: r.tarifa_fija != null ? Number(r.tarifa_fija) : null,
+      vigenciaDesde: String(r.vigencia_desde ?? ''), vigenciaHasta: String(r.vigencia_hasta ?? ''),
+      serviciosIncluidos: (r.servicios_incluidos as TipoServicio[]) ?? [], activa: Boolean(r.activa),
+    })))
+    if (rf.data) setRutasFrecuentes(rf.data.map((r: Record<string,unknown>) => ({
+      id: String(r.id), nombre: String(r.nombre ?? ''),
+      origen: String(r.origen ?? ''), destino: String(r.destino ?? ''),
+      distanciaKm: Number(r.distancia_km ?? 0), tarifaFija: Number(r.tarifa_fija ?? 0),
+      pagoConductor: Number(r.pago_conductor ?? 0), tiempoEst: Number(r.tiempo_est ?? 0),
+      tipoVehiculo: (r.tipo_vehiculo as TipoVehiculo) ?? 'Todos', activa: Boolean(r.activa),
+    })))
+
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  // ── EDICIÓN ──────────────────────────────────────────────────────────────
+  const startEdit = (id: string, data: Record<string,unknown>) => { setEditId(id); setEditData({ ...data }) }
   const cancelEdit = () => { setEditId(null); setEditData({}) }
 
-  const saveEdit = (section: MainTab) => {
+  const TABLA: Record<MainTab, string> = {
+    bases: 'tarifas_base', recargos: 'recargos', conductores: 'tarifas_conductor',
+    empresariales: 'tarifas_empresariales', rutas: 'rutas_frecuentes',
+  }
+
+  const COL_MAP: Record<string, string> = {
+    tarifaBase: 'tarifa_base', porKm: 'por_km', tarifaMinima: 'tarifa_minima',
+    tiempoEstimado: 'tiempo_estimado', tipoVehiculo: 'tipo_vehiculo',
+    tipoServicio: 'tipo_servicio', pagoBase: 'pago_base',
+    gastosAutorizados: 'gastos_autorizados', tarifaFija: 'tarifa_fija',
+    vigenciaDesde: 'vigencia_desde', vigenciaHasta: 'vigencia_hasta',
+    serviciosIncluidos: 'servicios_incluidos', distanciaKm: 'distancia_km',
+    pagoConductor: 'pago_conductor', tiempoEst: 'tiempo_est',
+  }
+
+  const saveEdit = async (section: MainTab) => {
+    setGuardando(true)
+    const sb = await getSb()
+    // Convertir camelCase → snake_case
+    const payload: Record<string,unknown> = {}
+    for (const [k, v] of Object.entries(editData)) {
+      payload[COL_MAP[k] ?? k] = v
+    }
+    delete payload.id
+    await sb.from(TABLA[section]).update(payload).eq('id', editId!)
+    // Actualizar estado local
     if (section === 'bases') setTarifasBase(prev => prev.map(r => r.id === editId ? { ...r, ...editData } : r))
     if (section === 'recargos') setRecargos(prev => prev.map(r => r.id === editId ? { ...r, ...editData } : r))
     if (section === 'conductores') setPagosConductor(prev => prev.map(r => r.id === editId ? { ...r, ...editData } : r))
     if (section === 'empresariales') setTarifasEmp(prev => prev.map(r => r.id === editId ? { ...r, ...editData } : r))
     if (section === 'rutas') setRutasFrecuentes(prev => prev.map(r => r.id === editId ? { ...r, ...editData } : r))
     cancelEdit()
+    setGuardando(false)
   }
 
-  const toggleActiva = (section: MainTab, id: string) => {
-    const toggle = (list: any[]) => list.map(r => r.id === id ? { ...r, activa: !r.activa, activo: !r.activo } : r)
-    if (section === 'bases') setTarifasBase(prev => toggle(prev))
-    if (section === 'recargos') setRecargos(prev => toggle(prev))
-    if (section === 'conductores') setPagosConductor(prev => toggle(prev))
-    if (section === 'empresariales') setTarifasEmp(prev => toggle(prev))
-    if (section === 'rutas') setRutasFrecuentes(prev => toggle(prev))
+  const toggleActiva = async (section: MainTab, id: string) => {
+    const sb = await getSb()
+    const getActual = () => {
+      if (section === 'bases') return tarifasBase.find(r => r.id === id)?.activa
+      if (section === 'recargos') return recargos.find(r => r.id === id)?.activo
+      if (section === 'conductores') return pagosConductor.find(r => r.id === id)?.activo
+      if (section === 'empresariales') return tarifasEmp.find(r => r.id === id)?.activa
+      if (section === 'rutas') return rutasFrecuentes.find(r => r.id === id)?.activa
+    }
+    const actual = getActual()
+    const col = (section === 'recargos' || section === 'conductores') ? 'activo' : 'activa'
+    await sb.from(TABLA[section]).update({ [col]: !actual }).eq('id', id)
+    const toggle = (list: (TarifaBase | Recargo | PagoConductor | TarifaEmpresarial | RutaFrecuente)[]) =>
+      list.map(r => r.id === id ? { ...r, activa: !actual, activo: !actual } : r)
+    if (section === 'bases') setTarifasBase(prev => toggle(prev) as TarifaBase[])
+    if (section === 'recargos') setRecargos(prev => toggle(prev) as Recargo[])
+    if (section === 'conductores') setPagosConductor(prev => toggle(prev) as PagoConductor[])
+    if (section === 'empresariales') setTarifasEmp(prev => toggle(prev) as TarifaEmpresarial[])
+    if (section === 'rutas') setRutasFrecuentes(prev => toggle(prev) as RutaFrecuente[])
   }
 
   const E = (id: string) => editId === id
-  const set = (k: string, v: any) => setEditData((d: any) => ({ ...d, [k]: v }))
+  const set = (k: string, v: unknown) => setEditData(d => ({ ...d, [k]: v }))
 
   const mainTabs: { id: MainTab; label: string; icon: string }[] = [
     { id: 'bases',         label: 'Tarifas base',          icon: '💰' },
@@ -388,18 +524,22 @@ export default function TarifasView() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { label: 'Tarifas base activas',    value: tarifasBase.filter(t => t.activa).length,        total: tarifasBase.length },
-          { label: 'Recargos activos',         value: recargos.filter(r => r.activo).length,           total: recargos.length },
-          { label: 'Reglas de pago',           value: pagosConductor.filter(p => p.activo).length,     total: pagosConductor.length },
-          { label: 'Convenios empresariales',  value: tarifasEmp.filter(t => t.activa).length,         total: tarifasEmp.length },
-          { label: 'Rutas frecuentes',         value: rutasFrecuentes.filter(r => r.activa).length,    total: rutasFrecuentes.length },
-        ].map((k, i) => (
-          <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-center">
-            <p className="text-2xl font-bold text-slate-800">{k.value}<span className="text-sm text-slate-400 font-normal">/{k.total}</span></p>
-            <p className="text-xs text-slate-400 mt-0.5">{k.label}</p>
-          </div>
-        ))}
+        {cargando ? (
+          [1,2,3,4,5].map(i => <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse h-16" />)
+        ) : (
+          [
+            { label: 'Tarifas base activas',   value: tarifasBase.filter(t => t.activa).length,      total: tarifasBase.length },
+            { label: 'Recargos activos',        value: recargos.filter(r => r.activo).length,          total: recargos.length },
+            { label: 'Reglas de pago',          value: pagosConductor.filter(p => p.activo).length,   total: pagosConductor.length },
+            { label: 'Convenios empresariales', value: tarifasEmp.filter(t => t.activa).length,       total: tarifasEmp.length },
+            { label: 'Rutas frecuentes',        value: rutasFrecuentes.filter(r => r.activa).length,  total: rutasFrecuentes.length },
+          ].map((k, i) => (
+            <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-center">
+              <p className="text-2xl font-bold text-slate-800">{k.value}<span className="text-sm text-slate-400 font-normal">/{k.total}</span></p>
+              <p className="text-xs text-slate-400 mt-0.5">{k.label}</p>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Main card */}
@@ -415,6 +555,12 @@ export default function TarifasView() {
             </button>
           ))}
         </div>
+
+        {guardando && (
+          <div className="px-5 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
+            Guardando cambios en Supabase...
+          </div>
+        )}
 
         {/* ── TAB: TARIFAS BASE ── */}
         {tab === 'bases' && (
