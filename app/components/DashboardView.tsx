@@ -197,7 +197,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
       incidenciasAbiertas: incidencias ?? 0,
     })
 
-    setViajesRecientes((recientes as ViajeReciente[]) ?? [])
+    setViajesRecientes((recientes as unknown as ViajeReciente[]) ?? [])
 
     // Construir alertas dinámicas
     const nuevasAlertas: Alerta[] = []
