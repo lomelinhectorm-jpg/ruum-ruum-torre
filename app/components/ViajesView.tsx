@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -999,22 +999,27 @@ interface ViajeDB {
   destino_colonia: string | null
   tarifa_cliente: number
   pago_conductor: number
-  conductores: { nombre: string; apellido: string } | null
-  usuarios: { nombre: string; apellido: string } | null
-  empresas: { nombre_comercial: string } | null
-  vehiculos: { marca: string; modelo: string; placas: string } | null
+  conductores: { nombre: string; apellido: string }[] | null
+  usuarios: { nombre: string; apellido: string }[] | null
+  empresas: { nombre_comercial: string }[] | null
+  vehiculos: { marca: string; modelo: string; placas: string }[] | null
 }
 
 function viajeDBaTrip(v: ViajeDB): Trip {
+  const conductor = v.conductores?.[0] ?? null
+  const usuario = v.usuarios?.[0] ?? null
+  const empresa = v.empresas?.[0] ?? null
+  const vehiculo = v.vehiculos?.[0] ?? null
+
   return {
     id: v.folio ?? v.id.slice(0, 8).toUpperCase(),
-    usuario: v.usuarios ? `${v.usuarios.nombre} ${v.usuarios.apellido}` : '—',
-    empresa: v.empresas?.nombre_comercial ?? '—',
+    usuario: usuario ? `${usuario.nombre} ${usuario.apellido}` : '—',
+    empresa: empresa?.nombre_comercial ?? '—',
     vehiculo: {
-      marca: v.vehiculos?.marca ?? '—',
-      modelo: v.vehiculos?.modelo ?? '—',
+      marca: vehiculo?.marca ?? '—',
+      modelo: vehiculo?.modelo ?? '—',
       anio: '—', color: '—',
-      placas: v.vehiculos?.placas ?? '—',
+      placas: vehiculo?.placas ?? '—',
       vin: '—', transmision: '—', observaciones: '',
     },
     origen: [v.origen_calle, v.origen_colonia].filter(Boolean).join(', '),
@@ -1024,10 +1029,13 @@ function viajeDBaTrip(v: ViajeDB): Trip {
     referencias: '', instrucciones: '',
     fecha: v.fecha_programada ?? '—',
     hora: v.hora_programada ?? '—',
-    conductor: v.conductores ? `${v.conductores.nombre} ${v.conductores.apellido}` : null,
+    conductor: conductor ? `${conductor.nombre} ${conductor.apellido}` : null,
     status: v.status,
     tarifaCliente: v.tarifa_cliente ?? 0,
     pagoConductor: v.pago_conductor ?? 0,
+    gastosExtra: 0,
+    gastosAutorizados: 0,
+    ajustes: 0,
     evidencia: 'Pendiente',
     incidencias: 0,
     tipoServicio: '—',
