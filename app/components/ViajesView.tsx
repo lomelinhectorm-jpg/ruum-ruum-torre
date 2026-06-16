@@ -985,12 +985,95 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: (dat
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+
+// ─── TIPOS SUPABASE ───────────────────────────────────────────────────────────
+interface ViajeDB {
+  id: string
+  folio: string | null
+  status: StatusKey
+  fecha_programada: string | null
+  hora_programada: string | null
+  origen_calle: string | null
+  origen_colonia: string | null
+  destino_calle: string | null
+  destino_colonia: string | null
+  tarifa_cliente: number
+  pago_conductor: number
+  conductores: { nombre: string; apellido: string } | null
+  usuarios: { nombre: string; apellido: string } | null
+  empresas: { nombre_comercial: string } | null
+  vehiculos: { marca: string; modelo: string; placas: string } | null
+}
+
+function viajeDBaTrip(v: ViajeDB): Trip {
+  return {
+    id: v.folio ?? v.id.slice(0, 8).toUpperCase(),
+    usuario: v.usuarios ? `${v.usuarios.nombre} ${v.usuarios.apellido}` : '—',
+    empresa: v.empresas?.nombre_comercial ?? '—',
+    vehiculo: {
+      marca: v.vehiculos?.marca ?? '—',
+      modelo: v.vehiculos?.modelo ?? '—',
+      anio: '—', color: '—',
+      placas: v.vehiculos?.placas ?? '—',
+      vin: '—', transmision: '—', observaciones: '',
+    },
+    origen: [v.origen_calle, v.origen_colonia].filter(Boolean).join(', '),
+    origenContacto: '—',
+    destino: [v.destino_calle, v.destino_colonia].filter(Boolean).join(', '),
+    destinoContacto: '—',
+    referencias: '', instrucciones: '',
+    fecha: v.fecha_programada ?? '—',
+    hora: v.hora_programada ?? '—',
+    conductor: v.conductores ? `${v.conductores.nombre} ${v.conductores.apellido}` : null,
+    status: v.status,
+    tarifaCliente: v.tarifa_cliente ?? 0,
+    pagoConductor: v.pago_conductor ?? 0,
+    evidencia: 'Pendiente',
+    incidencias: 0,
+    tipoServicio: '—',
+    timeline: [], notas: [],
+    observacionesConductor: '', revisionAdmin: '',
+  }
+}
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function ViajesView() {
   const [activeTab, setActiveTab] = useState<TabId>('todos')
   const [search, setSearch] = useState('')
   const [actionTrip, setActionTrip] = useState<Trip | null>(null)
   const [detailTrip, setDetailTrip] = useState<Trip | null>(null)
   const [showNewForm, setShowNewForm] = useState(false)
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  const cargarViajes = async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data, error } = await sb
+      .from('viajes')
+      .select(`
+        id, folio, status, fecha_programada, hora_programada,
+        origen_calle, origen_colonia, destino_calle, destino_colonia,
+        tarifa_cliente, pago_conductor,
+        conductores(nombre, apellido),
+        usuarios(nombre, apellido),
+        empresas(nombre_comercial),
+        vehiculos(marca, modelo, placas)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setTrips((data as ViajeDB[]).map(viajeDBaTrip))
+    }
+    setCargando(false)
+  }
+
+  useEffect(() => {
+    cargarViajes()
+  }, [])
 
   const tabs: { id: TabId; label: string }[] = [
     { id: 'todos', label: 'Todos' },
@@ -1002,28 +1085,36 @@ export default function ViajesView() {
     { id: 'revision', label: 'En revisión' },
   ]
 
-  const filtered = TRIPS.filter(t => {
+  const filtered = trips.filter(t => {
     const allowedStatuses = tabStatusMap[activeTab]
     const matchTab = allowedStatuses.length === 0 || allowedStatuses.includes(t.status)
     const q = search.toLowerCase()
-    const matchSearch = !q || t.id.toLowerCase().includes(q) || t.usuario.toLowerCase().includes(q) ||
-      t.vehiculo.placas.toLowerCase().includes(q) || (t.conductor?.toLowerCase().includes(q) ?? false)
+    const matchSearch = !q ||
+      t.id.toLowerCase().includes(q) ||
+      t.usuario.toLowerCase().includes(q) ||
+      t.vehiculo.placas.toLowerCase().includes(q) ||
+      (t.conductor?.toLowerCase().includes(q) ?? false)
     return matchTab && matchSearch
   })
 
   const counts: Record<TabId, number> = {
-    todos: TRIPS.length,
-    pendientes: TRIPS.filter(t => tabStatusMap.pendientes.includes(t.status)).length,
-    programados: TRIPS.filter(t => tabStatusMap.programados.includes(t.status)).length,
-    'en-curso': TRIPS.filter(t => tabStatusMap['en-curso'].includes(t.status)).length,
-    finalizados: TRIPS.filter(t => tabStatusMap.finalizados.includes(t.status)).length,
-    cancelados: TRIPS.filter(t => tabStatusMap.cancelados.includes(t.status)).length,
-    revision: TRIPS.filter(t => tabStatusMap.revision.includes(t.status)).length,
+    todos: trips.length,
+    pendientes: trips.filter(t => tabStatusMap.pendientes.includes(t.status)).length,
+    programados: trips.filter(t => tabStatusMap.programados.includes(t.status)).length,
+    'en-curso': trips.filter(t => tabStatusMap['en-curso'].includes(t.status)).length,
+    finalizados: trips.filter(t => tabStatusMap.finalizados.includes(t.status)).length,
+    cancelados: trips.filter(t => tabStatusMap.cancelados.includes(t.status)).length,
+    revision: trips.filter(t => tabStatusMap.revision.includes(t.status)).length,
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {showNewForm && <NuevoViajeForm onClose={() => setShowNewForm(false)} onSave={(data) => { console.log(data); setShowNewForm(false) }} />}
+      {showNewForm && (
+        <NuevoViajeForm
+          onClose={() => setShowNewForm(false)}
+          onSave={() => { setShowNewForm(false); cargarViajes() }}
+        />
+      )}
       {detailTrip && <TripDetail trip={detailTrip} onClose={() => setDetailTrip(null)} />}
       {actionTrip && (
         <ActionMenu
@@ -1034,7 +1125,6 @@ export default function ViajesView() {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        {/* Tabs + Search */}
         <div className="px-5 pt-5 border-b border-slate-200">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4">
             <div className="flex gap-1.5 overflow-x-auto flex-wrap">
@@ -1057,89 +1147,103 @@ export default function ViajesView() {
                   value={search} onChange={e => setSearch(e.target.value)}
                   className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64" />
               </div>
-              <button onClick={() => setShowNewForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                <PlusIcon className="w-4 h-4" />
-                Nuevo viaje
+              <button onClick={() => setShowNewForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                <PlusIcon className="w-4 h-4" />Nuevo viaje
               </button>
             </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
-              <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Cliente / Empresa</th>
-                <th className="px-4 py-3">Vehículo</th>
-                <th className="px-4 py-3">Origen → Destino</th>
-                <th className="px-4 py-3">Fecha / Hora</th>
-                <th className="px-4 py-3">Conductor</th>
-                <th className="px-4 py-3">Estatus</th>
-                <th className="px-4 py-3 text-right">Tarifa</th>
-                <th className="px-4 py-3 text-right">Pago</th>
-                <th className="px-4 py-3 text-center">Evidencia</th>
-                <th className="px-4 py-3 text-center">Inc.</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && (
-                <tr><td colSpan={12} className="text-center py-12 text-slate-400 text-sm italic">Sin viajes en esta categoría.</td></tr>
-              )}
-              {filtered.map((trip, i) => (
-                <tr key={i} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-semibold text-blue-600 whitespace-nowrap">{trip.id}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-800 text-xs">{trip.usuario}</div>
-                    <div className="text-xs text-slate-400 truncate max-w-[120px]">{trip.empresa}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-xs">{trip.vehiculo.marca} {trip.vehiculo.modelo}</div>
-                    <div className="text-xs text-slate-400">{trip.vehiculo.placas}</div>
-                  </td>
-                  <td className="px-4 py-3 max-w-[160px]">
-                    <div className="text-xs text-slate-600 truncate">{trip.origen}</div>
-                    <div className="text-xs text-slate-400 truncate">→ {trip.destino}</div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="text-xs font-medium">{trip.fecha}</div>
-                    <div className="text-xs text-slate-400">{trip.hora}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {trip.conductor
-                      ? <span className="text-xs font-medium text-slate-700">{trip.conductor}</span>
-                      : <span className="text-xs text-red-500 italic">Sin asignar</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusStyle[trip.status]}`}>
-                      {trip.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs font-semibold text-slate-800">${trip.tarifaCliente.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-xs text-slate-500">${trip.pagoConductor.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${evidenciaStyle[trip.evidencia]}`}>
-                      {trip.evidencia}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {trip.incidencias > 0
-                      ? <span className="bg-red-100 text-red-700 rounded-full px-2 py-0.5 text-xs font-bold">{trip.incidencias}</span>
-                      : <span className="text-slate-300 text-xs">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => setActionTrip(trip)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
-                      Acciones ▾
-                    </button>
-                  </td>
+        {cargando ? (
+          <div className="py-16 text-center">
+            <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-slate-400 text-sm">Cargando viajes...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                <tr>
+                  <th className="px-4 py-3">ID</th>
+                  <th className="px-4 py-3">Cliente / Empresa</th>
+                  <th className="px-4 py-3">Vehículo</th>
+                  <th className="px-4 py-3">Origen → Destino</th>
+                  <th className="px-4 py-3">Fecha / Hora</th>
+                  <th className="px-4 py-3">Conductor</th>
+                  <th className="px-4 py-3">Estatus</th>
+                  <th className="px-4 py-3 text-right">Tarifa</th>
+                  <th className="px-4 py-3 text-right">Pago</th>
+                  <th className="px-4 py-3 text-center">Evidencia</th>
+                  <th className="px-4 py-3 text-center">Inc.</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={12} className="text-center py-12 text-slate-400 text-sm italic">
+                      Sin viajes en esta categoría.
+                    </td>
+                  </tr>
+                )}
+                {filtered.map((trip, i) => (
+                  <tr key={i} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-blue-600 whitespace-nowrap">{trip.id}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-800 text-xs">{trip.usuario}</div>
+                      <div className="text-xs text-slate-400 truncate max-w-[120px]">{trip.empresa}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-xs">{trip.vehiculo.marca} {trip.vehiculo.modelo}</div>
+                      <div className="text-xs text-slate-400">{trip.vehiculo.placas}</div>
+                    </td>
+                    <td className="px-4 py-3 max-w-[160px]">
+                      <div className="text-xs text-slate-600 truncate">{trip.origen}</div>
+                      <div className="text-xs text-slate-400 truncate">→ {trip.destino}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-xs font-medium">{trip.fecha}</div>
+                      <div className="text-xs text-slate-400">{trip.hora}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {trip.conductor
+                        ? <span className="text-xs font-medium text-slate-700">{trip.conductor}</span>
+                        : <span className="text-xs text-red-500 italic">Sin asignar</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusStyle[trip.status]}`}>
+                        {trip.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-semibold text-slate-800">
+                      ${trip.tarifaCliente.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs text-slate-500">
+                      ${trip.pagoConductor.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${evidenciaStyle[trip.evidencia]}`}>
+                        {trip.evidencia}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {trip.incidencias > 0
+                        ? <span className="bg-red-100 text-red-700 rounded-full px-2 py-0.5 text-xs font-bold">{trip.incidencias}</span>
+                        : <span className="text-slate-300 text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => setActionTrip(trip)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                        Acciones ▾
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
