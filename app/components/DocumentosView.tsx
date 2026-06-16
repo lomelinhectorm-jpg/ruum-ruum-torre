@@ -6,586 +6,202 @@ import {
   PlusIcon,
   XMarkIcon,
   ChevronLeftIcon,
-  PaperAirplaneIcon,
   CheckCircleIcon,
+  XCircleIcon,
+  DocumentTextIcon,
+  IdentificationIcon,
+  TruckIcon,
+  BuildingOfficeIcon,
   ExclamationTriangleIcon,
-  UserPlusIcon,
-  BellAlertIcon,
-  ArrowUpCircleIcon,
-  DocumentArrowUpIcon,
-  ChatBubbleLeftEllipsisIcon,
-  ClockIcon,
   ArrowPathIcon,
+  ClockIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-type TipoIncidencia =
-  | 'Daños reportados'
-  | 'Retraso'
-  | 'Falta de evidencia'
-  | 'Contacto no disponible'
-  | 'Problema con documentación'
-  | 'Problema con pago'
-  | 'Cancelación'
-  | 'Diferencia de kilometraje'
-  | 'Diferencia de combustible'
-  | 'Problema con conductor'
-  | 'Problema con usuario'
-  | 'Otro'
+type EstatusDoc = 'Pendiente' | 'En revisión' | 'Vigente' | 'Rechazado' | 'Vencido' | 'Suspendido'
+type TipoDoc = 'Licencia' | 'INE / Pasaporte' | 'Comprobante domicilio' | 'Alta SAT / CIF' | 'Tarjeta circulación' | 'Verificación' | 'Seguro vehicular' | 'Contrato' | 'Otro'
+type TipoEntidad = 'Conductor' | 'Usuario' | 'Empresa' | 'Vehículo'
 
-type EstatusIncidencia =
-  | 'Nueva'
-  | 'En revisión'
-  | 'Requiere información'
-  | 'En seguimiento'
-  | 'Resuelta'
-  | 'Cerrada'
-  | 'Escalada'
-
-type Prioridad = 'Alta' | 'Media' | 'Baja'
-
-interface NotaIncidencia { autor: string; texto: string; hora: string }
-interface EventoTimeline { evento: string; hora: string; actor: string; tipo: 'sistema' | 'admin' | 'conductor' | 'usuario' }
-
-interface Incidencia {
+interface Documento {
+  _id: string
   id: string
-  viajeId: string
-  usuario: string
-  conductor: string
-  tipo: TipoIncidencia
-  fecha: string
-  hora: string
-  descripcion: string
-  evidenciaAsociada: string
-  responsable: string
-  estatus: EstatusIncidencia
-  prioridad: Prioridad
-  resolucion: string
-  notas: NotaIncidencia[]
-  documentos: string[]
-  timeline: EventoTimeline[]
+  tipo: TipoDoc
+  entidad: TipoEntidad
+  entidadNombre: string
+  folio: string
+  vigencia: string
+  estatus: EstatusDoc
+  fechaCarga: string
+  revisadoPor: string
+  notas: string
+  url?: string
 }
-
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const TIPOS: TipoIncidencia[] = [
-  'Daños reportados','Retraso','Falta de evidencia','Contacto no disponible',
-  'Problema con documentación','Problema con pago','Cancelación',
-  'Diferencia de kilometraje','Diferencia de combustible',
-  'Problema con conductor','Problema con usuario','Otro',
-]
-
-const RESPONSABLES = ['Ops. Central','Coordinador','Admin','Finanzas','Soporte']
-
-const INCIDENCIAS: Incidencia[] = [
-  {
-    id: '#INC-001',
-    viajeId: '#TR-8841',
-    usuario: 'Luis Hernández',
-    conductor: 'Ana Rodríguez',
-    tipo: 'Daños reportados',
-    fecha: '13 Jun 2025',
-    hora: '16:30',
-    descripcion: 'Rayón en puerta delantera derecha reportado por el conductor al recibir el vehículo. Cliente alega que el daño no existía antes del traslado.',
-    evidenciaAsociada: 'EV-002',
-    responsable: 'Ops. Central',
-    estatus: 'Cerrada',
-    prioridad: 'Alta',
-    resolucion: 'Se revisaron fotografías de evidencia inicial y final. El rayón aparece en la foto inicial. Caso cerrado sin cargo.',
-    notas: [
-      { autor: 'Ops. Central', texto: 'Revisión de evidencia confirma que el daño preexistía.', hora: '17:00' },
-      { autor: 'Admin', texto: 'Se notificó al cliente y al conductor. Caso cerrado.', hora: '17:35' },
-    ],
-    documentos: ['Fotos evidencia inicial', 'Fotos evidencia final'],
-    timeline: [
-      { evento: 'Incidencia creada', hora: '16:30', actor: 'Ana R.', tipo: 'conductor' },
-      { evento: 'Asignada a Ops. Central', hora: '16:35', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Revisión de evidencia fotográfica', hora: '17:00', actor: 'Ops. Central', tipo: 'admin' },
-      { evento: 'Conductor notificado', hora: '17:30', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Usuario notificado', hora: '17:32', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Resolución registrada', hora: '17:35', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Incidencia cerrada', hora: '17:35', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-002',
-    viajeId: '#TR-8839',
-    usuario: 'Ricardo Torres',
-    conductor: 'Mario García',
-    tipo: 'Retraso',
-    fecha: '13 Jun 2025',
-    hora: '14:45',
-    descripcion: 'Retraso de 45 minutos en llegada al origen por tráfico en Periférico Norte. Cliente solicitó compensación.',
-    evidenciaAsociada: '—',
-    responsable: 'Coordinador',
-    estatus: 'Resuelta',
-    prioridad: 'Media',
-    resolucion: 'Se ofreció descuento del 10% en próximo servicio. Cliente aceptó.',
-    notas: [
-      { autor: 'Coordinador', texto: 'El conductor avisó con 20 min de anticipación del retraso.', hora: '15:00' },
-    ],
-    documentos: [],
-    timeline: [
-      { evento: 'Incidencia creada', hora: '14:45', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Asignada a Coordinador', hora: '14:50', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Contacto con usuario', hora: '15:05', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Resolución: descuento en próximo servicio', hora: '15:20', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Incidencia resuelta', hora: '15:25', actor: 'Coordinador', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-003',
-    viajeId: '#TR-8838',
-    usuario: 'Pedro Castillo',
-    conductor: 'Sandra Pérez',
-    tipo: 'Cancelación',
-    fecha: '12 Jun 2025',
-    hora: '10:00',
-    descripcion: 'Cliente canceló el servicio con menos de 30 minutos de anticipación. Conductor ya se encontraba en camino.',
-    evidenciaAsociada: '—',
-    responsable: 'Admin',
-    estatus: 'Cerrada',
-    prioridad: 'Baja',
-    resolucion: 'Se aplicó política de cancelación. Cliente acepta cargo del 50% de la tarifa.',
-    notas: [
-      { autor: 'Admin', texto: 'Revisar política de cancelación tardía con el cliente.', hora: '10:10' },
-    ],
-    documentos: ['Política de cancelación'],
-    timeline: [
-      { evento: 'Cancelación registrada', hora: '10:00', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Incidencia creada automáticamente', hora: '10:01', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Política de cancelación aplicada', hora: '10:10', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Usuario notificado del cargo', hora: '10:15', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Incidencia cerrada', hora: '10:30', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-004',
-    viajeId: '#TR-8845',
-    usuario: 'Fernanda López',
-    conductor: 'Ana Rodríguez',
-    tipo: 'Retraso',
-    fecha: '14 Jun 2025',
-    hora: '11:20',
-    descripcion: 'Conductor lleva 20 minutos de retraso en llegada al origen. No hay respuesta en llamadas.',
-    evidenciaAsociada: '—',
-    responsable: 'Coordinador',
-    estatus: 'En seguimiento',
-    prioridad: 'Alta',
-    resolucion: '',
-    notas: [
-      { autor: 'Coordinador', texto: 'Se intentó contactar al conductor 3 veces sin respuesta.', hora: '11:25' },
-    ],
-    documentos: [],
-    timeline: [
-      { evento: 'Alerta de retraso generada', hora: '11:10', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Incidencia creada', hora: '11:20', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Intentos de contacto al conductor (x3)', hora: '11:25', actor: 'Coordinador', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-005',
-    viajeId: '#TR-8844',
-    usuario: 'Sandra Pérez (Empresa)',
-    conductor: 'Pedro Castillo',
-    tipo: 'Daños reportados',
-    fecha: '14 Jun 2025',
-    hora: '11:40',
-    descripcion: 'Fisura en parabrisas se extendió durante el traslado. El conductor reporta que la fisura preexistía pero se agravó por las condiciones del camino.',
-    evidenciaAsociada: 'EV-003',
-    responsable: 'Ops. Central',
-    estatus: 'En revisión',
-    prioridad: 'Alta',
-    resolucion: '',
-    notas: [
-      { autor: 'Coordinador', texto: 'En espera de respuesta de aseguradora antes de resolver.', hora: '12:10' },
-      { autor: 'Ops. Central', texto: 'Se solicitó cotización de reparación al taller destino.', hora: '12:30' },
-    ],
-    documentos: ['Fotos evidencia EV-003', 'Solicitud cotización taller'],
-    timeline: [
-      { evento: 'Incidencia reportada por conductor', hora: '11:40', actor: 'Pedro C.', tipo: 'conductor' },
-      { evento: 'Evidencia vinculada (EV-003)', hora: '12:05', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Asignada a Ops. Central', hora: '12:08', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Contacto con aseguradora iniciado', hora: '12:25', actor: 'Ops. Central', tipo: 'admin' },
-      { evento: 'Cotización solicitada a taller', hora: '12:30', actor: 'Ops. Central', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-006',
-    viajeId: '#TR-8844',
-    usuario: 'Sandra Pérez (Empresa)',
-    conductor: 'Pedro Castillo',
-    tipo: 'Diferencia de kilometraje',
-    fecha: '14 Jun 2025',
-    hora: '12:00',
-    descripcion: 'El kilometraje final no fue registrado correctamente. Falta evidencia del odómetro al finalizar.',
-    evidenciaAsociada: 'EV-003',
-    responsable: 'Admin',
-    estatus: 'Requiere información',
-    prioridad: 'Media',
-    resolucion: '',
-    notas: [],
-    documentos: [],
-    timeline: [
-      { evento: 'Incidencia creada', hora: '12:00', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Aclaración solicitada al conductor', hora: '12:05', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-007',
-    viajeId: '#TR-8847',
-    usuario: 'Claudia Ríos',
-    conductor: 'Mario García',
-    tipo: 'Problema con documentación',
-    fecha: '14 Jun 2025',
-    hora: '08:50',
-    descripcion: 'Los antecedentes penales del conductor están vencidos. Viaje programado para mañana pero el documento no está vigente.',
-    evidenciaAsociada: '—',
-    responsable: 'Admin',
-    estatus: 'Escalada',
-    prioridad: 'Alta',
-    resolucion: '',
-    notas: [
-      { autor: 'Admin', texto: 'Se escaló a coordinación para decidir si reasignar el viaje.', hora: '09:00' },
-    ],
-    documentos: ['Copia licencia vencida'],
-    timeline: [
-      { evento: 'Alerta de documento vencido detectada', hora: '08:45', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Incidencia creada', hora: '08:50', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Escalada a coordinación', hora: '09:00', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const estatusStyle: Record<EstatusIncidencia, string> = {
-  'Nueva':                'bg-blue-100 text-blue-700',
-  'En revisión':          'bg-purple-100 text-purple-700',
-  'Requiere información': 'bg-amber-100 text-amber-700',
-  'En seguimiento':       'bg-sky-100 text-sky-700',
-  'Resuelta':             'bg-green-100 text-green-700',
-  'Cerrada':              'bg-slate-100 text-slate-500',
-  'Escalada':             'bg-red-100 text-red-700',
+const estatusStyle: Record<EstatusDoc, string> = {
+  Pendiente:     'bg-slate-100 text-slate-500',
+  'En revisión': 'bg-purple-100 text-purple-700',
+  Vigente:       'bg-green-100 text-green-700',
+  Rechazado:     'bg-red-100 text-red-700',
+  Vencido:       'bg-orange-100 text-orange-700',
+  Suspendido:    'bg-amber-100 text-amber-700',
+}
+const estatusDot: Record<EstatusDoc, string> = {
+  Pendiente:     'bg-slate-400',
+  'En revisión': 'bg-purple-500',
+  Vigente:       'bg-green-500',
+  Rechazado:     'bg-red-500',
+  Vencido:       'bg-orange-500',
+  Suspendido:    'bg-amber-500',
+}
+const TODOS_ESTATUS: EstatusDoc[] = ['Pendiente','En revisión','Vigente','Rechazado','Vencido','Suspendido']
+const TIPOS_DOC: TipoDoc[] = ['Licencia','INE / Pasaporte','Comprobante domicilio','Alta SAT / CIF','Tarjeta circulación','Verificación','Seguro vehicular','Contrato','Otro']
+const TIPOS_ENTIDAD: TipoEntidad[] = ['Conductor','Usuario','Empresa','Vehículo']
+
+const entidadIcon: Record<TipoEntidad, React.ReactNode> = {
+  Conductor: <TruckIcon className="w-3.5 h-3.5" />,
+  Usuario:   <IdentificationIcon className="w-3.5 h-3.5" />,
+  Empresa:   <BuildingOfficeIcon className="w-3.5 h-3.5" />,
+  Vehículo:  <TruckIcon className="w-3.5 h-3.5" />,
 }
 
-const estatusDot: Record<EstatusIncidencia, string> = {
-  'Nueva':                'bg-blue-500',
-  'En revisión':          'bg-purple-500',
-  'Requiere información': 'bg-amber-500',
-  'En seguimiento':       'bg-sky-500',
-  'Resuelta':             'bg-green-500',
-  'Cerrada':              'bg-slate-400',
-  'Escalada':             'bg-red-500',
+function EBadge({ e }: { e: EstatusDoc }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${estatusStyle[e]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[e]}`} />
+      {e}
+    </span>
+  )
 }
 
-const prioridadStyle: Record<Prioridad, string> = {
-  Alta:  'bg-red-50 text-red-700 border border-red-200',
-  Media: 'bg-amber-50 text-amber-700 border border-amber-200',
-  Baja:  'bg-slate-50 text-slate-500 border border-slate-200',
+function EstatusSelector({ value, onChange }: { value: EstatusDoc; onChange: (e: EstatusDoc) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {TODOS_ESTATUS.map(e => (
+        <button key={e} onClick={() => onChange(e)}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+            value === e ? `${estatusStyle[e]} border-current shadow-sm` : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+          }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[e]}`} />
+          {e}
+        </button>
+      ))}
+    </div>
+  )
 }
 
-const tipoIcon: Record<TipoIncidencia, string> = {
-  'Daños reportados':          '🚗',
-  'Retraso':                   '⏱️',
-  'Falta de evidencia':        '📷',
-  'Contacto no disponible':    '📵',
-  'Problema con documentación':'📄',
-  'Problema con pago':         '💳',
-  'Cancelación':               '🚫',
-  'Diferencia de kilometraje': '🛣️',
-  'Diferencia de combustible': '⛽',
-  'Problema con conductor':    '👤',
-  'Problema con usuario':      '👥',
-  'Otro':                      '❓',
+async function getSB() {
+  const { createClient } = await import('@supabase/supabase-js')
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 }
 
-const timelineColor: Record<string, string> = {
-  sistema:   'bg-slate-400',
-  admin:     'bg-blue-500',
-  conductor: 'bg-purple-500',
-  usuario:   'bg-green-500',
+function fmt(date: string | null) {
+  if (!date) return '—'
+  try { return new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) }
+  catch { return date }
 }
 
-const TODOS_ESTATUS: (EstatusIncidencia | 'Todos')[] = [
-  'Todos','Nueva','En revisión','Requiere información','En seguimiento','Resuelta','Cerrada','Escalada',
-]
+function isVencido(vigencia: string) {
+  if (vigencia === '—' || !vigencia) return false
+  try { return new Date(vigencia) < new Date() }
+  catch { return false }
+}
 
-// ─── MODAL DETALLE ────────────────────────────────────────────────────────────
-function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => void }) {
-  const [estatus, setEstatus]       = useState<EstatusIncidencia>(inc.estatus)
-  const [responsable, setResponsable] = useState(inc.responsable)
-  const [resolucion, setResolucion] = useState(inc.resolucion)
-  const [editRes, setEditRes]       = useState(false)
-  const [notas, setNotas]           = useState(inc.notas)
-  const [nuevaNota, setNuevaNota]   = useState('')
-  const [docs, setDocs]             = useState(inc.documentos)
-  const [nuevoDoc, setNuevoDoc]     = useState('')
-  const [timeline, setTimeline]     = useState(inc.timeline)
-  const [showNotif, setShowNotif]   = useState<'usuario' | 'conductor' | null>(null)
-  const [notifMsg, setNotifMsg]     = useState('')
+// ─── DETALLE DOCUMENTO ────────────────────────────────────────────────────────
+function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: () => void; onSave: () => void }) {
+  const [estatus, setEstatus] = useState<EstatusDoc>(doc.estatus)
+  const [notas, setNotas] = useState(doc.notas)
+  const [revisadoPor, setRevisadoPor] = useState(doc.revisadoPor)
+  const [guardando, setGuardando] = useState(false)
 
-  const addTimeline = (evento: string, tipo: 'admin' | 'sistema' = 'admin') =>
-    setTimeline(t => [...t, { evento, hora: 'Ahora', actor: 'Admin', tipo }])
-
-  const addNota = () => {
-    if (!nuevaNota.trim()) return
-    setNotas(n => [...n, { autor: 'Admin', texto: nuevaNota.trim(), hora: 'Ahora' }])
-    addTimeline('Nota interna agregada')
-    setNuevaNota('')
+  async function guardar() {
+    setGuardando(true)
+    const sb = await getSB()
+    await sb.from('documentos').update({
+      estatus, notas, revisado_por: revisadoPor, updated_at: new Date().toISOString()
+    }).eq('id', doc._id)
+    setGuardando(false)
+    onSave()
+    onClose()
   }
 
-  const addDoc = () => {
-    if (!nuevoDoc.trim()) return
-    setDocs(d => [...d, nuevoDoc.trim()])
-    addTimeline(`Documento asociado: ${nuevoDoc.trim()}`)
-    setNuevoDoc('')
-  }
-
-  const cambiarEstatus = (e: EstatusIncidencia) => {
-    setEstatus(e)
-    addTimeline(`Estatus cambiado a: ${e}`)
-  }
-
-  const enviarNotif = (dest: 'usuario' | 'conductor') => {
-    if (!notifMsg.trim()) return
-    addTimeline(`${dest === 'usuario' ? 'Usuario' : 'Conductor'} notificado`)
-    setNotifMsg('')
-    setShowNotif(null)
-  }
+  const vencido = isVencido(doc.vigencia)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
-      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-3xl">
-
-        {/* Header */}
-        <div className="bg-white rounded-t-2xl px-6 py-4 border-b border-slate-200 sticky top-0 z-10">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100">
-                <ChevronLeftIcon className="w-4 h-4 text-slate-500" />
-              </button>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="font-bold text-slate-800 text-lg">{inc.id}</h2>
-                  <span className="text-2xl">{tipoIcon[inc.tipo]}</span>
-                  <span className="font-medium text-slate-600 text-sm">{inc.tipo}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${estatusStyle[estatus]}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[estatus]}`} />
-                    {estatus}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${prioridadStyle[inc.prioridad]}`}>
-                    {inc.prioridad} prioridad
-                  </span>
-                  <span className="text-xs text-slate-400">{inc.viajeId} · {inc.fecha} {inc.hora}</span>
-                </div>
+      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-xl">
+        <div className="bg-white rounded-t-2xl px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><ChevronLeftIcon className="w-4 h-4 text-slate-500" /></button>
+            <div>
+              <h2 className="font-bold text-slate-800">{doc.id} · {doc.tipo}</h2>
+              <div className="flex items-center gap-2 mt-0.5">
+                <EBadge e={estatus} />
+                {vencido && <span className="text-xs text-orange-600 font-medium flex items-center gap-1"><ClockIcon className="w-3 h-3" />Vencido</span>}
               </div>
             </div>
-            <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
           </div>
-
-          {/* Acciones rápidas */}
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-            <button onClick={() => { }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
-              <UserPlusIcon className="w-3.5 h-3.5" />Asignar responsable
-            </button>
-            <button onClick={() => setEditRes(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-              <CheckCircleIcon className="w-3.5 h-3.5" />Registrar resolución
-            </button>
-            <button onClick={() => setShowNotif('usuario')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-              <BellAlertIcon className="w-3.5 h-3.5" />Notificar usuario
-            </button>
-            <button onClick={() => setShowNotif('conductor')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-              <BellAlertIcon className="w-3.5 h-3.5" />Notificar conductor
-            </button>
-            <button onClick={() => cambiarEstatus('Escalada')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-              <ArrowUpCircleIcon className="w-3.5 h-3.5" />Escalar
-            </button>
-          </div>
+          <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
         </div>
-
-        <div className="p-6 space-y-5">
-
-          {/* Notificación modal inline */}
-          {showNotif && (
-            <div className="bg-white rounded-xl border-2 border-blue-200 p-5 space-y-3">
-              <p className="font-semibold text-slate-800 text-sm">
-                Notificar al {showNotif === 'usuario' ? `usuario — ${inc.usuario}` : `conductor — ${inc.conductor}`}
-              </p>
-              <textarea rows={3} value={notifMsg} onChange={e => setNotifMsg(e.target.value)}
-                placeholder={`Escribe el mensaje para el ${showNotif}...`}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowNotif(null)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                <button onClick={() => enviarNotif(showNotif)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
-                  <PaperAirplaneIcon className="w-3.5 h-3.5" />Enviar notificación
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── INFO PRINCIPAL ── */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="font-semibold text-slate-800 text-sm mb-4">📋 Información de la Incidencia</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4">
-              <F label="ID Interno" value={inc.id} />
-              <F label="Viaje relacionado" value={<span className="font-semibold text-blue-600">{inc.viajeId}</span>} />
-              <F label="Tipo" value={<span className="flex items-center gap-1">{tipoIcon[inc.tipo]} {inc.tipo}</span>} />
-              <F label="Usuario" value={inc.usuario} />
-              <F label="Conductor" value={inc.conductor} />
-              <F label="Fecha y hora" value={`${inc.fecha} · ${inc.hora}`} />
-              <F label="Evidencia asociada" value={inc.evidenciaAsociada !== '—'
-                ? <span className="text-purple-600 font-semibold">{inc.evidenciaAsociada}</span>
-                : <span className="text-slate-300">Sin evidencia</span>} />
-              <div>
-                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Responsable interno</p>
-                <select value={responsable} onChange={e => { setResponsable(e.target.value); addTimeline(`Responsable cambiado a ${e.target.value}`) }}
-                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
-                  {RESPONSABLES.map(r => <option key={r}>{r}</option>)}
-                </select>
-              </div>
-              <F label="Prioridad" value={<span className={`px-2 py-1 rounded text-xs font-semibold ${prioridadStyle[inc.prioridad]}`}>{inc.prioridad}</span>} />
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-2">Descripción</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{inc.descripcion}</p>
-            </div>
-          </div>
-
-          {/* ── ESTATUS ── */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-2">
-              <ArrowPathIcon className="w-4 h-4 text-slate-400" />
-              Cambiar Estatus
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {(['Nueva','En revisión','Requiere información','En seguimiento','Resuelta','Cerrada','Escalada'] as EstatusIncidencia[]).map(e => (
-                <button key={e} onClick={() => cambiarEstatus(e)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    estatus === e
-                      ? estatusStyle[e] + ' border-current shadow-sm'
-                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                  }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[e]}`} />
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── RESOLUCIÓN ── */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-2">
-              <CheckCircleIcon className="w-4 h-4 text-green-500" />
-              Resolución
-            </h3>
-            {editRes ? (
-              <div className="space-y-3">
-                <textarea rows={3} value={resolucion} onChange={e => setResolucion(e.target.value)}
-                  placeholder="Describe cómo se resolvió la incidencia..."
-                  className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => setEditRes(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={() => {
-                    setEditRes(false)
-                    cambiarEstatus('Resuelta')
-                    addTimeline('Resolución registrada')
-                  }} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
-                    <CheckCircleIcon className="w-3.5 h-3.5" />Guardar resolución
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className={`rounded-xl border p-3 text-sm cursor-pointer transition-colors hover:border-green-300 ${resolucion ? 'bg-green-50 border-green-100 text-green-800' : 'bg-slate-50 border-slate-200 text-slate-400 italic'}`}
-                onClick={() => setEditRes(true)}>
-                {resolucion || 'Sin resolución registrada. Clic para agregar.'}
-              </div>
-            )}
-          </div>
-
-          {/* ── NOTAS ── */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="font-semibold text-slate-800 text-sm mb-4 flex items-center gap-2">
-              <ChatBubbleLeftEllipsisIcon className="w-4 h-4 text-slate-400" />
-              Notas Internas
-            </h3>
-            <div className="space-y-2 mb-4">
-              {notas.length === 0 && <p className="text-xs text-slate-400 italic">Sin notas aún.</p>}
-              {notas.map((n, i) => (
-                <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
-                  <p className="text-sm text-slate-700 mt-0.5">{n.texto}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input type="text" value={nuevaNota} onChange={e => setNuevaNota(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addNota()}
-                placeholder="Agregar nota interna..."
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-              <button onClick={addNota} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg transition-colors">
-                <PaperAirplaneIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* ── DOCUMENTOS ── */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="font-semibold text-slate-800 text-sm mb-4 flex items-center gap-2">
-              <DocumentArrowUpIcon className="w-4 h-4 text-slate-400" />
-              Documentos Asociados
-            </h3>
-            <div className="space-y-2 mb-4">
-              {docs.length === 0 && <p className="text-xs text-slate-400 italic">Sin documentos asociados.</p>}
-              {docs.map((d, i) => (
-                <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                  <span className="text-sm text-slate-700">📎 {d}</span>
-                  <button className="text-xs text-blue-600 hover:underline">Ver</button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input type="text" value={nuevoDoc} onChange={e => setNuevoDoc(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addDoc()}
-                placeholder="Nombre del documento..."
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <button onClick={addDoc} className="bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg transition-colors">
-                <DocumentArrowUpIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* ── TIMELINE ── */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="font-semibold text-slate-800 text-sm mb-4 flex items-center gap-2">
-              <ClockIcon className="w-4 h-4 text-slate-400" />
-              Historial de Actividad
-            </h3>
-            <ol className="relative border-l-2 border-slate-200 space-y-4 ml-3">
-              {timeline.map((t, i) => (
-                <li key={i} className="ml-5">
-                  <span className={`absolute -left-2 w-4 h-4 rounded-full flex items-center justify-center ${timelineColor[t.tipo]}`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                  </span>
-                  <p className="text-sm font-medium text-slate-800">{t.evento}</p>
-                  <p className="text-xs text-slate-400">{t.hora} · <span className={`font-medium ${
-                    t.tipo === 'conductor' ? 'text-purple-600' :
-                    t.tipo === 'usuario' ? 'text-green-600' :
-                    t.tipo === 'sistema' ? 'text-slate-500' : 'text-blue-600'
-                  }`}>{t.actor}</span></p>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-3 text-xs text-slate-400">
-              {[['admin','bg-blue-500','Admin'],['conductor','bg-purple-500','Conductor'],['usuario','bg-green-500','Usuario'],['sistema','bg-slate-400','Sistema']].map(([tipo, color, label]) => (
-                <span key={tipo} className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${color}`} />
-                  {label}
+        <div className="p-6 space-y-4">
+          <Sec title="📄 Información del Documento">
+            <G2>
+              <F label="Tipo" value={doc.tipo} />
+              <F label="Entidad" value={
+                <span className="flex items-center gap-1.5">
+                  {entidadIcon[doc.entidad]}
+                  <span>{doc.entidad}</span>
                 </span>
-              ))}
+              } />
+              <F label="Titular" value={<span className="font-medium">{doc.entidadNombre}</span>} />
+              <F label="Folio / No." value={<span className="font-mono text-xs">{doc.folio}</span>} />
+              <F label="Vigencia" value={
+                <span className={vencido ? 'text-orange-600 font-medium' : 'text-slate-700'}>
+                  {doc.vigencia}{vencido && ' ⚠ Vencido'}
+                </span>
+              } />
+              <F label="Fecha de carga" value={doc.fechaCarga} />
+            </G2>
+            {doc.url && (
+              <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                <ArrowDownTrayIcon className="w-4 h-4" />Ver / Descargar documento
+              </a>
+            )}
+          </Sec>
+
+          <Sec title="✅ Revisión">
+            <div>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Revisado por</p>
+              <select value={revisadoPor} onChange={e => setRevisadoPor(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="—">Sin asignar</option>
+                {['Ops. Central','Coordinador','Admin','Cumplimiento'].map(r => <option key={r}>{r}</option>)}
+              </select>
             </div>
+          </Sec>
+
+          <Sec title="⚙️ Cambiar Estatus">
+            <EstatusSelector value={estatus} onChange={setEstatus} />
+          </Sec>
+
+          <Sec title="📝 Notas">
+            <textarea rows={2} value={notas} onChange={e => setNotas(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Sin notas..." />
+          </Sec>
+
+          <div className="flex gap-3 justify-end">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+            <button onClick={() => { setEstatus('Rechazado'); }}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-medium transition-colors">
+              <XCircleIcon className="w-4 h-4" />Rechazar
+            </button>
+            <button onClick={guardar} disabled={guardando}
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Aprobar / Guardar'}
+            </button>
           </div>
         </div>
       </div>
@@ -593,29 +209,49 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
   )
 }
 
-// ─── NUEVA INCIDENCIA FORM ────────────────────────────────────────────────────
-function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
+// ─── NUEVO DOCUMENTO FORM ─────────────────────────────────────────────────────
+function NuevoDocumentoForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
   const [form, setForm] = useState({
-    viajeId: '', usuario: '', conductor: '', tipo: '' as TipoIncidencia | '',
-    fecha: '', hora: '', descripcion: '', evidencia: '', responsable: '', prioridad: '' as Prioridad | '',
+    tipo: '' as TipoDoc | '',
+    entidad: '' as TipoEntidad | '',
+    entidadNombre: '',
+    folio: '',
+    vigencia: '',
+    revisadoPor: '',
+    notas: '',
+    url: '',
   })
-  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
-  const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  const validate = () => {
-    const e: Partial<Record<keyof typeof form, string>> = {}
-    if (!form.viajeId)     e.viajeId     = 'Requerido'
-    if (!form.tipo)        e.tipo        = 'Requerido'
-    if (!form.fecha)       e.fecha       = 'Requerido'
-    if (!form.descripcion) e.descripcion = 'Requerido'
-    if (!form.prioridad)   e.prioridad   = 'Requerido'
-    setErrors(e)
-    return Object.keys(e).length === 0
+  async function guardar() {
+    if (!form.tipo || !form.entidad || !form.entidadNombre) {
+      setError('Tipo, entidad y titular son obligatorios.')
+      return
+    }
+    setError('')
+    setGuardando(true)
+    try {
+      const sb = await getSB()
+      const { error: e } = await sb.from('documentos').insert({
+        tipo: form.tipo, entidad: form.entidad, entidad_nombre: form.entidadNombre,
+        folio: form.folio || null, vigencia: form.vigencia || null,
+        estatus: 'Pendiente', revisado_por: form.revisadoPor || '—',
+        notas: form.notas, url: form.url || null,
+      })
+      if (e) throw e
+      onSave()
+      onClose()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setGuardando(false)
+    }
   }
 
-  const I = (k: keyof typeof form) =>
-    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
-  const E = ({ k }: { k: keyof typeof form }) => errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
+  const inputCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const selectCls = `${inputCls} bg-white`
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
   )
@@ -624,78 +260,62 @@ function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-          <div>
-            <h2 className="font-bold text-slate-800 text-lg">Registrar Incidencia</h2>
-            <p className="text-xs text-slate-400">Se creará en estatus "Nueva"</p>
-          </div>
+          <h2 className="font-bold text-slate-800 text-lg">Registrar Documento</h2>
           <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
         </div>
+
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <L c="Viaje relacionado" req />
-              <input type="text" value={form.viajeId} onChange={e => set('viajeId', e.target.value)} placeholder="#TR-0000" className={I('viajeId')} />
-              <E k="viajeId" />
-            </div>
-            <div>
-              <L c="Tipo de incidencia" req />
-              <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={I('tipo')}>
+            <div className="col-span-2">
+              <L c="Tipo de documento" req />
+              <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={selectCls}>
                 <option value="">Seleccionar...</option>
-                {TIPOS.map(t => <option key={t} value={t}>{tipoIcon[t]} {t}</option>)}
+                {TIPOS_DOC.map(t => <option key={t}>{t}</option>)}
               </select>
-              <E k="tipo" />
             </div>
             <div>
-              <L c="Usuario" />
-              <input type="text" value={form.usuario} onChange={e => set('usuario', e.target.value)} placeholder="Nombre del usuario" className={I('usuario')} />
-            </div>
-            <div>
-              <L c="Conductor" />
-              <input type="text" value={form.conductor} onChange={e => set('conductor', e.target.value)} placeholder="Nombre del conductor" className={I('conductor')} />
-            </div>
-            <div>
-              <L c="Fecha" req />
-              <input type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} className={I('fecha')} />
-              <E k="fecha" />
-            </div>
-            <div>
-              <L c="Hora" />
-              <input type="time" value={form.hora} onChange={e => set('hora', e.target.value)} className={I('hora')} />
-            </div>
-            <div>
-              <L c="Prioridad" req />
-              <select value={form.prioridad} onChange={e => set('prioridad', e.target.value)} className={I('prioridad')}>
+              <L c="Entidad" req />
+              <select value={form.entidad} onChange={e => set('entidad', e.target.value)} className={selectCls}>
                 <option value="">Seleccionar...</option>
-                {(['Alta','Media','Baja'] as Prioridad[]).map(p => <option key={p}>{p}</option>)}
+                {TIPOS_ENTIDAD.map(t => <option key={t}>{t}</option>)}
               </select>
-              <E k="prioridad" />
             </div>
             <div>
-              <L c="Responsable" />
-              <select value={form.responsable} onChange={e => set('responsable', e.target.value)} className={I('responsable')}>
+              <L c="Nombre del titular" req />
+              <input type="text" placeholder="Nombre completo o empresa" value={form.entidadNombre} onChange={e => set('entidadNombre', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <L c="Folio / Número" />
+              <input type="text" placeholder="Número de documento" value={form.folio} onChange={e => set('folio', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <L c="Vigencia" />
+              <input type="date" value={form.vigencia} onChange={e => set('vigencia', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <L c="Revisado por" />
+              <select value={form.revisadoPor} onChange={e => set('revisadoPor', e.target.value)} className={selectCls}>
                 <option value="">Sin asignar</option>
-                {RESPONSABLES.map(r => <option key={r}>{r}</option>)}
+                {['Ops. Central','Coordinador','Admin','Cumplimiento'].map(r => <option key={r}>{r}</option>)}
               </select>
             </div>
             <div>
-              <L c="Evidencia asociada" />
-              <input type="text" value={form.evidencia} onChange={e => set('evidencia', e.target.value)} placeholder="Ej. EV-001" className={I('evidencia')} />
+              <L c="URL / Enlace al archivo" />
+              <input type="text" placeholder="https://..." value={form.url} onChange={e => set('url', e.target.value)} className={inputCls} />
+            </div>
+            <div className="col-span-2">
+              <L c="Notas" />
+              <textarea rows={2} placeholder="Observaciones adicionales..." value={form.notas} onChange={e => set('notas', e.target.value)} className={inputCls} />
             </div>
           </div>
-          <div>
-            <L c="Descripción" req />
-            <textarea rows={4} value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
-              placeholder="Describe con detalle lo ocurrido..."
-              className={I('descripcion')} />
-            <E k="descripcion" />
-          </div>
+          {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
         </div>
+
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-          <button onClick={() => { if (validate()) onClose() }}
-            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <ExclamationTriangleIcon className="w-4 h-4" />
-            Registrar incidencia
+          <button onClick={guardar} disabled={guardando}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Registrar documento'}
           </button>
         </div>
       </div>
@@ -704,6 +324,17 @@ function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
 }
 
 // ─── SMALL HELPERS ────────────────────────────────────────────────────────────
+function Sec({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+      <h3 className="font-semibold text-slate-800 text-sm">{title}</h3>
+      {children}
+    </div>
+  )
+}
+function G2({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">{children}</div>
+}
 function F({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -714,195 +345,201 @@ function F({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-export default function IncidenciasView() {
-  const [search, setSearch]         = useState('')
-  const [filtroEstatus, setFiltroEstatus] = useState<EstatusIncidencia | 'Todos'>('Todos')
-  const [filtroTipo, setFiltroTipo] = useState<TipoIncidencia | 'Todos'>('Todos')
-  const [filtroPrio, setFiltroPrio] = useState<Prioridad | 'Todos'>('Todos')
-  const [detalle, setDetalle]       = useState<Incidencia | null>(null)
-  const [showForm, setShowForm]     = useState(false)
-  const [incidencias, setIncidencias] = useState<Incidencia[]>([])
-  const [cargando, setCargando]     = useState(true)
+export default function DocumentosView() {
+  const [search, setSearch] = useState('')
+  const [filtroEstatus, setFiltroEstatus] = useState<EstatusDoc | 'Todos'>('Todos')
+  const [filtroEntidad, setFiltroEntidad] = useState<TipoEntidad | 'Todos'>('Todos')
+  const [detalle, setDetalle] = useState<Documento | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [cargando, setCargando] = useState(true)
+  const [docs, setDocs] = useState<Documento[]>([])
 
-  const cargarIncidencias = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-    const { data, error } = await sb
-      .from('incidencias')
-      .select(`
-        id, tipo, descripcion, estatus, prioridad, responsable, resolucion, created_at,
-        viajes(folio),
-        usuarios(nombre, apellido),
-        conductores(nombre, apellido)
-      `)
-      .order('created_at', { ascending: false })
-    if (!error && data) {
-      setIncidencias((data as Record<string, unknown>[]).map(i => {
-        const v = i.viajes as Record<string,string>|null
-        const u = i.usuarios as Record<string,string>|null
-        const c = i.conductores as Record<string,string>|null
-        return {
-          id:               String(i.id ?? '').slice(0,8).toUpperCase(),
-          viajeId:          v?.folio ?? '—',
-          usuario:          u ? `${u.nombre} ${u.apellido}` : '—',
-          conductor:        c ? `${c.nombre} ${c.apellido}` : '—',
-          tipo:             (i.tipo as TipoIncidencia) ?? 'Otro',
-          fecha:            String((i.created_at as string)?.slice(0,10) ?? ''),
-          hora:             String((i.created_at as string)?.slice(11,16) ?? ''),
-          descripcion:      String(i.descripcion ?? ''),
-          evidenciaAsociada:'',
-          responsable:      String(i.responsable ?? ''),
-          estatus:          (i.estatus as EstatusIncidencia) ?? 'Nueva',
-          prioridad:        (i.prioridad as Prioridad) ?? 'Media',
-          resolucion:       String(i.resolucion ?? ''),
-          notas: [], documentos: [], timeline: [],
-        }
-      }))
-    }
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    const sb = await getSB()
+    const { data } = await sb.from('documentos').select('*').order('created_at', { ascending: false })
+
+    setDocs((data ?? []).map((r: Record<string, unknown>, i: number) => ({
+      _id: r.id as string,
+      id: `DOC-${String(i+1).padStart(4, '0')}`,
+      tipo: (r.tipo as TipoDoc) || 'Otro',
+      entidad: (r.entidad as TipoEntidad) || 'Conductor',
+      entidadNombre: (r.entidad_nombre as string) || '—',
+      folio: (r.folio as string) || '—',
+      vigencia: fmt(r.vigencia as string),
+      estatus: (r.estatus as EstatusDoc) || 'Pendiente',
+      fechaCarga: fmt(r.created_at as string),
+      revisadoPor: (r.revisado_por as string) || '—',
+      notas: (r.notas as string) || '',
+      url: (r.url as string) || undefined,
+    })))
     setCargando(false)
   }, [])
 
-  useEffect(() => { cargarIncidencias() }, [cargarIncidencias])
+  useEffect(() => { cargar() }, [cargar])
 
-  const filtered = incidencias.filter(inc => {
-    const q = search.toLowerCase()
-    const matchSearch = !q || inc.id.toLowerCase().includes(q) || inc.viajeId.toLowerCase().includes(q) ||
-      inc.usuario.toLowerCase().includes(q) || inc.conductor.toLowerCase().includes(q) || inc.tipo.toLowerCase().includes(q)
-    const matchEstatus = filtroEstatus === 'Todos' || inc.estatus === filtroEstatus
-    const matchTipo    = filtroTipo    === 'Todos' || inc.tipo    === filtroTipo
-    const matchPrio    = filtroPrio    === 'Todos' || inc.prioridad === filtroPrio
-    return matchSearch && matchEstatus && matchTipo && matchPrio
+  const q = search.toLowerCase()
+  const filtrados = docs.filter(d => {
+    const matchE = filtroEstatus === 'Todos' || d.estatus === filtroEstatus
+    const matchEnt = filtroEntidad === 'Todos' || d.entidad === filtroEntidad
+    const matchQ = !q || d.tipo.toLowerCase().includes(q) || d.entidadNombre.toLowerCase().includes(q) || d.folio.toLowerCase().includes(q)
+    return matchE && matchEnt && matchQ
   })
 
-  const counts = TODOS_ESTATUS.reduce((acc, e) => {
-    acc[e] = e === 'Todos' ? incidencias.length : incidencias.filter(i => i.estatus === e).length
-    return acc
-  }, {} as Record<string, number>)
+  // KPIs
+  const vigentes   = docs.filter(d => d.estatus === 'Vigente').length
+  const pendientes = docs.filter(d => d.estatus === 'Pendiente').length
+  const enRevision = docs.filter(d => d.estatus === 'En revisión').length
+  const vencidos   = docs.filter(d => d.estatus === 'Vencido' || isVencido(d.vigencia)).length
+  const rechazados = docs.filter(d => d.estatus === 'Rechazado').length
+
+  const SkRow = () => (
+    <tr className="animate-pulse">
+      {Array.from({length: 8}).map((_,i) => (
+        <td key={i} className="px-4 py-3"><div className="h-3 bg-slate-200 rounded w-full" /></td>
+      ))}
+    </tr>
+  )
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {showForm && <NuevaIncidenciaForm onClose={() => setShowForm(false)} />}
-      {detalle && <IncidenciaDetalle inc={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && <DetalleDocumento doc={detalle} onClose={() => setDetalle(null)} onSave={cargar} />}
+      {showForm && <NuevoDocumentoForm onClose={() => setShowForm(false)} onSave={cargar} />}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        {([
-          ['Total',                incidencias.length,                                        'text-slate-800'],
-          ['Nuevas',               counts['Nueva'],                                            'text-blue-600'],
-          ['En revisión',          counts['En revisión'],                                      'text-purple-600'],
-          ['Requiere info',        counts['Requiere información'],                             'text-amber-600'],
-          ['En seguimiento',       counts['En seguimiento'],                                   'text-sky-600'],
-          ['Resueltas',            counts['Resuelta'],                                         'text-green-600'],
-          ['Escaladas',            counts['Escalada'],                                         'text-red-600'],
-        ] as [string,number,string][]).map(([label, value, color]) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-center">
-            <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { label: 'Vigentes',     value: vigentes,   color: 'text-green-600',  bg: 'bg-green-50',  icon: <CheckCircleIcon className="w-5 h-5 text-green-500" /> },
+          { label: 'Pendientes',   value: pendientes, color: 'text-slate-600',  bg: 'bg-slate-50',  icon: <DocumentTextIcon className="w-5 h-5 text-slate-400" /> },
+          { label: 'En revisión',  value: enRevision, color: 'text-purple-600', bg: 'bg-purple-50', icon: <ExclamationTriangleIcon className="w-5 h-5 text-purple-500" /> },
+          { label: 'Vencidos',     value: vencidos,   color: 'text-orange-600', bg: 'bg-orange-50', icon: <ClockIcon className="w-5 h-5 text-orange-500" /> },
+          { label: 'Rechazados',   value: rechazados, color: 'text-red-600',    bg: 'bg-red-50',    icon: <XCircleIcon className="w-5 h-5 text-red-500" /> },
+        ].map((k, i) => (
+          <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-xs text-slate-500 font-medium leading-tight">{k.label}</p>
+              <div className={`p-1.5 ${k.bg} rounded-lg`}>{k.icon}</div>
+            </div>
+            {cargando
+              ? <div className="h-6 bg-slate-200 rounded w-1/2 animate-pulse" />
+              : <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>}
           </div>
         ))}
       </div>
 
-      {/* Filtros + tabla */}
+      {/* Main card */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="p-5 border-b border-slate-200 space-y-3">
-          {/* Estatus chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {TODOS_ESTATUS.map(e => (
-              <button key={e} onClick={() => setFiltroEstatus(e as EstatusIncidencia | 'Todos')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                  filtroEstatus === e ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}>
-                {e !== 'Todos' && <span className={`w-1.5 h-1.5 rounded-full ${filtroEstatus === e ? 'bg-white' : estatusDot[e as EstatusIncidencia]}`} />}
-                {e} <span className={`text-xs ${filtroEstatus === e ? 'text-white/60' : 'text-slate-400'}`}>{counts[e]}</span>
-              </button>
-            ))}
+        {/* Header */}
+        <div className="border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-bold text-slate-800">Gestión de Documentos</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{docs.length} documentos registrados</p>
           </div>
-
-          {/* Tipo + prioridad + search + new */}
-          <div className="flex flex-col sm:flex-row justify-between gap-3 flex-wrap">
-            <div className="flex gap-2 flex-wrap">
-              <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value as TipoIncidencia | 'Todos')}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="Todos">Todos los tipos</option>
-                {TIPOS.map(t => <option key={t} value={t}>{tipoIcon[t]} {t}</option>)}
-              </select>
-              <select value={filtroPrio} onChange={e => setFiltroPrio(e.target.value as Prioridad | 'Todos')}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="Todos">Toda prioridad</option>
-                {(['Alta','Media','Baja'] as Prioridad[]).map(p => <option key={p}>{p}</option>)}
-              </select>
+          <div className="flex gap-2">
+            <button onClick={cargar} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 transition-colors"><ArrowPathIcon className="w-4 h-4" /></button>
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input type="text" placeholder="Buscar documento..." value={search} onChange={e => setSearch(e.target.value)}
+                className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
             </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" placeholder="Buscar incidencia..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56" />
-              </div>
-              <button onClick={() => setShowForm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                <PlusIcon className="w-4 h-4" />Nueva
-              </button>
-            </div>
+            <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <PlusIcon className="w-4 h-4" />Registrar
+            </button>
           </div>
         </div>
 
+        {/* Filtros */}
+        <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap gap-2 items-center">
+          {/* Filtro entidad */}
+          <div className="flex gap-1.5 mr-4">
+            {(['Todos',...TIPOS_ENTIDAD] as (TipoEntidad | 'Todos')[]).map(ent => (
+              <button key={ent} onClick={() => setFiltroEntidad(ent)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  filtroEntidad === ent ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}>
+                {ent}
+              </button>
+            ))}
+          </div>
+          {/* Filtro estatus */}
+          <div className="flex gap-1.5">
+            {(['Todos',...TODOS_ESTATUS] as (EstatusDoc | 'Todos')[]).map(e => (
+              <button key={e} onClick={() => setFiltroEstatus(e)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  filtroEstatus === e ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}>
+                {e !== 'Todos' && <span className={`w-1.5 h-1.5 rounded-full ${filtroEstatus === e ? 'bg-white' : estatusDot[e as EstatusDoc]}`} />}
+                {e}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabla */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
               <tr>
                 <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Viaje</th>
                 <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Usuario / Conductor</th>
-                <th className="px-4 py-3">Fecha</th>
-                <th className="px-4 py-3">Responsable</th>
-                <th className="px-4 py-3">Prioridad</th>
+                <th className="px-4 py-3">Entidad</th>
+                <th className="px-4 py-3">Titular</th>
+                <th className="px-4 py-3">Folio</th>
+                <th className="px-4 py-3">Vigencia</th>
+                <th className="px-4 py-3">Cargado</th>
                 <th className="px-4 py-3">Estatus</th>
-                <th className="px-4 py-3">Evidencia</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-10 text-slate-400 italic text-sm">Sin incidencias en esta categoría.</td></tr>
+              {cargando && [1,2,3,4].map(i => <SkRow key={i} />)}
+              {!cargando && filtrados.length === 0 && (
+                <tr><td colSpan={9} className="text-center py-12 text-slate-400 italic text-sm">
+                  {docs.length === 0
+                    ? 'Sin documentos registrados. Usa + Registrar para agregar el primero.'
+                    : 'Sin resultados para los filtros aplicados.'}
+                </td></tr>
               )}
-              {filtered.map((inc, i) => (
-                <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setDetalle(inc)}>
-                  <td className="px-4 py-3 font-semibold text-slate-700">{inc.id}</td>
-                  <td className="px-4 py-3 font-semibold text-blue-600">{inc.viajeId}</td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 whitespace-nowrap">
-                      <span>{tipoIcon[inc.tipo]}</span>{inc.tipo}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-xs font-medium text-slate-700">{inc.usuario}</div>
-                    <div className="text-xs text-slate-400">{inc.conductor}</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{inc.fecha}<br />{inc.hora}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{inc.responsable}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${prioridadStyle[inc.prioridad]}`}>{inc.prioridad}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${estatusStyle[inc.estatus]}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${estatusDot[inc.estatus]}`} />
-                      {inc.estatus}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {inc.evidenciaAsociada !== '—'
-                      ? <span className="text-purple-600 font-semibold text-xs">{inc.evidenciaAsociada}</span>
-                      : <span className="text-slate-300 text-xs">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setDetalle(inc)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
-                      Ver detalle
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {!cargando && filtrados.map((d, i) => {
+                const venc = isVencido(d.vigencia)
+                return (
+                  <tr key={i} className={`hover:bg-slate-50 cursor-pointer ${venc ? 'bg-orange-50/30' : ''}`}
+                    onClick={() => setDetalle(d)}>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{d.id}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <DocumentTextIcon className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-xs font-medium text-slate-700">{d.tipo}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        {entidadIcon[d.entidad]}
+                        {d.entidad}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-800 text-xs">{d.entidadNombre}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{d.folio}</td>
+                    <td className="px-4 py-3 text-xs">
+                      <span className={venc ? 'text-orange-600 font-medium' : 'text-slate-500'}>
+                        {venc && '⚠ '}{d.vigencia}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{d.fechaCarga}</td>
+                    <td className="px-4 py-3"><EBadge e={d.estatus} /></td>
+                    <td className="px-4 py-3 text-right flex justify-end gap-2 items-center" onClick={e => e.stopPropagation()}>
+                      {d.url && (
+                        <a href={d.url} target="_blank" rel="noopener noreferrer"
+                          className="text-slate-400 hover:text-blue-600 transition-colors" title="Descargar">
+                          <ArrowDownTrayIcon className="w-4 h-4" />
+                        </a>
+                      )}
+                      <button onClick={() => setDetalle(d)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium">Ver</button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
