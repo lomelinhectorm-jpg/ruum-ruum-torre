@@ -345,29 +345,21 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 // ─── NUEVO VIAJE FORM ─────────────────────────────────────────────────────────
-const CONDUCTORES = ['Carlos Méndez', 'Ana Rodríguez', 'Mario García', 'Sandra Pérez', 'Pedro Castillo']
-const VEHICULOS_LISTA = [
-  { label: 'Toyota Hilux · XYZ-987', value: 'hilux' },
-  { label: 'Honda Civic · DEF-456', value: 'civic' },
-  { label: 'Nissan Versa · ABC-123', value: 'versa' },
-  { label: 'Ford F-150 · GHI-321', value: 'f150' },
-  { label: 'Chevrolet Trax · MNO-789', value: 'trax' },
-]
-const EMPRESAS = ['AutoMóviles del Norte SA', 'Grupo Logístico CDMX', 'Distribuidora Bajío', '— Particular —']
-const TIPOS_SERVICIO = ['Traslado de vehículo', 'Entrega de vehículo', 'Recolección de vehículo', 'Traslado largo recorrido']
 const TRANSMISIONES = ['Automática', 'Manual', 'CVT', 'Secuencial']
 
 type Step = 1 | 2 | 3 | 4
 
 interface FormData {
   // Step 1 – Cliente y servicio
-  tipoServicio: string
-  empresa: string
+  tipoServicioId: string
+  clienteTipo: '' | 'empresa' | 'usuario'
+  clienteId: string
   usuarioNombre: string
   usuarioApellido: string
   telefono: string
   email: string
   // Step 2 – Vehículo
+  vehiculoOrigen: 'flota' | 'manual'
   vehiculoId: string
   marca: string
   modelo: string
@@ -401,7 +393,7 @@ interface FormData {
   referencias: string
   instrucciones: string
   // Step 4 – Asignación y tarifas
-  conductor: string
+  conductorId: string
   tarifaCliente: string
   pagoConductor: string
   gastosAutorizados: string
@@ -409,15 +401,15 @@ interface FormData {
 }
 
 const EMPTY_FORM: FormData = {
-  tipoServicio: '', empresa: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '',
-  vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '', obsVehiculo: '',
+  tipoServicioId: '', clienteTipo: '', clienteId: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '',
+  vehiculoOrigen: 'manual', vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '', obsVehiculo: '',
   fecha: '', hora: '',
   origenCalle: '', origenNumero: '', origenColonia: '', origenMunicipio: '', origenEstado: '', origenCp: '',
   origenContactoNombre: '', origenContactoTel: '',
   destinoCalle: '', destinoNumero: '', destinoColonia: '', destinoMunicipio: '', destinoEstado: '', destinoCp: '',
   destinoContactoNombre: '', destinoContactoTel: '',
   referencias: '', instrucciones: '',
-  conductor: '', tarifaCliente: '', pagoConductor: '', gastosAutorizados: '', notaInterna: '',
+  conductorId: '', tarifaCliente: '', pagoConductor: '', gastosAutorizados: '', notaInterna: '',
 }
 
 function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
@@ -425,23 +417,102 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
+  // ── Catálogos reales desde Supabase ──────────────────────────────────────
+  const [tiposServicio, setTiposServicio] = useState<{ id: string; nombre: string }[]>([])
+  const [empresasLista, setEmpresasLista] = useState<{ id: string; nombre: string }[]>([])
+  const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string; apellido: string; telefono: string | null; email: string }[]>([])
+  const [conductoresLista, setConductoresLista] = useState<{ id: string; nombre: string; apellido: string }[]>([])
+  const [vehiculosLista, setVehiculosLista] = useState<{ id: string; marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; usuario_id: string | null; empresa_id: string | null }[]>([])
+  const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
+
+  useEffect(() => {
+    const cargarCatalogos = async () => {
+      const sb = getSupabaseBrowserClient()
+      const [tsRes, empRes, usrRes, condRes, vehRes] = await Promise.all([
+        sb.from('tipos_servicio').select('id, nombre').eq('activo', true).order('nombre'),
+        sb.from('empresas').select('id, nombre_comercial').eq('estatus', 'Activo').order('nombre_comercial'),
+        sb.from('usuarios').select('id, nombre, apellido, telefono, email').order('nombre'),
+        sb.from('conductores').select('id, nombre, apellido').order('nombre'),
+        sb.from('vehiculos').select('id, marca, modelo, placas, anio, color, vin, transmision, usuario_id, empresa_id').order('marca'),
+      ])
+      if (tsRes.data) setTiposServicio(tsRes.data.map((t: Record<string, unknown>) => ({ id: String(t.id), nombre: String(t.nombre ?? '') })))
+      if (empRes.data) setEmpresasLista(empRes.data.map((e: Record<string, unknown>) => ({ id: String(e.id), nombre: String(e.nombre_comercial ?? '') })))
+      if (usrRes.data) setUsuariosLista(usrRes.data.map((u: Record<string, unknown>) => ({ id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''), telefono: u.telefono ? String(u.telefono) : null, email: String(u.email ?? '') })))
+      if (condRes.data) setConductoresLista(condRes.data.map((c: Record<string, unknown>) => ({ id: String(c.id), nombre: String(c.nombre ?? ''), apellido: String(c.apellido ?? '') })))
+      if (vehRes.data) setVehiculosLista(vehRes.data.map((v: Record<string, unknown>) => ({
+        id: String(v.id), marca: String(v.marca ?? ''), modelo: String(v.modelo ?? ''), placas: String(v.placas ?? ''),
+        anio: v.anio ? String(v.anio) : null, color: v.color ? String(v.color) : null, vin: v.vin ? String(v.vin) : null,
+        transmision: v.transmision ? String(v.transmision) : null,
+        usuario_id: v.usuario_id ? String(v.usuario_id) : null, empresa_id: v.empresa_id ? String(v.empresa_id) : null,
+      })))
+      setCargandoCatalogos(false)
+    }
+    cargarCatalogos()
+  }, [])
+
+  // Vehículos de la flota disponibles para el cliente seleccionado en el paso 1
+  const vehiculosDelCliente = vehiculosLista.filter(v => {
+    if (form.clienteTipo === 'empresa' && form.clienteId) return v.empresa_id === form.clienteId
+    if (form.clienteTipo === 'usuario' && form.clienteId) return v.usuario_id === form.clienteId
+    return false
+  })
+
   const set = (field: keyof FormData, value: string) => {
     setForm(f => ({ ...f, [field]: value }))
     setErrors(e => ({ ...e, [field]: '' }))
   }
 
+  // Al elegir un vehículo de la flota, autocompletar sus datos; al pasar a manual, limpiarlos
+  const elegirVehiculoFlota = (vehiculoId: string) => {
+    const v = vehiculosLista.find(x => x.id === vehiculoId)
+    setForm(f => ({
+      ...f,
+      vehiculoId,
+      marca: v?.marca ?? '',
+      modelo: v?.modelo ?? '',
+      anio: v?.anio ?? '',
+      color: v?.color ?? '',
+      placas: v?.placas ?? '',
+      vin: v?.vin ?? '',
+      transmision: v?.transmision ?? '',
+    }))
+    setErrors(e => ({ ...e, marca: '', modelo: '', placas: '' }))
+  }
+
+  const cambiarVehiculoOrigen = (origen: 'flota' | 'manual') => {
+    setForm(f => ({
+      ...f,
+      vehiculoOrigen: origen,
+      vehiculoId: '',
+      marca: origen === 'manual' ? '' : f.marca,
+      modelo: origen === 'manual' ? '' : f.modelo,
+      anio: origen === 'manual' ? '' : f.anio,
+      color: origen === 'manual' ? '' : f.color,
+      placas: origen === 'manual' ? '' : f.placas,
+      vin: origen === 'manual' ? '' : f.vin,
+      transmision: origen === 'manual' ? '' : f.transmision,
+    }))
+  }
+
   const validateStep = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {}
     if (step === 1) {
-      if (!form.tipoServicio) newErrors.tipoServicio = 'Requerido'
-      if (!form.empresa) newErrors.empresa = 'Requerido'
-      if (!form.usuarioNombre) newErrors.usuarioNombre = 'Requerido'
-      if (!form.usuarioApellido) newErrors.usuarioApellido = 'Requerido'
+      if (!form.tipoServicioId) newErrors.tipoServicioId = 'Requerido'
+      if (!form.clienteTipo) newErrors.clienteTipo = 'Requerido'
+      if (form.clienteTipo === 'empresa' && !form.clienteId) newErrors.clienteId = 'Requerido'
+      if (form.clienteTipo === 'usuario' && !form.clienteId) newErrors.clienteId = 'Requerido'
+      if (form.clienteTipo === 'usuario' && form.clienteId === 'nuevo') {
+        if (!form.usuarioNombre) newErrors.usuarioNombre = 'Requerido'
+        if (!form.usuarioApellido) newErrors.usuarioApellido = 'Requerido'
+      }
     }
     if (step === 2) {
-      if (!form.marca) newErrors.marca = 'Requerido'
-      if (!form.modelo) newErrors.modelo = 'Requerido'
-      if (!form.placas) newErrors.placas = 'Requerido'
+      if (form.vehiculoOrigen === 'flota' && !form.vehiculoId) newErrors.vehiculoId = 'Selecciona un vehículo'
+      if (form.vehiculoOrigen === 'manual') {
+        if (!form.marca) newErrors.marca = 'Requerido'
+        if (!form.modelo) newErrors.modelo = 'Requerido'
+        if (!form.placas) newErrors.placas = 'Requerido'
+      }
     }
     if (step === 3) {
       if (!form.fecha) newErrors.fecha = 'Requerido'
@@ -471,9 +542,9 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
     try {
     const sb = getSupabaseBrowserClient()
 
-      // 1. Buscar o crear vehículo
-      let vehiculoId: string | null = null
-      if (form.placas) {
+      // 1. Vehículo: de flota ya tiene id; manual se busca/crea por placas
+      let vehiculoId: string | null = form.vehiculoOrigen === 'flota' ? (form.vehiculoId || null) : null
+      if (form.vehiculoOrigen === 'manual' && form.placas) {
         const { data: vExistente } = await sb
           .from('vehiculos')
           .select('id')
@@ -493,6 +564,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
               placas: form.placas.toUpperCase(),
               vin: form.vin.toUpperCase() || null,
               transmision: form.transmision || null,
+              usuario_id: form.clienteTipo === 'usuario' && form.clienteId !== 'nuevo' ? form.clienteId : null,
+              empresa_id: form.clienteTipo === 'empresa' ? form.clienteId : null,
             })
             .select('id')
             .single()
@@ -500,39 +573,33 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         }
       }
 
-      // 2. Buscar conductor por nombre si se capturó
-      let conductorId: string | null = null
-      if (form.conductor) {
-        const parts = form.conductor.trim().split(' ')
-        const { data: cond } = await sb
-          .from('conductores')
-          .select('id')
-          .ilike('nombre', `%${parts[0]}%`)
-          .single()
-        conductorId = cond?.id ?? null
-      }
+      // 2. Conductor: ya viene como id real seleccionado del catálogo
+      const conductorId: string | null = form.conductorId || null
 
-      // 3. Buscar usuario por email
+      // 3. Usuario: id real seleccionado, o se crea uno nuevo si el cliente es particular nuevo
       let usuarioId: string | null = null
-      if (form.email) {
-        const { data: usr } = await sb
-          .from('usuarios')
-          .select('id')
-          .eq('email', form.email.toLowerCase())
-          .single()
-        usuarioId = usr?.id ?? null
+      if (form.clienteTipo === 'usuario') {
+        if (form.clienteId === 'nuevo') {
+          const { data: usrNuevo } = await sb
+            .from('usuarios')
+            .insert({
+              nombre: form.usuarioNombre.toUpperCase(),
+              apellido: form.usuarioApellido.toUpperCase(),
+              telefono: form.telefono || null,
+              email: form.email.toLowerCase() || null,
+              tipo: 'Particular',
+              estatus: 'Activo',
+            })
+            .select('id')
+            .single()
+          usuarioId = usrNuevo?.id ?? null
+        } else {
+          usuarioId = form.clienteId
+        }
       }
 
-      // 4. Buscar empresa
-      let empresaId: string | null = null
-      if (form.empresa) {
-        const { data: emp } = await sb
-          .from('empresas')
-          .select('id')
-          .ilike('nombre_comercial', `%${form.empresa}%`)
-          .single()
-        empresaId = emp?.id ?? null
-      }
+      // 4. Empresa: id real seleccionado del catálogo (incluye Ruum-Ruum si está capturada como empresa)
+      const empresaId: string | null = form.clienteTipo === 'empresa' ? form.clienteId : null
 
       // 5. Crear el viaje
       const origenCalle = [form.origenCalle, form.origenNumero].filter(Boolean).join(' ').toUpperCase()
@@ -545,6 +612,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
           empresa_id: empresaId,
           conductor_id: conductorId,
           vehiculo_id: vehiculoId,
+          tipo_servicio_id: form.tipoServicioId || null,
           origen_calle: origenCalle || null,
           origen_colonia: form.origenColonia.toUpperCase() || null,
           origen_estado: [form.origenMunicipio, form.origenEstado].filter(Boolean).join(', ').toUpperCase() || null,
@@ -671,39 +739,80 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
             <div className="space-y-4">
               <div>
                 <Label req>Tipo de servicio</Label>
-                <select value={form.tipoServicio} onChange={e => set('tipoServicio', e.target.value.toUpperCase())} className={SelectCls('tipoServicio')}>
-                  <option value="">Seleccionar...</option>
-                  {TIPOS_SERVICIO.map(t => <option key={t}>{t}</option>)}
+                <select value={form.tipoServicioId} onChange={e => set('tipoServicioId', e.target.value)} className={SelectCls('tipoServicioId')} disabled={cargandoCatalogos}>
+                  <option value="">{cargandoCatalogos ? 'Cargando...' : 'Seleccionar...'}</option>
+                  {tiposServicio.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                 </select>
-                <Err field="tipoServicio" />
+                <Err field="tipoServicioId" />
+                {!cargandoCatalogos && tiposServicio.length === 0 && (
+                  <p className="text-xs text-amber-500 mt-0.5">No hay tipos de servicio activos. Configúralos en Configuración → Tipos de servicio.</p>
+                )}
               </div>
+
               <div>
                 <Label req>Empresa / Cliente</Label>
-                <select value={form.empresa} onChange={e => set('empresa', e.target.value.toUpperCase())} className={SelectCls('empresa')}>
-                  <option value="">Seleccionar...</option>
-                  {EMPRESAS.map(e => <option key={e}>{e}</option>)}
-                </select>
-                <Err field="empresa" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label req>Nombre(s) del solicitante</Label>
-                  <input type="text" placeholder="NOMBRE(S)" value={form.usuarioNombre} onChange={e => set('usuarioNombre', e.target.value.toUpperCase())} className={InputCls('usuarioNombre')} />
-                  <Err field="usuarioNombre" />
+                <div className="flex gap-2 mb-2">
+                  {([
+                    { v: 'empresa', label: 'Empresa' },
+                    { v: 'usuario', label: 'Usuario particular' },
+                  ] as const).map(opt => (
+                    <button key={opt.v} type="button"
+                      onClick={() => setForm(f => ({ ...f, clienteTipo: opt.v, clienteId: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '' }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.clienteTipo === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <Label req>Apellido(s)</Label>
-                  <input type="text" placeholder="APELLIDO(S)" value={form.usuarioApellido} onChange={e => set('usuarioApellido', e.target.value.toUpperCase())} className={InputCls('usuarioApellido')} />
-                  <Err field="usuarioApellido" />
-                </div>
-                <div>
-                  <Label>Teléfono de contacto</Label>
-                  <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/[^0-9]/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} />
-                </div>
-                <div>
-                  <Label>Correo electrónico</Label>
-                  <input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} />
-                </div>
+                <Err field="clienteTipo" />
+
+                {form.clienteTipo === 'empresa' && (
+                  <div>
+                    <select value={form.clienteId} onChange={e => set('clienteId', e.target.value)} className={SelectCls('clienteId')} disabled={cargandoCatalogos}>
+                      <option value="">{cargandoCatalogos ? 'Cargando...' : 'Seleccionar empresa...'}</option>
+                      {empresasLista.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                    <Err field="clienteId" />
+                    {!cargandoCatalogos && empresasLista.length === 0 && (
+                      <p className="text-xs text-amber-500 mt-0.5">No hay empresas activas capturadas. Incluye también la operación Ruum-Ruum si está registrada como empresa.</p>
+                    )}
+                  </div>
+                )}
+
+                {form.clienteTipo === 'usuario' && (
+                  <div className="space-y-3">
+                    <div>
+                      <select value={form.clienteId} onChange={e => set('clienteId', e.target.value)} className={SelectCls('clienteId')} disabled={cargandoCatalogos}>
+                        <option value="">{cargandoCatalogos ? 'Cargando...' : 'Seleccionar usuario capturado...'}</option>
+                        {usuariosLista.map(u => <option key={u.id} value={u.id}>{u.nombre} {u.apellido} {u.email ? `· ${u.email}` : ''}</option>)}
+                        <option value="nuevo">+ Capturar nuevo usuario...</option>
+                      </select>
+                      <Err field="clienteId" />
+                    </div>
+
+                    {form.clienteId === 'nuevo' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label req>Nombre(s) del solicitante</Label>
+                          <input type="text" placeholder="NOMBRE(S)" value={form.usuarioNombre} onChange={e => set('usuarioNombre', e.target.value.toUpperCase())} className={InputCls('usuarioNombre')} />
+                          <Err field="usuarioNombre" />
+                        </div>
+                        <div>
+                          <Label req>Apellido(s)</Label>
+                          <input type="text" placeholder="APELLIDO(S)" value={form.usuarioApellido} onChange={e => set('usuarioApellido', e.target.value.toUpperCase())} className={InputCls('usuarioApellido')} />
+                          <Err field="usuarioApellido" />
+                        </div>
+                        <div>
+                          <Label>Teléfono de contacto</Label>
+                          <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/[^0-9]/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} />
+                        </div>
+                        <div>
+                          <Label>Correo electrónico</Label>
+                          <input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -712,44 +821,69 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
           {step === 2 && (
             <div className="space-y-4">
               <div>
-                <Label>Vehículo registrado (opcional)</Label>
-                <select value={form.vehiculoId} onChange={e => set('vehiculoId', e.target.value.toUpperCase())} className={SelectCls('vehiculoId')}>
-                  <option value="">Ingresar manualmente...</option>
-                  {VEHICULOS_LISTA.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                </select>
-                <p className="text-xs text-slate-400 mt-1">Selecciona un vehículo de la flota o llena los datos abajo.</p>
+                <Label req>Origen del vehículo</Label>
+                <div className="flex gap-2 mb-2">
+                  <button type="button" onClick={() => cambiarVehiculoOrigen('flota')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.vehiculoOrigen === 'flota' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    Vehículo ya capturado
+                  </button>
+                  <button type="button" onClick={() => cambiarVehiculoOrigen('manual')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.vehiculoOrigen === 'manual' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    Captura manual
+                  </button>
+                </div>
+
+                {form.vehiculoOrigen === 'flota' && (
+                  <div>
+                    {!form.clienteTipo ? (
+                      <p className="text-xs text-amber-500">Selecciona primero la empresa o el usuario en el paso 1 para ver sus vehículos registrados.</p>
+                    ) : (
+                      <>
+                        <select value={form.vehiculoId} onChange={e => elegirVehiculoFlota(e.target.value)} className={SelectCls('vehiculoId')} disabled={cargandoCatalogos}>
+                          <option value="">{cargandoCatalogos ? 'Cargando...' : 'Seleccionar vehículo...'}</option>
+                          {vehiculosDelCliente.map(v => <option key={v.id} value={v.id}>{v.marca} {v.modelo} · {v.placas}</option>)}
+                        </select>
+                        <Err field="vehiculoId" />
+                        {!cargandoCatalogos && vehiculosDelCliente.length === 0 && (
+                          <p className="text-xs text-amber-500 mt-0.5">Este cliente no tiene vehículos registrados todavía. Usa "Captura manual".</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label req>Marca</Label>
-                  <input type="text" placeholder="Toyota, Honda, Ford..." value={form.marca} onChange={e => set('marca', e.target.value.toUpperCase())} className={InputCls('marca')} />
+                  <input type="text" placeholder="Toyota, Honda, Ford..." value={form.marca} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('marca', e.target.value.toUpperCase())} className={`${InputCls('marca')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                   <Err field="marca" />
                 </div>
                 <div>
                   <Label req>Modelo</Label>
-                  <input type="text" placeholder="Hilux, Civic, F-150..." value={form.modelo} onChange={e => set('modelo', e.target.value.toUpperCase())} className={InputCls('modelo')} />
+                  <input type="text" placeholder="Hilux, Civic, F-150..." value={form.modelo} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('modelo', e.target.value.toUpperCase())} className={`${InputCls('modelo')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                   <Err field="modelo" />
                 </div>
                 <div>
                   <Label>Año</Label>
-                  <input type="text" placeholder="2022" value={form.anio} onChange={e => set('anio', e.target.value.toUpperCase())} className={InputCls('anio')} />
+                  <input type="text" placeholder="2022" value={form.anio} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('anio', e.target.value.toUpperCase())} className={`${InputCls('anio')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                 </div>
                 <div>
                   <Label>Color</Label>
-                  <input type="text" placeholder="Blanco, Gris, Negro..." value={form.color} onChange={e => set('color', e.target.value.toUpperCase())} className={InputCls('color')} />
+                  <input type="text" placeholder="Blanco, Gris, Negro..." value={form.color} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('color', e.target.value.toUpperCase())} className={`${InputCls('color')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                 </div>
                 <div>
                   <Label req>Placas</Label>
-                  <input type="text" placeholder="XYZ-987" value={form.placas} onChange={e => set('placas', e.target.value.toUpperCase())} className={InputCls('placas')} />
+                  <input type="text" placeholder="XYZ-987" value={form.placas} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('placas', e.target.value.toUpperCase())} className={`${InputCls('placas')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                   <Err field="placas" />
                 </div>
                 <div>
                   <Label>VIN</Label>
-                  <input type="text" placeholder="17 caracteres" value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className={InputCls('vin')} />
+                  <input type="text" placeholder="17 caracteres" value={form.vin} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('vin', e.target.value.toUpperCase())} className={`${InputCls('vin')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                 </div>
                 <div>
                   <Label>Transmisión</Label>
-                  <select value={form.transmision} onChange={e => set('transmision', e.target.value.toUpperCase())} className={SelectCls('transmision')}>
+                  <select value={form.transmision} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('transmision', e.target.value.toUpperCase())} className={`${SelectCls('transmision')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`}>
                     <option value="">Seleccionar...</option>
                     {TRANSMISIONES.map(t => <option key={t}>{t}</option>)}
                   </select>
@@ -810,11 +944,11 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label>Nombre del responsable</Label>
+                    <Label>Nombre del responsable de entrega</Label>
                     <input type="text" placeholder="NOMBRE(S) APELLIDO(S)" value={form.origenContactoNombre} onChange={e => set('origenContactoNombre', e.target.value.toUpperCase())} className={InputCls('origenContactoNombre')} />
                   </div>
                   <div>
-                    <Label>Teléfono del responsable</Label>
+                    <Label>Teléfono del responsable de entrega</Label>
                     <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.origenContactoTel} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('origenContactoTel', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('origenContactoTel')} />
                   </div>
                 </div>
@@ -852,11 +986,11 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label>Nombre del responsable</Label>
+                    <Label>Nombre del responsable de recepción</Label>
                     <input type="text" placeholder="NOMBRE(S) APELLIDO(S)" value={form.destinoContactoNombre} onChange={e => set('destinoContactoNombre', e.target.value.toUpperCase())} className={InputCls('destinoContactoNombre')} />
                   </div>
                   <div>
-                    <Label>Teléfono del responsable</Label>
+                    <Label>Teléfono del responsable de recepción</Label>
                     <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.destinoContactoTel} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('destinoContactoTel', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('destinoContactoTel')} />
                   </div>
                 </div>
@@ -878,11 +1012,11 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
             <div className="space-y-4">
               <div>
                 <Label>Conductor asignado</Label>
-                <select value={form.conductor} onChange={e => set('conductor', e.target.value.toUpperCase())} className={SelectCls('conductor')}>
+                <select value={form.conductorId} onChange={e => set('conductorId', e.target.value)} className={SelectCls('conductorId')} disabled={cargandoCatalogos}>
                   <option value="">Asignar después...</option>
-                  {CONDUCTORES.map(c => <option key={c}>{c}</option>)}
+                  {conductoresLista.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
                 </select>
-                {!form.conductor && <p className="text-xs text-amber-500 mt-0.5">El viaje quedará en "Pendiente de asignación" si no se selecciona conductor.</p>}
+                {!form.conductorId && <p className="text-xs text-amber-500 mt-0.5">El viaje quedará en "Pendiente de asignación" si no se selecciona conductor.</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -933,12 +1067,18 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
               <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-1.5">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Resumen del viaje a registrar</p>
                 {[
-                  ['Servicio', form.tipoServicio || '—'],
-                  ['Cliente', `${[form.usuarioNombre, form.usuarioApellido].filter(Boolean).join(' ') || '—'} · ${form.empresa || '—'}`],
+                  ['Servicio', tiposServicio.find(t => t.id === form.tipoServicioId)?.nombre || '—'],
+                  ['Cliente', form.clienteTipo === 'empresa'
+                    ? (empresasLista.find(e => e.id === form.clienteId)?.nombre || '—')
+                    : form.clienteTipo === 'usuario'
+                      ? (form.clienteId === 'nuevo'
+                          ? [form.usuarioNombre, form.usuarioApellido].filter(Boolean).join(' ') || '—'
+                          : (() => { const u = usuariosLista.find(x => x.id === form.clienteId); return u ? `${u.nombre} ${u.apellido}` : '—' })())
+                      : '—'],
                   ['Vehículo', form.marca ? `${form.marca} ${form.modelo} · ${form.placas}` : '—'],
                   ['Fecha / Hora', form.fecha ? `${form.fecha} · ${form.hora}` : '—'],
                   ['Ruta', form.origenCalle ? `${form.origenCalle} → ${form.destinoCalle}` : '—'],
-                  ['Conductor', form.conductor || 'Sin asignar'],
+                  ['Conductor', (() => { const c = conductoresLista.find(x => x.id === form.conductorId); return c ? `${c.nombre} ${c.apellido}` : 'Sin asignar' })()],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-start gap-2 text-xs">
                     <span className="text-slate-400 w-20 flex-shrink-0">{label}</span>
