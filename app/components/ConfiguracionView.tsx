@@ -225,8 +225,10 @@ function TabUsuariosInternos() {
   const [rolesDisponibles, setRolesDisponibles] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({ nombre: '', apellido: '', email: '', rol: '' })
   const [guardando, setGuardando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
@@ -246,28 +248,61 @@ function TabUsuariosInternos() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  const abrirNuevo = () => {
+    setEditId(null)
+    setForm({ nombre: '', apellido: '', email: '', rol: '' })
+    setShowForm(true)
+  }
+
+  const abrirEditar = (u: typeof usuarios[number]) => {
+    setEditId(u.id)
+    setForm({ nombre: u.nombre, apellido: u.apellido, email: u.email, rol: u.rol })
+    setShowForm(true)
+  }
+
   const handleGuardar = async () => {
     if (!form.nombre || !form.email || !form.rol) return
     setGuardando(true)
     const sb = getSupabaseBrowserClient()
-    await sb.from('usuarios_internos').insert({
-      nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
-      email: form.email.toLowerCase(), rol: form.rol, activo: true,
-    })
+    if (editId) {
+      await sb.from('usuarios_internos').update({
+        nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
+        email: form.email.toLowerCase(), rol: form.rol,
+      }).eq('id', editId)
+    } else {
+      await sb.from('usuarios_internos').insert({
+        nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
+        email: form.email.toLowerCase(), rol: form.rol, activo: true,
+      })
+    }
     setForm({ nombre: '', apellido: '', email: '', rol: '' })
+    setEditId(null)
     setShowForm(false)
     setGuardando(false)
     cargar()
+  }
+
+  const toggleActivo = async (id: string, activo: boolean) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('usuarios_internos').update({ activo: !activo }).eq('id', id)
+    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, activo: !activo } : u))
+  }
+
+  const eliminar = async (id: string) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('usuarios_internos').delete().eq('id', id)
+    setUsuarios(prev => prev.filter(u => u.id !== id))
+    setConfirmDelete(null)
   }
 
   const iCls2 = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
   return (
     <SCard title="👥 Usuarios internos del sistema" subtitle="Personal con acceso al panel de administración"
-      action={<button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo usuario</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo usuario</button>}>
       {showForm && (
         <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">Nuevo usuario interno</p>
+          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar usuario interno' : 'Nuevo usuario interno'}</p>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre(s)*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls2} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Apellido(s)</label><input type="text" value={form.apellido} onChange={e => setForm(f => ({...f, apellido: e.target.value.toUpperCase()}))} className={iCls2} /></div>
@@ -280,7 +315,7 @@ function TabUsuariosInternos() {
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
             <button onClick={handleGuardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </div>
@@ -308,8 +343,18 @@ function TabUsuariosInternos() {
                 <td className="px-4 py-3 text-slate-500 text-xs">{u.email}</td>
                 <td className="px-4 py-3"><Badge text={u.rol} color="blue" /></td>
                 <td className="px-4 py-3 text-xs text-slate-400">{u.ultimo}</td>
-                <td className="px-4 py-3 text-center"><span className={`inline-block w-2 h-2 rounded-full ${u.activo ? 'bg-green-500' : 'bg-slate-300'}`} /></td>
-                <td className="px-4 py-3 text-right"><RowActions onEdit={() => {}} /></td>
+                <td className="px-4 py-3 text-center"><Toggle value={u.activo} onChange={() => toggleActivo(u.id, u.activo)} /></td>
+                <td className="px-4 py-3 text-right">
+                  {confirmDelete === u.id ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-xs text-slate-500">¿Eliminar?</span>
+                      <button onClick={() => eliminar(u.id)} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                    </span>
+                  ) : (
+                    <RowActions onEdit={() => abrirEditar(u)} onDelete={() => setConfirmDelete(u.id)} />
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -324,6 +369,11 @@ function TabUsuariosInternos() {
 function TabZonas() {
   const [zonas, setZonas] = useState<{id:string;nombre:string;descripcion:string;radio:number;tarifa:string;activa:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [form, setForm] = useState({ nombre: '', descripcion: '', radio: '', tarifa: '' })
+  const [guardando, setGuardando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -341,11 +391,50 @@ function TabZonas() {
     setZonas(prev => prev.map(z => z.id === id ? { ...z, activa: !activa } : z))
   }
 
+  const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radio: '', tarifa: '' }); setShowForm(true) }
+  const abrirEditar = (z: typeof zonas[number]) => { setEditId(z.id); setForm({ nombre: z.nombre, descripcion: z.descripcion, radio: String(z.radio), tarifa: z.tarifa }); setShowForm(true) }
+
+  const guardar = async () => {
+    if (!form.nombre) return
+    setGuardando(true)
+    const sb = await getSb()
+    const payload = { nombre: form.nombre.toUpperCase(), descripcion: form.descripcion, radio: Number(form.radio) || 0, tarifa: form.tarifa }
+    if (editId) {
+      await sb.from('zonas').update(payload).eq('id', editId)
+    } else {
+      await sb.from('zonas').insert({ ...payload, activa: true })
+    }
+    setShowForm(false); setEditId(null); setGuardando(false)
+    cargar()
+  }
+
+  const eliminar = async (id: string) => {
+    const sb = await getSb(); await sb.from('zonas').delete().eq('id', id)
+    setZonas(prev => prev.filter(z => z.id !== id))
+    setConfirmDelete(null)
+  }
+
   return (
     <SCard title="📍 Zonas de operación" subtitle="Define las áreas de cobertura del servicio"
-      action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva zona</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva zona</button>}>
+      {showForm && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar zona' : 'Nueva zona'}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls()} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Radio (km)</label><input type="number" min="0" value={form.radio} onChange={e => setForm(f => ({...f, radio: e.target.value}))} className={iCls()} /></div>
+            <div className="sm:col-span-2"><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
+            <div className="sm:col-span-2"><label className="text-xs text-slate-500 mb-1 block">Tarifa asociada</label><input type="text" placeholder="Ej. Tarifa local" value={form.tarifa} onChange={e => setForm(f => ({...f, tarifa: e.target.value}))} className={iCls()} /></div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          </div>
+        </div>
+      )}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="space-y-2">
+        {zonas.length === 0 && <p className="text-center py-8 text-slate-400 text-xs italic">Sin zonas registradas.</p>}
         {zonas.map(z => (
           <div key={z.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${z.activa ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
             <div className="flex items-center gap-3">
@@ -359,7 +448,15 @@ function TabZonas() {
             </div>
             <div className="flex items-center gap-3">
               <Toggle value={z.activa} onChange={() => toggleZona(z.id, z.activa)} />
-              <RowActions onEdit={() => {}} onDelete={() => {}} />
+              {confirmDelete === z.id ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-xs text-slate-500">¿Eliminar?</span>
+                  <button onClick={() => eliminar(z.id)} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                  <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                </span>
+              ) : (
+                <RowActions onEdit={() => abrirEditar(z)} onDelete={() => setConfirmDelete(z.id)} />
+              )}
             </div>
           </div>
         ))}
@@ -373,6 +470,11 @@ function TabZonas() {
 function TabServicios() {
   const [servicios, setServicios] = useState<{id:string;nombre:string;descripcion:string;icono:string;requiereEvidencia:boolean;requiereFirma:boolean;activo:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [form, setForm] = useState({ nombre: '', descripcion: '', icono: '🚘', requiereEvidencia: true, requiereFirma: true })
+  const [guardando, setGuardando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -390,9 +492,50 @@ function TabServicios() {
     setServicios(prev => prev.map(s => s.id === id ? { ...s, [field === 'requiere_evidencia' ? 'requiereEvidencia' : field === 'requiere_firma' ? 'requiereFirma' : 'activo']: !val } : s))
   }
 
+  const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚘', requiereEvidencia: true, requiereFirma: true }); setShowForm(true) }
+  const abrirEditar = (s: typeof servicios[number]) => { setEditId(s.id); setForm({ nombre: s.nombre, descripcion: s.descripcion, icono: s.icono || '🚘', requiereEvidencia: s.requiereEvidencia, requiereFirma: s.requiereFirma }); setShowForm(true) }
+
+  const guardar = async () => {
+    if (!form.nombre) return
+    setGuardando(true)
+    const sb = await getSb()
+    const payload = { nombre: form.nombre, descripcion: form.descripcion, icono: form.icono, requiere_evidencia: form.requiereEvidencia, requiere_firma: form.requiereFirma }
+    if (editId) {
+      await sb.from('tipos_servicio').update(payload).eq('id', editId)
+    } else {
+      await sb.from('tipos_servicio').insert({ ...payload, activo: true })
+    }
+    setShowForm(false); setEditId(null); setGuardando(false)
+    cargar()
+  }
+
+  const eliminar = async (id: string) => {
+    const sb = await getSb(); await sb.from('tipos_servicio').delete().eq('id', id)
+    setServicios(prev => prev.filter(s => s.id !== id))
+    setConfirmDelete(null)
+  }
+
   return (
     <SCard title="🚘 Tipos de servicio" subtitle="Configura los tipos de traslado disponibles"
-      action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      {showForm && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar tipo de servicio' : 'Nuevo tipo de servicio'}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-[80px_1fr] gap-3">
+            <div><label className="text-xs text-slate-500 mb-1 block">Icono</label><input type="text" maxLength={4} value={form.icono} onChange={e => setForm(f => ({...f, icono: e.target.value}))} className={`${iCls()} text-center text-lg`} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
+          </div>
+          <div><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={form.requiereEvidencia} onChange={e => setForm(f => ({...f, requiereEvidencia: e.target.checked}))} /> Requiere evidencia</label>
+            <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={form.requiereFirma} onChange={e => setForm(f => ({...f, requiereFirma: e.target.checked}))} /> Requiere firma</label>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          </div>
+        </div>
+      )}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-slate-100 animate-pulse rounded-lg" />)}</div> : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -406,6 +549,7 @@ function TabServicios() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
+            {servicios.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-xs italic">Sin tipos de servicio registrados.</td></tr>}
             {servicios.map(s => (
               <tr key={s.id} className={`hover:bg-slate-50 ${!s.activo ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3">
@@ -417,7 +561,17 @@ function TabServicios() {
                 <td className="px-4 py-3 text-center"><Toggle value={s.requiereEvidencia} onChange={() => toggle(s.id, 'requiere_evidencia', s.requiereEvidencia)} /></td>
                 <td className="px-4 py-3 text-center"><Toggle value={s.requiereFirma} onChange={() => toggle(s.id, 'requiere_firma', s.requiereFirma)} /></td>
                 <td className="px-4 py-3 text-center"><Toggle value={s.activo} onChange={() => toggle(s.id, 'activo', s.activo)} /></td>
-                <td className="px-4 py-3 text-right"><RowActions onEdit={() => {}} onDelete={() => {}} /></td>
+                <td className="px-4 py-3 text-right">
+                  {confirmDelete === s.id ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-xs text-slate-500">¿Eliminar?</span>
+                      <button onClick={() => eliminar(s.id)} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                    </span>
+                  ) : (
+                    <RowActions onEdit={() => abrirEditar(s)} onDelete={() => setConfirmDelete(s.id)} />
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -432,6 +586,11 @@ function TabServicios() {
 function TabVehiculos() {
   const [tipos, setTipos] = useState<{id:string;nombre:string;descripcion:string;icono:string;capacidad:number;activo:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [form, setForm] = useState({ nombre: '', descripcion: '', icono: '🚗', capacidad: '' })
+  const [guardando, setGuardando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -449,11 +608,50 @@ function TabVehiculos() {
     setTipos(prev => prev.map(t => t.id === id ? { ...t, activo: !activo } : t))
   }
 
+  const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚗', capacidad: '' }); setShowForm(true) }
+  const abrirEditar = (t: typeof tipos[number]) => { setEditId(t.id); setForm({ nombre: t.nombre, descripcion: t.descripcion, icono: t.icono || '🚗', capacidad: String(t.capacidad) }); setShowForm(true) }
+
+  const guardar = async () => {
+    if (!form.nombre) return
+    setGuardando(true)
+    const sb = await getSb()
+    const payload = { nombre: form.nombre, descripcion: form.descripcion, icono: form.icono, capacidad: Number(form.capacidad) || 0 }
+    if (editId) {
+      await sb.from('tipos_vehiculo').update(payload).eq('id', editId)
+    } else {
+      await sb.from('tipos_vehiculo').insert({ ...payload, activo: true })
+    }
+    setShowForm(false); setEditId(null); setGuardando(false)
+    cargar()
+  }
+
+  const eliminar = async (id: string) => {
+    const sb = await getSb(); await sb.from('tipos_vehiculo').delete().eq('id', id)
+    setTipos(prev => prev.filter(t => t.id !== id))
+    setConfirmDelete(null)
+  }
+
   return (
     <SCard title="🚘 Tipos de vehículo" subtitle="Categorías de vehículos que opera la plataforma"
-      action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      {showForm && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar tipo de vehículo' : 'Nuevo tipo de vehículo'}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-[80px_1fr_100px] gap-3">
+            <div><label className="text-xs text-slate-500 mb-1 block">Icono</label><input type="text" maxLength={4} value={form.icono} onChange={e => setForm(f => ({...f, icono: e.target.value}))} className={`${iCls()} text-center text-lg`} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Capacidad</label><input type="number" min="0" value={form.capacidad} onChange={e => setForm(f => ({...f, capacidad: e.target.value}))} className={iCls()} /></div>
+          </div>
+          <div><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          </div>
+        </div>
+      )}
       {cargando ? <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-20 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {tipos.length === 0 && <p className="col-span-2 text-center py-8 text-slate-400 text-xs italic">Sin tipos de vehículo registrados.</p>}
         {tipos.map(t => (
           <div key={t.id} className={`border rounded-xl p-4 flex items-center justify-between gap-3 ${!t.activo ? 'opacity-50 border-slate-100' : 'border-slate-200'}`}>
             <div className="flex items-center gap-3">
@@ -466,7 +664,14 @@ function TabVehiculos() {
             </div>
             <div className="flex items-center gap-2">
               <Toggle value={t.activo} onChange={() => toggleTipo(t.id, t.activo)} />
-              <RowActions onEdit={() => {}} />
+              {confirmDelete === t.id ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <button onClick={() => eliminar(t.id)} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                  <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                </span>
+              ) : (
+                <RowActions onEdit={() => abrirEditar(t)} onDelete={() => setConfirmDelete(t.id)} />
+              )}
             </div>
           </div>
         ))}
@@ -663,6 +868,12 @@ function TabEstados() {
 function TabNotificaciones() {
   const [plantillas, setPlantillas] = useState<{id:string;evento:string;canal:string[];activa:boolean;destinatario:string}[]>([])
   const [cargando, setCargando] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [form, setForm] = useState({ evento: '', destinatario: '', canal: [] as string[] })
+  const [guardando, setGuardando] = useState(false)
+
+  const CANALES = ['Email', 'App', 'SMS', 'WhatsApp']
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -680,14 +891,58 @@ function TabNotificaciones() {
     setPlantillas(prev => prev.map(p => p.id === id ? { ...p, activa: !activa } : p))
   }
 
+  const abrirNueva = () => { setEditId(null); setForm({ evento: '', destinatario: '', canal: [] }); setShowForm(true) }
+  const abrirEditar = (p: typeof plantillas[number]) => { setEditId(p.id); setForm({ evento: p.evento, destinatario: p.destinatario, canal: p.canal }); setShowForm(true) }
+
+  const guardar = async () => {
+    if (!form.evento) return
+    setGuardando(true)
+    const sb = await getSb()
+    const payload = { evento: form.evento, destinatario: form.destinatario, canal: form.canal }
+    if (editId) {
+      await sb.from('plantillas_notificacion').update(payload).eq('id', editId)
+    } else {
+      await sb.from('plantillas_notificacion').insert({ ...payload, activa: true })
+    }
+    setShowForm(false); setEditId(null); setGuardando(false)
+    cargar()
+  }
+
   const canalColor: Record<string, string> = {
     Email: 'bg-blue-50 text-blue-700', App: 'bg-green-50 text-green-700',
     SMS: 'bg-orange-50 text-orange-700', WhatsApp: 'bg-emerald-50 text-emerald-700',
   }
   return (
-    <SCard title="🔔 Plantillas de notificación" subtitle="Configura qué notificaciones se envían y por qué canal">
+    <SCard title="🔔 Plantillas de notificación" subtitle="Configura qué notificaciones se envían y por qué canal"
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva plantilla</button>}>
+      {showForm && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar plantilla' : 'Nueva plantilla'}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className="text-xs text-slate-500 mb-1 block">Evento*</label><input type="text" placeholder="Ej. Conductor asignado" value={form.evento} onChange={e => setForm(f => ({...f, evento: e.target.value}))} className={iCls()} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Destinatario</label><input type="text" placeholder="Ej. Usuario solicitante" value={form.destinatario} onChange={e => setForm(f => ({...f, destinatario: e.target.value}))} className={iCls()} /></div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Canales</label>
+            <div className="flex gap-2">
+              {CANALES.map(c => (
+                <button key={c} type="button"
+                  onClick={() => setForm(f => ({ ...f, canal: f.canal.includes(c) ? f.canal.filter(x => x !== c) : [...f.canal, c] }))}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium ${form.canal.includes(c) ? (canalColor[c] ?? 'bg-slate-100 text-slate-700') : 'bg-slate-50 text-slate-400'}`}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          </div>
+        </div>
+      )}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="space-y-2">
+        {plantillas.length === 0 && <p className="text-center py-8 text-slate-400 text-xs italic">Sin plantillas registradas.</p>}
         {plantillas.map(p => (
           <div key={p.id} className={`flex items-center justify-between p-3.5 border rounded-xl gap-3 ${!p.activa ? 'opacity-50 border-slate-100' : 'border-slate-200'}`}>
             <div className="flex-1 min-w-0">
@@ -699,7 +954,7 @@ function TabNotificaciones() {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <Toggle value={p.activa} onChange={() => togglePlantilla(p.id, p.activa)} />
-              <RowActions onEdit={() => {}} />
+              <RowActions onEdit={() => abrirEditar(p)} />
             </div>
           </div>
         ))}
@@ -715,6 +970,11 @@ function TabPagos() {
   const [ciclo, setCiclo] = useState({ frecuencia: 'Quincenal', diaPago: '1 y 15', comision: 2.5 })
   const [cargando, setCargando] = useState(true)
   const [guardandoCiclo, setGuardandoCiclo] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [form, setForm] = useState({ nombre: '', descripcion: '' })
+  const [guardando, setGuardando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -735,6 +995,28 @@ function TabPagos() {
     setMetodos(prev => prev.map(m => m.id === id ? { ...m, activo: !activo } : m))
   }
 
+  const abrirNuevoMetodo = () => { setEditId(null); setForm({ nombre: '', descripcion: '' }); setShowForm(true) }
+  const abrirEditarMetodo = (m: typeof metodos[number]) => { setEditId(m.id); setForm({ nombre: m.nombre, descripcion: m.descripcion }); setShowForm(true) }
+
+  const guardarMetodo = async () => {
+    if (!form.nombre) return
+    setGuardando(true)
+    const sb = await getSb()
+    if (editId) {
+      await sb.from('metodos_pago').update({ nombre: form.nombre, descripcion: form.descripcion }).eq('id', editId)
+    } else {
+      await sb.from('metodos_pago').insert({ nombre: form.nombre, descripcion: form.descripcion, activo: true })
+    }
+    setForm({ nombre: '', descripcion: '' }); setEditId(null); setShowForm(false); setGuardando(false)
+    cargar()
+  }
+
+  const eliminarMetodo = async (id: string) => {
+    const sb = await getSb(); await sb.from('metodos_pago').delete().eq('id', id)
+    setMetodos(prev => prev.filter(m => m.id !== id))
+    setConfirmDelete(null)
+  }
+
   const guardarCiclo = async () => {
     setGuardandoCiclo(true)
     const sb = await getSb()
@@ -745,16 +1027,40 @@ function TabPagos() {
   return (
     <div className="space-y-4">
       <SCard title="💳 Métodos de pago habilitados" subtitle="Configura las formas de pago disponibles para usuarios y conductores"
-        action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Agregar método</button>}>
+        action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevoMetodo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Agregar método</button>}>
+        {showForm && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+            <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar método de pago' : 'Nuevo método de pago'}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" placeholder="Ej. Transferencia SPEI" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
+              <div><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+              <button onClick={guardarMetodo} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            </div>
+          </div>
+        )}
         {cargando ? <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {metodos.length === 0 && <p className="col-span-2 text-center py-8 text-slate-400 text-xs italic">Sin métodos de pago registrados.</p>}
           {metodos.map(m => (
             <div key={m.id} className={`flex items-center justify-between p-4 border rounded-xl ${!m.activo ? 'opacity-50 border-slate-100' : 'border-slate-200'}`}>
               <div>
                 <p className="font-medium text-slate-800 text-sm">{m.nombre}</p>
                 <p className="text-xs text-slate-400">{m.descripcion}</p>
               </div>
-              <Toggle value={m.activo} onChange={() => toggleMetodo(m.id, m.activo)} />
+              <div className="flex items-center gap-2">
+                <Toggle value={m.activo} onChange={() => toggleMetodo(m.id, m.activo)} />
+                {confirmDelete === m.id ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <button onClick={() => eliminarMetodo(m.id)} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                    <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                  </span>
+                ) : (
+                  <RowActions onEdit={() => abrirEditarMetodo(m)} onDelete={() => setConfirmDelete(m.id)} />
+                )}
+              </div>
             </div>
           ))}
         </div>
