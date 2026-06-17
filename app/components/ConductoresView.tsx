@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -86,6 +85,191 @@ interface Conductor {
   notas: NotaInterna[]
 }
 
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+const CONDUCTORES: Conductor[] = [
+  {
+    id: 'CON-001',
+    nombre: 'Carlos',
+    apellido: 'Méndez Ruiz',
+    curp: 'MERC870415HDFNZRA3',
+    telefono: '+52 55 1111 2222',
+    email: 'carlos.m@email.com',
+    municipio: 'Gustavo A. Madero',
+    estado: 'Ciudad de México',
+    foto: 'CM',
+    disponibilidad: 'En viaje',
+    certificacion: 'Activo',
+    calificacion: 4.9,
+    viajesRealizados: 142,
+    gananciasTotal: 49700,
+    cuentaBanco: 'BBVA',
+    cuentaClabe: '012345678901234567',
+    cuentaTitular: 'Carlos Méndez Ruiz',
+    documentos: [
+      { tipo: 'Licencia de conducir', numero: 'LIC-2021-CX9842', vencimiento: '15 Ene 2026', estado: 'Vigente' },
+      { tipo: 'INE / IFE', numero: 'OCRD000000000', vencimiento: '10 Jun 2029', estado: 'Vigente' },
+      { tipo: 'Constancia Fiscal (CSF)', numero: 'MERC870415XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
+      { tipo: 'Antecedentes no penales', numero: 'AP-2024-001', vencimiento: '05 Mar 2025', estado: 'Por vencer' },
+    ],
+    viajes: [
+      { id: '#TR-8848', fecha: '14 Jun 2025', origen: 'Av. Reforma 222', destino: 'Taller Norte', tarifa: 700, estatus: 'Traslado en curso' },
+      { id: '#TR-8830', fecha: '10 Jun 2025', origen: 'Taller Sur', destino: 'Agencia Norte', tarifa: 560, estatus: 'Finalizado' },
+      { id: '#TR-8815', fecha: '07 Jun 2025', origen: 'Distribuidora Bajío', destino: 'CDMX Centro', tarifa: 1300, estatus: 'Finalizado' },
+    ],
+    incidencias: [],
+    ganancias: [
+      { periodo: '1-14 Jun 2025', viajes: 8, monto: 4200, estatus: 'Pendiente' },
+      { periodo: '15-31 May 2025', viajes: 18, monto: 9100, estatus: 'Pagado' },
+    ],
+    notas: [
+      { autor: 'Ops. Central', texto: 'Conductor estrella. Prioridad en asignaciones largas.', hora: '01 Ene 2025' },
+    ],
+  },
+  {
+    id: 'CON-002',
+    nombre: 'Ana',
+    apellido: 'Rodríguez López',
+    curp: 'ROLA920821MDFDRNA8',
+    telefono: '+52 55 3333 4444',
+    email: 'ana.r@email.com',
+    municipio: 'Benito Juárez',
+    estado: 'Ciudad de México',
+    foto: 'AR',
+    disponibilidad: 'Disponible',
+    certificacion: 'Activo',
+    calificacion: 4.7,
+    viajesRealizados: 87,
+    gananciasTotal: 30450,
+    cuentaBanco: 'Santander',
+    cuentaClabe: '014580123456789012',
+    cuentaTitular: 'Ana Rodríguez López',
+    documentos: [
+      { tipo: 'Licencia de conducir', numero: 'LIC-2022-AR5531', vencimiento: '20 Mar 2027', estado: 'Vigente' },
+      { tipo: 'INE / IFE', numero: 'OCRD000000001', vencimiento: '01 Feb 2028', estado: 'Vigente' },
+      { tipo: 'Constancia Fiscal (CSF)', numero: 'ROLA920821XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
+      { tipo: 'Antecedentes no penales', numero: 'AP-2024-002', vencimiento: '15 Ago 2025', estado: 'Vigente' },
+    ],
+    viajes: [
+      { id: '#TR-8841', fecha: '13 Jun 2025', origen: 'Taller Oriente', destino: 'Roma Norte', tarifa: 380, estatus: 'Finalizado' },
+      { id: '#TR-8820', fecha: '08 Jun 2025', origen: 'Agencia Sur', destino: 'Satélite', tarifa: 500, estatus: 'Finalizado' },
+    ],
+    incidencias: [
+      { id: '#INC-001', tipo: 'Daño vehicular', fecha: '13 Jun 2025', estatus: 'Cerrada' },
+    ],
+    ganancias: [
+      { periodo: '1-14 Jun 2025', viajes: 6, monto: 2280, estatus: 'Pendiente' },
+      { periodo: '15-31 May 2025', viajes: 14, monto: 5600, estatus: 'Pagado' },
+    ],
+    notas: [],
+  },
+  {
+    id: 'CON-003',
+    nombre: 'Mario',
+    apellido: 'García Vega',
+    curp: 'GAVM910305HDFRCRA6',
+    telefono: '+52 55 5555 6666',
+    email: 'mario.g@email.com',
+    municipio: 'Tlalnepantla',
+    estado: 'Estado de México',
+    foto: 'MG',
+    disponibilidad: 'Disponible',
+    certificacion: 'Activo',
+    calificacion: 4.5,
+    viajesRealizados: 63,
+    gananciasTotal: 22050,
+    cuentaBanco: 'Banamex',
+    cuentaClabe: '002670700000000000',
+    cuentaTitular: 'Mario García Vega',
+    documentos: [
+      { tipo: 'Licencia de conducir', numero: 'LIC-2020-MG3310', vencimiento: '19 Jun 2025', estado: 'Por vencer' },
+      { tipo: 'INE / IFE', numero: 'OCRD000000002', vencimiento: '15 May 2027', estado: 'Vigente' },
+      { tipo: 'Constancia Fiscal (CSF)', numero: 'GAVM910305XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
+      { tipo: 'Antecedentes no penales', numero: 'AP-2023-003', vencimiento: '10 Ene 2024', estado: 'Vencido' },
+    ],
+    viajes: [
+      { id: '#TR-8847', fecha: '15 Jun 2025', origen: 'Distribuidora Bajío', destino: 'CDMX', tarifa: 1300, estatus: 'Conductor asignado' },
+    ],
+    incidencias: [],
+    ganancias: [
+      { periodo: '1-14 Jun 2025', viajes: 2, monto: 1300, estatus: 'Pendiente' },
+      { periodo: '15-31 May 2025', viajes: 11, monto: 4950, estatus: 'Pagado' },
+    ],
+    notas: [
+      { autor: 'Admin', texto: 'Antecedentes penales vencidos. Solicitar renovación antes de asignar viajes.', hora: '12 Jun 2025' },
+    ],
+  },
+  {
+    id: 'CON-004',
+    nombre: 'Sandra',
+    apellido: 'Pérez Castillo',
+    curp: 'PECS850930MDFRCNA2',
+    telefono: '+52 55 7777 8888',
+    email: 'sandra.p@email.com',
+    municipio: 'Naucalpan',
+    estado: 'Estado de México',
+    foto: 'SP',
+    disponibilidad: 'No disponible',
+    certificacion: 'Pendiente de validación',
+    calificacion: 0,
+    viajesRealizados: 0,
+    gananciasTotal: 0,
+    cuentaBanco: 'HSBC',
+    cuentaClabe: '021690040000000001',
+    cuentaTitular: 'Sandra Pérez Castillo',
+    documentos: [
+      { tipo: 'Licencia de conducir', numero: 'LIC-2023-SP8821', vencimiento: '30 Nov 2028', estado: 'Vigente' },
+      { tipo: 'INE / IFE', numero: 'OCRD000000003', vencimiento: '20 Apr 2029', estado: 'Vigente' },
+      { tipo: 'Constancia Fiscal (CSF)', numero: '—', vencimiento: '—', estado: 'Pendiente' },
+      { tipo: 'Antecedentes no penales', numero: '—', vencimiento: '—', estado: 'Pendiente' },
+    ],
+    viajes: [],
+    incidencias: [],
+    ganancias: [],
+    notas: [
+      { autor: 'Admin', texto: 'Conductor nuevo. Pendiente CSF y antecedentes para activar.', hora: '10 Jun 2025' },
+    ],
+  },
+  {
+    id: 'CON-005',
+    nombre: 'Pedro',
+    apellido: 'Castillo Mora',
+    curp: 'CAMP930711HDFSTDA4',
+    telefono: '+52 55 9999 0000',
+    email: 'pedro.c@email.com',
+    municipio: 'Iztapalapa',
+    estado: 'Ciudad de México',
+    foto: 'PC',
+    disponibilidad: 'No disponible',
+    certificacion: 'Suspendido',
+    calificacion: 3.8,
+    viajesRealizados: 31,
+    gananciasTotal: 10850,
+    cuentaBanco: 'Banorte',
+    cuentaClabe: '072580000000000001',
+    cuentaTitular: 'Pedro Castillo Mora',
+    documentos: [
+      { tipo: 'Licencia de conducir', numero: 'LIC-2019-PC2241', vencimiento: '05 Ago 2024', estado: 'Vencido' },
+      { tipo: 'INE / IFE', numero: 'OCRD000000004', vencimiento: '10 Mar 2026', estado: 'Vigente' },
+      { tipo: 'Constancia Fiscal (CSF)', numero: 'CAMP930711XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
+      { tipo: 'Antecedentes no penales', numero: 'AP-2022-005', vencimiento: '20 Feb 2023', estado: 'Vencido' },
+    ],
+    viajes: [
+      { id: '#TR-8844', fecha: '14 Jun 2025', origen: 'Taller Sur', destino: 'Agencia Norte', tarifa: 560, estatus: 'En revisión por incidencia' },
+    ],
+    incidencias: [
+      { id: '#INC-005', tipo: 'Daño vehicular', fecha: '14 Jun 2025', estatus: 'Abierta' },
+      { id: '#INC-006', tipo: 'Retraso', fecha: '14 Jun 2025', estatus: 'En seguimiento' },
+    ],
+    ganancias: [
+      { periodo: '1-14 Jun 2025', viajes: 1, monto: 560, estatus: 'En revisión' },
+    ],
+    notas: [
+      { autor: 'Coordinador', texto: 'Suspendido por 2 incidencias en el mismo viaje. Revisar antes de reactivar.', hora: '14 Jun 2025' },
+    ],
+  },
+]
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const avatarColors = [
   'from-blue-500 to-indigo-600',
   'from-emerald-500 to-teal-600',
@@ -519,7 +703,8 @@ function AccionesMenu({
 function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
   const [form, setForm] = useState({
     nombre: '', apellido: '', curp: '', telefono: '', email: '',
-    municipio: '', estado: '', banco: '', clabe: '', titular: '',
+    calle: '', numero: '', colonia: '', cp: '', municipio: '', estado: '',
+    banco: '', clabe: '', titular: '',
   })
   const [errors, setErrors] = useState<Partial<typeof form>>({})
   const [guardando, setGuardando] = useState(false)
@@ -535,6 +720,8 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
     if (!form.email)     e.email     = 'Requerido'
     if (!form.municipio) e.municipio = 'Requerido'
     if (!form.estado)    e.estado    = 'Requerido'
+    if (!form.calle)     e.calle     = 'Requerido'
+    if (!form.cp)        e.cp        = 'Requerido'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -544,18 +731,26 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
     setGuardando(true)
     setErrorGuardar('')
     try {
-    const sb = getSupabaseBrowserClient()
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
       const { error } = await sb.from('conductores').insert({
-        nombre:        form.nombre.toUpperCase(),
-        apellido:      form.apellido.toUpperCase(),
-        curp:          form.curp.toUpperCase() || null,
-        telefono:      form.telefono,
-        email:         form.email.toLowerCase(),
-        municipio:     form.municipio.toUpperCase(),
-        estado_geo:    form.estado.toUpperCase(),
-        cuenta_banco:  form.banco.toUpperCase() || null,
-        cuenta_clabe:  form.clabe || null,
-        cuenta_titular:form.titular.toUpperCase() || null,
+        nombre:            form.nombre.toUpperCase(),
+        apellido:          form.apellido.toUpperCase(),
+        curp:              form.curp.toUpperCase() || null,
+        telefono:          form.telefono,
+        email:             form.email.toLowerCase(),
+        domicilio_calle:   form.calle.toUpperCase(),
+        domicilio_numero:  form.numero.toUpperCase() || null,
+        domicilio_colonia: form.colonia.toUpperCase() || null,
+        domicilio_cp:      form.cp,
+        municipio:         form.municipio.toUpperCase(),
+        estado_geo:        form.estado.toUpperCase(),
+        cuenta_banco:      form.banco.toUpperCase() || null,
+        cuenta_clabe:      form.clabe || null,
+        cuenta_titular:    form.titular.toUpperCase() || null,
         disponibilidad: 'No disponible',
         certificacion:  'Pendiente de validación',
         calificacion:   0,
@@ -596,6 +791,15 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
               <div><L c="CURP" /><input type="text" value={form.curp} onChange={e => set('curp', e.target.value.toUpperCase())} placeholder="18 CARACTERES" className={I('curp')} /></div>
               <div><L c="Teléfono" req /><input type="tel" value={form.telefono} maxLength={12} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} placeholder="55-0000-0000" className={I('telefono')} /><E k="telefono" /></div>
               <div className="col-span-2"><L c="Correo electrónico" req /><input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" className={I('email')} /><E k="email" /></div>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">🏠 Domicilio</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2"><L c="Calle" req /><input type="text" value={form.calle} onChange={e => set('calle', e.target.value.toUpperCase())} placeholder="NOMBRE DE LA CALLE" className={I('calle')} /><E k="calle" /></div>
+              <div><L c="Número" /><input type="text" value={form.numero} onChange={e => set('numero', e.target.value.toUpperCase())} placeholder="EXT/INT" className={I('numero')} /></div>
+              <div><L c="Colonia" /><input type="text" value={form.colonia} onChange={e => set('colonia', e.target.value.toUpperCase())} placeholder="COLONIA" className={I('colonia')} /></div>
+              <div><L c="Código Postal" req /><input type="text" value={form.cp} maxLength={5} onChange={e => set('cp', e.target.value.replace(/\D/g,'').slice(0,5))} placeholder="00000" className={I('cp')} /><E k="cp" /></div>
               <div><L c="Municipio" req /><input type="text" value={form.municipio} onChange={e => set('municipio', e.target.value.toUpperCase())} placeholder="MUNICIPIO O ALCALDÍA" className={I('municipio')} /><E k="municipio" /></div>
               <div><L c="Estado" req /><input type="text" value={form.estado} onChange={e => set('estado', e.target.value.toUpperCase())} placeholder="ESTADO" className={I('estado')} /><E k="estado" /></div>
             </div>
@@ -660,7 +864,11 @@ export default function ConductoresView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarConductores = useCallback(async () => {
-    const sb = getSupabaseBrowserClient()
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     const { data, error } = await sb
       .from('conductores')
       .select(`
