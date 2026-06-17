@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -57,135 +58,6 @@ interface Usuario {
   notas: NotaInterna[]
 }
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const USUARIOS: Usuario[] = [
-  {
-    id: 'USR-001',
-    nombre: 'Ricardo',
-    apellido: 'Torres Mendoza',
-    curp: 'TOMR850312HDFRRCA2',
-    email: 'rtorres@grupologistico.com',
-    telefono: '+52 55 1234 5678',
-    tipo: 'Flotilla',
-    fechaRegistro: '10 Mar 2023',
-    estatus: 'Activo',
-    viajesSolicitados: 148,
-    razonSocial: 'Grupo Logístico CDMX SA de CV',
-    rfc: 'GLC230310XX1',
-    regimenFiscal: '601 - General de Ley',
-    domicilioFiscal: 'Av. Insurgentes Sur 1234, CDMX',
-    cfdi: 'G03 - Gastos en general',
-    vehiculos: [
-      { modelo: 'Toyota Hilux 2022', placas: 'XYZ-987', anio: '2022' },
-      { modelo: 'Ford F-150 2021', placas: 'GHI-321', anio: '2021' },
-      { modelo: 'Nissan NP300 2020', placas: 'PQR-111', anio: '2020' },
-    ],
-    pagos: [
-      { fecha: '01 Jun 2025', monto: 8400, concepto: 'Traslados mayo', estatus: 'Pagado' },
-      { fecha: '01 May 2025', monto: 6200, concepto: 'Traslados abril', estatus: 'Pagado' },
-      { fecha: '14 Jun 2025', monto: 3100, concepto: 'Traslados jun (parcial)', estatus: 'Pendiente' },
-    ],
-    viajes: [
-      { id: '#TR-8848', fecha: '14 Jun 2025', origen: 'Av. Reforma 222', destino: 'Taller Norte', estatus: 'Traslado en curso' },
-      { id: '#TR-8830', fecha: '10 Jun 2025', origen: 'Taller Sur', destino: 'Agencia Norte', estatus: 'Finalizado' },
-    ],
-    notas: [{ autor: 'Ops. Central', texto: 'Cliente VIP. Trato preferencial en asignación de conductores.', hora: '10 Mar 2023' }],
-  },
-  {
-    id: 'USR-002',
-    nombre: 'Fernanda',
-    apellido: 'López Ríos',
-    curp: 'LORF900621MDFPZRA5',
-    email: 'flopez@autonorte.mx',
-    telefono: '+52 81 9876 5432',
-    tipo: 'Agencia',
-    fechaRegistro: '15 Jun 2023',
-    estatus: 'Activo',
-    viajesSolicitados: 93,
-    razonSocial: 'AutoMóviles del Norte SA de CV',
-    rfc: 'ANO230615YZ2',
-    regimenFiscal: '601 - General de Ley',
-    domicilioFiscal: 'Blvd. Díaz Ordaz 500, Monterrey',
-    cfdi: 'G03 - Gastos en general',
-    vehiculos: [
-      { modelo: 'Honda Civic 2020', placas: 'DEF-456', anio: '2020' },
-      { modelo: 'Chevrolet Trax 2022', placas: 'MNO-789', anio: '2022' },
-    ],
-    pagos: [
-      { fecha: '01 Jun 2025', monto: 4800, concepto: 'Traslados mayo', estatus: 'Pagado' },
-      { fecha: '14 Jun 2025', monto: 950, concepto: 'Viaje #TR-8844', estatus: 'En revisión' },
-    ],
-    viajes: [
-      { id: '#TR-8844', fecha: '14 Jun 2025', origen: 'Taller Sur', destino: 'Agencia Norte', estatus: 'En revisión por incidencia' },
-    ],
-    notas: [],
-  },
-  {
-    id: 'USR-003',
-    nombre: 'Luis',
-    apellido: 'Hernández Vega',
-    curp: 'HEVL921105HDFRGA9',
-    email: 'lhernandez@gmail.com',
-    telefono: '+52 55 5555 4444',
-    tipo: 'Personal',
-    fechaRegistro: '20 Ene 2024',
-    estatus: 'Inactivo',
-    viajesSolicitados: 3,
-    razonSocial: '—',
-    rfc: 'HEVL921105XXX',
-    regimenFiscal: '605 - Sueldos y salarios',
-    domicilioFiscal: 'Calle Roble 45, CDMX',
-    cfdi: 'D10 - Pago de servicios educativos',
-    vehiculos: [{ modelo: 'Nissan Versa 2021', placas: 'ABC-123', anio: '2021' }],
-    pagos: [{ fecha: '13 Jun 2025', monto: 650, concepto: 'Viaje #TR-8841', estatus: 'Pagado' }],
-    viajes: [{ id: '#TR-8841', fecha: '13 Jun 2025', origen: 'Taller Oriente', destino: 'Roma Norte', estatus: 'Finalizado' }],
-    notas: [],
-  },
-  {
-    id: 'USR-004',
-    nombre: 'Claudia',
-    apellido: 'Ríos Pacheco',
-    curp: 'RIPC880914MGTPCLA7',
-    email: 'crios@bajio.com.mx',
-    telefono: '+52 46 2222 3333',
-    tipo: 'Empresarial',
-    fechaRegistro: '05 May 2024',
-    estatus: 'Pendiente',
-    viajesSolicitados: 7,
-    razonSocial: 'Distribuidora Bajío SA de CV',
-    rfc: 'DBA240505AB3',
-    regimenFiscal: '601 - General de Ley',
-    domicilioFiscal: 'Av. Constituyentes 200, Querétaro',
-    cfdi: 'G03 - Gastos en general',
-    vehiculos: [{ modelo: 'Ford F-150 2023', placas: 'GHI-321', anio: '2023' }],
-    pagos: [{ fecha: '15 Jun 2025', monto: 2200, concepto: 'Viaje #TR-8847', estatus: 'Pendiente' }],
-    viajes: [{ id: '#TR-8847', fecha: '15 Jun 2025', origen: 'Distribuidora Bajío', destino: 'Agencia CDMX', estatus: 'Conductor asignado' }],
-    notas: [{ autor: 'Admin', texto: 'Pendiente validar RFC y datos fiscales antes de activar cuenta.', hora: '05 May 2024' }],
-  },
-  {
-    id: 'USR-005',
-    nombre: 'Seguros',
-    apellido: 'Primero Nacional',
-    curp: '—',
-    email: 'siniestros@primeronal.com.mx',
-    telefono: '+52 55 8000 1111',
-    tipo: 'Aseguradora',
-    fechaRegistro: '01 Feb 2024',
-    estatus: 'Activo',
-    viajesSolicitados: 22,
-    razonSocial: 'Seguros Primero Nacional SA de CV',
-    rfc: 'SPN240201XY9',
-    regimenFiscal: '601 - General de Ley',
-    domicilioFiscal: 'Paseo de la Reforma 300, CDMX',
-    cfdi: 'G03 - Gastos en general',
-    vehiculos: [],
-    pagos: [{ fecha: '01 Jun 2025', monto: 12400, concepto: 'Traslados siniestros mayo', estatus: 'Pagado' }],
-    viajes: [],
-    notas: [],
-  },
-]
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const TIPOS: TipoUsuario[] = ['Personal','Empresarial','Agencia','Lote','Flotilla','Arrendadora','Taller','Aseguradora','Entrega al cliente']
 
 const tipoColor: Record<TipoUsuario, string> = {
@@ -642,11 +514,7 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
     setGuardando(true)
     setErrorGuardar('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+    const sb = getSupabaseBrowserClient()
 
       const domicilioFiscal = form.requiereFactura
         ? [form.fiscalCalle, form.fiscalNumero, form.fiscalColonia, form.fiscalMunicipio, form.fiscalEstado, form.fiscalCp]
@@ -898,11 +766,7 @@ export default function UsuariosView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarUsuarios = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('usuarios')
       .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')

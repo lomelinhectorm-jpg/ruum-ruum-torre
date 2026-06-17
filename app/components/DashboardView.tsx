@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   TruckIcon,
   CheckCircleIcon,
@@ -137,11 +138,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
   const [cargando, setCargando] = useState(true)
 
   const cargarDashboard = async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const sb = getSupabaseBrowserClient()
 
     const hoy = new Date().toISOString().split('T')[0]
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -65,185 +66,6 @@ interface Empresa {
   viajesTotal: number
 }
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const EMPRESAS: Empresa[] = [
-  {
-    id: 'EMP-001',
-    razonSocial: 'Grupo Logístico CDMX SA de CV',
-    nombreComercial: 'Grupo Logístico CDMX',
-    tipo: 'Flotilla',
-    rfc: 'GLC230310XX1',
-    regimenFiscal: '601 - General de Ley Personas Morales',
-    domicilioFiscal: 'Av. Insurgentes Sur 1234, Benito Juárez, CDMX',
-    cfdi: 'G03 - Gastos en general',
-    contactoPrincipal: 'Ricardo Torres Mendoza',
-    telefono: '+52 55 1234 5678',
-    correo: 'rtorres@grupologistico.com',
-    direccion: 'Av. Insurgentes Sur 1234, Col. Del Valle, CDMX',
-    estatus: 'Activa',
-    fechaRegistro: '10 Mar 2023',
-    descuento: 10,
-    creditoDias: 30,
-    limiteCredito: 50000,
-    convenio: 'CONV-GLC-2023-001',
-    vigenciaConvenio: '10 Mar 2026',
-    usuariosVinculados: [
-      { nombre: 'Ricardo Torres', rol: 'Administrador', email: 'rtorres@grupologistico.com' },
-      { nombre: 'Ana Morales', rol: 'Coordinador', email: 'amorales@grupologistico.com' },
-    ],
-    vehiculosFrecuentes: [
-      { modelo: 'Toyota Hilux 2022', placas: 'XYZ-987', anio: '2022' },
-      { modelo: 'Ford F-150 2021', placas: 'GHI-321', anio: '2021' },
-      { modelo: 'Nissan NP300 2020', placas: 'PQR-111', anio: '2020' },
-    ],
-    historialViajes: [
-      { id: '#TR-8848', fecha: '14 Jun 2025', ruta: 'Reforma → Taller Norte', monto: 1200, estatus: 'Traslado en curso' },
-      { id: '#TR-8830', fecha: '10 Jun 2025', ruta: 'Taller Sur → Agencia Norte', monto: 1800, estatus: 'Finalizado' },
-    ],
-    notas: [{ autor: 'Ops. Central', texto: 'Cliente VIP. Prioridad máxima en asignaciones.', hora: '10 Mar 2023' }],
-    totalFacturado: 148000,
-    viajesTotal: 148,
-  },
-  {
-    id: 'EMP-002',
-    razonSocial: 'AutoMóviles del Norte SA de CV',
-    nombreComercial: 'AutoNorte',
-    tipo: 'Agencia automotriz',
-    rfc: 'ANO230615YZ2',
-    regimenFiscal: '601 - General de Ley Personas Morales',
-    domicilioFiscal: 'Blvd. Díaz Ordaz 500, Monterrey, NL',
-    cfdi: 'G03 - Gastos en general',
-    contactoPrincipal: 'Fernanda López Ríos',
-    telefono: '+52 81 9876 5432',
-    correo: 'flopez@autonorte.mx',
-    direccion: 'Blvd. Díaz Ordaz 500, Col. Santa María, Monterrey, NL',
-    estatus: 'Activa',
-    fechaRegistro: '15 Jun 2023',
-    descuento: 8,
-    creditoDias: 15,
-    limiteCredito: 30000,
-    convenio: 'CONV-ANO-2023-002',
-    vigenciaConvenio: '15 Jun 2025',
-    usuariosVinculados: [
-      { nombre: 'Fernanda López', rol: 'Administrador', email: 'flopez@autonorte.mx' },
-    ],
-    vehiculosFrecuentes: [
-      { modelo: 'Honda Civic 2020', placas: 'DEF-456', anio: '2020' },
-      { modelo: 'Chevrolet Trax 2022', placas: 'MNO-789', anio: '2022' },
-    ],
-    historialViajes: [
-      { id: '#TR-8844', fecha: '14 Jun 2025', ruta: 'Taller Sur → Agencia Norte', monto: 950, estatus: 'En revisión' },
-    ],
-    notas: [{ autor: 'Admin', texto: 'Convenio próximo a vencer en Jun 2025. Renovar.', hora: '01 Jun 2025' }],
-    totalFacturado: 93000,
-    viajesTotal: 93,
-  },
-  {
-    id: 'EMP-003',
-    razonSocial: 'Distribuidora Bajío SA de CV',
-    nombreComercial: 'Distribuidora Bajío',
-    tipo: 'Empresa general',
-    rfc: 'DBA240505AB3',
-    regimenFiscal: '601 - General de Ley Personas Morales',
-    domicilioFiscal: 'Av. Constituyentes 200, Querétaro, QRO',
-    cfdi: 'G03 - Gastos en general',
-    contactoPrincipal: 'Claudia Ríos Pacheco',
-    telefono: '+52 46 2222 3333',
-    correo: 'crios@bajio.com.mx',
-    direccion: 'Av. Constituyentes 200, Centro, Querétaro, QRO',
-    estatus: 'Pendiente',
-    fechaRegistro: '05 May 2024',
-    descuento: 0,
-    creditoDias: 0,
-    limiteCredito: 0,
-    convenio: '—',
-    vigenciaConvenio: '—',
-    usuariosVinculados: [
-      { nombre: 'Claudia Ríos', rol: 'Administrador', email: 'crios@bajio.com.mx' },
-    ],
-    vehiculosFrecuentes: [
-      { modelo: 'Ford F-150 2023', placas: 'GHI-321', anio: '2023' },
-    ],
-    historialViajes: [
-      { id: '#TR-8847', fecha: '15 Jun 2025', ruta: 'Querétaro → CDMX', monto: 2200, estatus: 'Conductor asignado' },
-    ],
-    notas: [{ autor: 'Admin', texto: 'Cuenta pendiente de activar. Faltan CSF y datos fiscales.', hora: '05 May 2024' }],
-    totalFacturado: 2200,
-    viajesTotal: 1,
-  },
-  {
-    id: 'EMP-004',
-    razonSocial: 'Seguros Primero Nacional SA de CV',
-    nombreComercial: 'Seguros Primero',
-    tipo: 'Aseguradora',
-    rfc: 'SPN240201XY9',
-    regimenFiscal: '601 - General de Ley Personas Morales',
-    domicilioFiscal: 'Paseo de la Reforma 300, Cuauhtémoc, CDMX',
-    cfdi: 'G03 - Gastos en general',
-    contactoPrincipal: 'Marcos Villanueva',
-    telefono: '+52 55 8000 1111',
-    correo: 'siniestros@primeronal.com.mx',
-    direccion: 'Paseo de la Reforma 300, Piso 12, CDMX',
-    estatus: 'Activa',
-    fechaRegistro: '01 Feb 2024',
-    descuento: 12,
-    creditoDias: 30,
-    limiteCredito: 100000,
-    convenio: 'CONV-SPN-2024-001',
-    vigenciaConvenio: '31 Jan 2026',
-    usuariosVinculados: [
-      { nombre: 'Marcos Villanueva', rol: 'Coordinador siniestros', email: 'mvillanueva@primeronal.com.mx' },
-      { nombre: 'Laura Soto', rol: 'Asistente', email: 'lsoto@primeronal.com.mx' },
-    ],
-    vehiculosFrecuentes: [],
-    historialViajes: [
-      { id: '#TR-8800', fecha: '01 Jun 2025', ruta: 'CDMX → Taller Siniestros', monto: 800, estatus: 'Finalizado' },
-    ],
-    notas: [],
-    totalFacturado: 62000,
-    viajesTotal: 22,
-  },
-  {
-    id: 'EMP-005',
-    razonSocial: 'Renta Wheels de México SA de CV',
-    nombreComercial: 'RentaWheels',
-    tipo: 'Arrendadora',
-    rfc: 'RWM210315ZZ5',
-    regimenFiscal: '601 - General de Ley Personas Morales',
-    domicilioFiscal: 'Blvd. Manuel Ávila Camacho 3130, Tlalnepantla, EdoMex',
-    cfdi: 'G03 - Gastos en general',
-    contactoPrincipal: 'Jorge Elizondo',
-    telefono: '+52 55 3300 8800',
-    correo: 'operaciones@rentawheels.mx',
-    direccion: 'Blvd. Manuel Ávila Camacho 3130, Tlalnepantla, Estado de México',
-    estatus: 'Activa',
-    fechaRegistro: '15 Mar 2021',
-    descuento: 15,
-    creditoDias: 45,
-    limiteCredito: 80000,
-    convenio: 'CONV-RWM-2021-001',
-    vigenciaConvenio: '15 Mar 2027',
-    usuariosVinculados: [
-      { nombre: 'Jorge Elizondo', rol: 'Director Operativo', email: 'jelizondo@rentawheels.mx' },
-      { nombre: 'Patricia Nava', rol: 'Coordinador', email: 'pnava@rentawheels.mx' },
-      { nombre: 'Carlos Vega', rol: 'Asistente', email: 'cvega@rentawheels.mx' },
-    ],
-    vehiculosFrecuentes: [
-      { modelo: 'Nissan Versa 2022', placas: 'RWA-100', anio: '2022' },
-      { modelo: 'Toyota Corolla 2023', placas: 'RWB-200', anio: '2023' },
-      { modelo: 'Honda HR-V 2021', placas: 'RWC-300', anio: '2021' },
-    ],
-    historialViajes: [
-      { id: '#TR-8790', fecha: '05 Jun 2025', ruta: 'Aeropuerto → Sucursal Centro', monto: 750, estatus: 'Finalizado' },
-      { id: '#TR-8775', fecha: '01 Jun 2025', ruta: 'Sucursal Norte → Taller', monto: 600, estatus: 'Finalizado' },
-    ],
-    notas: [{ autor: 'Coordinador', texto: 'Cuenta con descuento especial negociado en 2024. No modificar sin autorización.', hora: '15 Ene 2024' }],
-    totalFacturado: 215000,
-    viajesTotal: 310,
-  },
-]
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const TIPOS_EMPRESA: TipoEmpresa[] = [
   'Agencia automotriz','Lote de autos','Arrendadora','Flotilla',
   'Taller','Aseguradora','Grupo automotriz','Empresa general',
@@ -627,8 +449,7 @@ function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: ()
     }
     setGuardando(true); setErrorGuardar('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const sb = getSupabaseBrowserClient()
       const { error } = await sb.from('empresas').insert({
         tipo,
         razon_social:      form.razonSocial.toUpperCase(),
@@ -764,8 +585,7 @@ export default function EmpresasView() {
   const [cargando, setCargando]     = useState(true)
 
   const cargarEmpresas = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('empresas')
       .select('id, razon_social, nombre_comercial, tipo, rfc, regimen_fiscal, domicilio_fiscal, cfdi, contacto_principal, telefono, correo, direccion, estatus, descuento, credito_dias, limite_credito, convenio, vigencia_convenio, created_at')

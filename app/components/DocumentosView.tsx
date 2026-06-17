@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -92,8 +93,7 @@ function EstatusSelector({ value, onChange }: { value: EstatusDoc; onChange: (e:
 }
 
 async function getSB() {
-  const { createClient } = await import('@supabase/supabase-js')
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  return getSupabaseBrowserClient()
 }
 
 function fmt(date: string | null) {

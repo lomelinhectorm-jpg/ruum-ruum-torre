@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -66,233 +67,16 @@ interface Trip {
   revisionAdmin: string
 }
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const TRIPS: Trip[] = [
-  {
-    id: '#TR-8848',
-    usuario: 'Fernanda López',
-    empresa: 'AutoMóviles del Norte SA',
-    vehiculo: { marca: 'Toyota', modelo: 'Hilux', anio: '2022', color: 'Blanco', placas: 'XYZ-987', vin: '1HGBH41JXMN109186', transmision: 'Automática', observaciones: 'Ligero raspón en defensa trasera' },
-    origen: 'Av. Reforma 222, CDMX',
-    origenContacto: 'Jorge Reyes · +52 55 1111 2222',
-    destino: 'Taller Norte, Satélite',
-    destinoContacto: 'Recepción Taller · +52 55 3333 4444',
-    referencias: 'Frente a la estación de metro Hidalgo',
-    instrucciones: 'Llamar al contacto 10 min antes de llegar.',
-    fecha: '14 Jun 2025',
-    hora: '12:00',
-    conductor: 'Carlos Méndez',
-    status: 'Traslado en curso',
-    tarifaCliente: 1200,
-    pagoConductor: 700,
-    gastosExtra: 50,
-    gastosAutorizados: 50,
-    ajustes: 0,
-    evidencia: 'Completa',
-    incidencias: 0,
-    tipoServicio: 'Traslado de vehículo',
-    timeline: [
-      { evento: 'Solicitud creada', hora: '08:15', actor: 'Sistema' },
-      { evento: 'Viaje revisado por operaciones', hora: '08:30', actor: 'Admin' },
-      { evento: 'Conductor asignado', hora: '08:45', actor: 'Admin' },
-      { evento: 'Conductor aceptó el viaje', hora: '09:00', actor: 'Carlos M.' },
-      { evento: 'Llegada al origen', hora: '11:45', actor: 'Carlos M.' },
-      { evento: 'Evidencia inicial cargada', hora: '11:55', actor: 'Carlos M.' },
-      { evento: 'Traslado iniciado', hora: '12:00', actor: 'Carlos M.' },
-    ],
-    notas: [
-      { autor: 'Ops. Central', texto: 'Cliente VIP. Prioridad en atención.', hora: '08:20' },
-    ],
-    observacionesConductor: 'Vehículo entregado con lleno de gasolina.',
-    revisionAdmin: '',
-  },
-  {
-    id: '#TR-8849',
-    usuario: 'Ricardo Torres',
-    empresa: 'Grupo Logístico CDMX',
-    vehiculo: { marca: 'Honda', modelo: 'Civic', anio: '2020', color: 'Gris', placas: 'DEF-456', vin: '2T1BURHE0JC016885', transmision: 'Manual', observaciones: '' },
-    origen: 'Agencia Sur, Coyoacán',
-    origenContacto: 'Sofía Luna · +52 55 5555 6666',
-    destino: 'Domicilio Cliente, Tlalpan',
-    destinoContacto: 'Ricardo Torres · +52 55 7777 8888',
-    referencias: 'Casa color beige, portón azul',
-    instrucciones: 'No hay estacionamiento frente al domicilio.',
-    fecha: '14 Jun 2025',
-    hora: '13:00',
-    conductor: null,
-    status: 'Pendiente de asignación',
-    tarifaCliente: 850,
-    pagoConductor: 500,
-    gastosExtra: 0,
-    gastosAutorizados: 0,
-    ajustes: 0,
-    evidencia: 'Pendiente',
-    incidencias: 0,
-    tipoServicio: 'Entrega de vehículo',
-    timeline: [
-      { evento: 'Solicitud creada', hora: '10:00', actor: 'Sistema' },
-      { evento: 'Viaje revisado por operaciones', hora: '10:20', actor: 'Admin' },
-    ],
-    notas: [],
-    observacionesConductor: '',
-    revisionAdmin: '',
-  },
-  {
-    id: '#TR-8841',
-    usuario: 'Luis Hernández',
-    empresa: '—',
-    vehiculo: { marca: 'Nissan', modelo: 'Versa', anio: '2021', color: 'Rojo', placas: 'ABC-123', vin: '3VWSE69M77M000001', transmision: 'Automática', observaciones: '' },
-    origen: 'Taller Oriente, Iztapalapa',
-    origenContacto: 'Marco López · +52 55 2222 3333',
-    destino: 'Estacionamiento Central, Roma Norte',
-    destinoContacto: 'Luis H. · +52 55 9999 0000',
-    referencias: 'Estacionamiento público subterráneo',
-    instrucciones: 'Preguntar por Diego en la caseta.',
-    fecha: '13 Jun 2025',
-    hora: '16:00',
-    conductor: 'Ana Rodríguez',
-    status: 'Finalizado',
-    tarifaCliente: 650,
-    pagoConductor: 380,
-    gastosExtra: 30,
-    gastosAutorizados: 30,
-    ajustes: -50,
-    evidencia: 'Completa',
-    incidencias: 1,
-    tipoServicio: 'Traslado de vehículo',
-    timeline: [
-      { evento: 'Solicitud creada', hora: '12:00', actor: 'Sistema' },
-      { evento: 'Viaje revisado por operaciones', hora: '12:15', actor: 'Admin' },
-      { evento: 'Conductor asignado', hora: '12:30', actor: 'Admin' },
-      { evento: 'Conductor aceptó el viaje', hora: '12:45', actor: 'Ana R.' },
-      { evento: 'Llegada al origen', hora: '15:50', actor: 'Ana R.' },
-      { evento: 'Evidencia inicial cargada', hora: '15:58', actor: 'Ana R.' },
-      { evento: 'Traslado iniciado', hora: '16:00', actor: 'Ana R.' },
-      { evento: 'Incidencia reportada (#INC-001)', hora: '16:30', actor: 'Ana R.' },
-      { evento: 'Llegada a destino', hora: '17:10', actor: 'Ana R.' },
-      { evento: 'Evidencia final cargada', hora: '17:18', actor: 'Ana R.' },
-      { evento: 'Entrega confirmada', hora: '17:20', actor: 'Ana R.' },
-      { evento: 'Viaje cerrado', hora: '17:25', actor: 'Admin' },
-    ],
-    notas: [
-      { autor: 'Ops. Central', texto: 'Ajuste de $50 aplicado por retraso.', hora: '17:26' },
-    ],
-    observacionesConductor: 'El vehículo presentaba el tanque vacío al recibirlo.',
-    revisionAdmin: 'Incidencia validada. Ajuste aprobado.',
-  },
-  {
-    id: '#TR-8847',
-    usuario: 'Claudia Ríos',
-    empresa: 'Distribuidora Bajío',
-    vehiculo: { marca: 'Ford', modelo: 'F-150', anio: '2023', color: 'Negro', placas: 'GHI-321', vin: '1FTFW1ET5DFB08474', transmision: 'Automática', observaciones: 'Llantas nuevas instaladas esta semana' },
-    origen: 'Distribuidora Bajío, Querétaro',
-    origenContacto: 'Claudia Ríos · +52 46 2222 3333',
-    destino: 'Agencia Principal, CDMX',
-    destinoContacto: 'Recepción · +52 55 4444 5555',
-    referencias: 'Entrada por calle lateral',
-    instrucciones: 'Solicitar firma de recepción obligatoria.',
-    fecha: '15 Jun 2025',
-    hora: '09:00',
-    conductor: 'Mario García',
-    status: 'Conductor asignado',
-    tarifaCliente: 2200,
-    pagoConductor: 1300,
-    gastosExtra: 0,
-    gastosAutorizados: 150,
-    ajustes: 0,
-    evidencia: 'Pendiente',
-    incidencias: 0,
-    tipoServicio: 'Traslado largo recorrido',
-    timeline: [
-      { evento: 'Solicitud creada', hora: 'Ayer 17:00', actor: 'Sistema' },
-      { evento: 'Viaje revisado por operaciones', hora: 'Ayer 17:30', actor: 'Admin' },
-      { evento: 'Conductor asignado', hora: 'Ayer 18:00', actor: 'Admin' },
-      { evento: 'Conductor aceptó el viaje', hora: 'Ayer 18:15', actor: 'Mario G.' },
-    ],
-    notas: [
-      { autor: 'Coordinador', texto: 'Autorizar $150 de casetas y gasolina.', hora: 'Ayer 18:05' },
-    ],
-    observacionesConductor: '',
-    revisionAdmin: '',
-  },
-  {
-    id: '#TR-8838',
-    usuario: 'Pedro Castillo',
-    empresa: '—',
-    vehiculo: { marca: 'Volkswagen', modelo: 'Jetta', anio: '2019', color: 'Azul', placas: 'JKL-654', vin: '9BWZZZ377VT004251', transmision: 'Manual', observaciones: '' },
-    origen: 'Col. Del Valle, CDMX',
-    origenContacto: 'Pedro C. · +52 55 6666 7777',
-    destino: 'Taller Express, Naucalpan',
-    destinoContacto: 'Taller · +52 55 8888 9999',
-    referencias: 'A un costado del Walmart',
-    instrucciones: '',
-    fecha: '12 Jun 2025',
-    hora: '10:30',
-    conductor: 'Sandra Pérez',
-    status: 'Cancelado',
-    tarifaCliente: 550,
-    pagoConductor: 0,
-    gastosExtra: 0,
-    gastosAutorizados: 0,
-    ajustes: -550,
-    evidencia: 'Pendiente',
-    incidencias: 0,
-    tipoServicio: 'Traslado de vehículo',
-    timeline: [
-      { evento: 'Solicitud creada', hora: '09:00', actor: 'Sistema' },
-      { evento: 'Viaje revisado por operaciones', hora: '09:15', actor: 'Admin' },
-      { evento: 'Conductor asignado', hora: '09:30', actor: 'Admin' },
-      { evento: 'Viaje cancelado por cliente', hora: '10:00', actor: 'Pedro C.' },
-    ],
-    notas: [
-      { autor: 'Admin', texto: 'Cliente canceló con menos de 30 min. Revisar política de cobro.', hora: '10:05' },
-    ],
-    observacionesConductor: '',
-    revisionAdmin: 'Cancelación aceptada sin cargo.',
-  },
-  {
-    id: '#TR-8844',
-    usuario: 'Sandra Pérez',
-    empresa: 'AutoMóviles del Norte SA',
-    vehiculo: { marca: 'Chevrolet', modelo: 'Trax', anio: '2022', color: 'Plata', placas: 'MNO-789', vin: '3GNKBCRSXGS500001', transmision: 'Automática', observaciones: 'Parabrisas con fisura leve' },
-    origen: 'Taller Sur, Xochimilco',
-    origenContacto: 'Taller Sur · +52 55 1234 0000',
-    destino: 'Agencia Norte, Gustavo A. Madero',
-    destinoContacto: 'Agencia · +52 55 0000 9999',
-    referencias: 'Edificio rojo frente al metro',
-    instrucciones: 'Verificar fisura con el responsable de agencia al entregar.',
-    fecha: '14 Jun 2025',
-    hora: '11:00',
-    conductor: 'Pedro Castillo',
-    status: 'En revisión por incidencia',
-    tarifaCliente: 950,
-    pagoConductor: 560,
-    gastosExtra: 80,
-    gastosAutorizados: 0,
-    ajustes: 0,
-    evidencia: 'Incompleta',
-    incidencias: 2,
-    tipoServicio: 'Traslado de vehículo',
-    timeline: [
-      { evento: 'Solicitud creada', hora: '07:00', actor: 'Sistema' },
-      { evento: 'Viaje revisado por operaciones', hora: '07:20', actor: 'Admin' },
-      { evento: 'Conductor asignado', hora: '07:35', actor: 'Admin' },
-      { evento: 'Conductor aceptó el viaje', hora: '07:50', actor: 'Pedro C.' },
-      { evento: 'Llegada al origen', hora: '10:55', actor: 'Pedro C.' },
-      { evento: 'Evidencia inicial cargada', hora: '11:02', actor: 'Pedro C.' },
-      { evento: 'Traslado iniciado', hora: '11:05', actor: 'Pedro C.' },
-      { evento: 'Incidencia reportada (#INC-005)', hora: '11:40', actor: 'Pedro C.' },
-      { evento: 'Incidencia reportada (#INC-006)', hora: '12:00', actor: 'Pedro C.' },
-    ],
-    notas: [
-      { autor: 'Coordinador', texto: 'En espera de resolución de incidencias antes de cerrar viaje.', hora: '12:10' },
-    ],
-    observacionesConductor: 'La fisura del parabrisas se amplió durante el traslado. Reporté al cliente de destino.',
-    revisionAdmin: 'Pendiente de validación con aseguradora.',
-  },
-]
+const tabStatusMap: Record<TabId, StatusKey[]> = {
+  todos: [],
+  pendientes: ['Solicitud recibida', 'Pendiente de revisión', 'Pendiente de asignación'],
+  programados: ['Conductor asignado'],
+  'en-curso': ['Conductor en camino', 'Recolección en proceso', 'Evidencia inicial pendiente', 'Traslado en curso', 'Entrega en proceso', 'Evidencia final pendiente'],
+  finalizados: ['Finalizado'],
+  cancelados: ['Cancelado'],
+  revision: ['En revisión por incidencia'],
+}
 
-// ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 const statusStyle: Record<string, string> = {
   'Solicitud recibida': 'bg-slate-100 text-slate-600',
   'Pendiente de revisión': 'bg-slate-100 text-slate-600',
@@ -304,19 +88,9 @@ const statusStyle: Record<string, string> = {
   'Traslado en curso': 'bg-purple-100 text-purple-700',
   'Entrega en proceso': 'bg-violet-100 text-violet-700',
   'Evidencia final pendiente': 'bg-orange-100 text-orange-700',
-  'Finalizado': 'bg-green-100 text-green-700',
-  'Cancelado': 'bg-red-100 text-red-600',
+  Finalizado: 'bg-green-100 text-green-700',
+  Cancelado: 'bg-red-100 text-red-600',
   'En revisión por incidencia': 'bg-rose-100 text-rose-700',
-}
-
-const tabStatusMap: Record<TabId, StatusKey[]> = {
-  todos: [],
-  pendientes: ['Solicitud recibida', 'Pendiente de revisión', 'Pendiente de asignación'],
-  programados: ['Conductor asignado'],
-  'en-curso': ['Conductor en camino', 'Recolección en proceso', 'Evidencia inicial pendiente', 'Traslado en curso', 'Entrega en proceso', 'Evidencia final pendiente'],
-  finalizados: ['Finalizado'],
-  cancelados: ['Cancelado'],
-  revision: ['En revisión por incidencia'],
 }
 
 const evidenciaStyle: Record<string, string> = {
@@ -695,11 +469,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
     setErrorGuardar('')
 
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+    const sb = getSupabaseBrowserClient()
 
       // 1. Buscar o crear vehículo
       let vehiculoId: string | null = null
@@ -1278,11 +1048,7 @@ export default function ViajesView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarViajes = async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('viajes')
       .select(`

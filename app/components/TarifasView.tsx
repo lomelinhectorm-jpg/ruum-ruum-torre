@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   PlusIcon,
   XMarkIcon,
@@ -72,70 +73,6 @@ interface RutaFrecuente {
   tipoVehiculo: TipoVehiculo
   activa: boolean
 }
-
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const TARIFAS_BASE_INIT: TarifaBase[] = [
-  { id: 'TB-001', nombre: 'Local Sedán',    tipoVehiculo: 'Sedán',   tipoServicio: 'Traslado local',   tarifaBase: 350, porKm: 10, tarifaMinima: 250, tiempoEstimado: 30,  activa: true  },
-  { id: 'TB-002', nombre: 'Local SUV',      tipoVehiculo: 'SUV',     tipoServicio: 'Traslado local',   tarifaBase: 450, porKm: 13, tarifaMinima: 350, tiempoEstimado: 35,  activa: true  },
-  { id: 'TB-003', nombre: 'Local Pick-up',  tipoVehiculo: 'Pick-up', tipoServicio: 'Traslado local',   tarifaBase: 500, porKm: 15, tarifaMinima: 400, tiempoEstimado: 40,  activa: true  },
-  { id: 'TB-004', nombre: 'Foráneo Sedán',  tipoVehiculo: 'Sedán',   tipoServicio: 'Traslado foráneo', tarifaBase: 800, porKm: 12, tarifaMinima: 800, tiempoEstimado: 120, activa: true  },
-  { id: 'TB-005', nombre: 'Foráneo SUV',    tipoVehiculo: 'SUV',     tipoServicio: 'Traslado foráneo', tarifaBase: 1000, porKm: 14, tarifaMinima: 1000, tiempoEstimado: 120, activa: true },
-  { id: 'TB-006', nombre: 'Largo Recorrido', tipoVehiculo: 'Todos',  tipoServicio: 'Largo recorrido',  tarifaBase: 1800, porKm: 11, tarifaMinima: 1800, tiempoEstimado: 240, activa: true },
-  { id: 'TB-007', nombre: 'Urgente',        tipoVehiculo: 'Todos',   tipoServicio: 'Urgente',          tarifaBase: 600, porKm: 18, tarifaMinima: 500, tiempoEstimado: 20,  activa: false },
-]
-
-const RECARGOS_INIT: Recargo[] = [
-  { id: 'RC-001', nombre: 'Recargo nocturno',     tipo: 'porcentaje', valor: 20, aplica: 'Viajes entre 22:00 y 06:00',    activo: true  },
-  { id: 'RC-002', nombre: 'Recargo de urgencia',  tipo: 'porcentaje', valor: 30, aplica: 'Servicio urgente (<2h)',         activo: true  },
-  { id: 'RC-003', nombre: 'Recargo viaje foráneo',tipo: 'porcentaje', valor: 15, aplica: 'Viajes fuera de zona metro.',    activo: true  },
-  { id: 'RC-004', nombre: 'Peaje autopista',      tipo: 'fijo',       valor: 150, aplica: 'Viajes con autopista de cuota', activo: true  },
-  { id: 'RC-005', nombre: 'Combustible extra',    tipo: 'fijo',       valor: 80,  aplica: 'Viajes > 200 km',               activo: true  },
-  { id: 'RC-006', nombre: 'Alto riesgo',          tipo: 'porcentaje', valor: 25, aplica: 'Vehículos de nivel riesgo alto', activo: false },
-  { id: 'RC-007', nombre: 'Viático conductor',    tipo: 'fijo',       valor: 300, aplica: 'Viajes con pernocta',           activo: true  },
-]
-
-const PAGOS_CONDUCTOR_INIT: PagoConductor[] = [
-  { id: 'PC-001', tipoServicio: 'Traslado local',   tipoVehiculo: 'Sedán',   pagoBase: 200, porKm: 6, gastosAutorizados: 0,   viaticos: 0,   activo: true },
-  { id: 'PC-002', tipoServicio: 'Traslado local',   tipoVehiculo: 'SUV',     pagoBase: 260, porKm: 7, gastosAutorizados: 0,   viaticos: 0,   activo: true },
-  { id: 'PC-003', tipoServicio: 'Traslado local',   tipoVehiculo: 'Pick-up', pagoBase: 290, porKm: 8, gastosAutorizados: 0,   viaticos: 0,   activo: true },
-  { id: 'PC-004', tipoServicio: 'Traslado foráneo', tipoVehiculo: 'Todos',   pagoBase: 480, porKm: 7, gastosAutorizados: 150, viaticos: 0,   activo: true },
-  { id: 'PC-005', tipoServicio: 'Largo recorrido',  tipoVehiculo: 'Todos',   pagoBase: 1000, porKm: 6, gastosAutorizados: 300, viaticos: 300, activo: true },
-  { id: 'PC-006', tipoServicio: 'Urgente',          tipoVehiculo: 'Todos',   pagoBase: 350, porKm: 10, gastosAutorizados: 0,  viaticos: 0,   activo: true },
-]
-
-const TARIFAS_EMPRESARIALES_INIT: TarifaEmpresarial[] = [
-  {
-    id: 'TE-001', empresa: 'Grupo Logístico CDMX', descuento: 10, tarifaFija: null,
-    vigenciaDesde: '01 Mar 2023', vigenciaHasta: '28 Feb 2026',
-    serviciosIncluidos: ['Traslado local', 'Traslado foráneo', 'Largo recorrido'],
-    activa: true,
-  },
-  {
-    id: 'TE-002', empresa: 'AutoMóviles del Norte SA', descuento: 8, tarifaFija: null,
-    vigenciaDesde: '15 Jun 2023', vigenciaHasta: '15 Jun 2025',
-    serviciosIncluidos: ['Traslado local', 'Entrega al cliente'],
-    activa: true,
-  },
-  {
-    id: 'TE-003', empresa: 'Distribuidora Bajío', descuento: 0, tarifaFija: 2000,
-    vigenciaDesde: '05 May 2024', vigenciaHasta: '05 May 2025',
-    serviciosIncluidos: ['Largo recorrido'],
-    activa: false,
-  },
-  {
-    id: 'TE-004', empresa: 'Seguros Primero Nacional', descuento: 12, tarifaFija: null,
-    vigenciaDesde: '01 Feb 2024', vigenciaHasta: '31 Jan 2026',
-    serviciosIncluidos: ['Traslado local', 'Traslado foráneo', 'Urgente'],
-    activa: true,
-  },
-]
-
-const RUTAS_FRECUENTES_INIT: RutaFrecuente[] = [
-  { id: 'RF-001', nombre: 'CDMX → Querétaro', origen: 'CDMX Centro', destino: 'Querétaro Centro', distanciaKm: 215, tarifaFija: 2200, pagoConductor: 1300, tiempoEst: 150, tipoVehiculo: 'Todos', activa: true },
-  { id: 'RF-002', nombre: 'CDMX → Satélite',  origen: 'Av. Reforma 222', destino: 'Ciudad Satélite', distanciaKm: 28, tarifaFija: 550, pagoConductor: 320, tiempoEst: 50, tipoVehiculo: 'Sedán', activa: true },
-  { id: 'RF-003', nombre: 'Taller Sur → Roma Norte', origen: 'Taller Xochimilco', destino: 'Roma Norte', distanciaKm: 18, tarifaFija: 380, pagoConductor: 220, tiempoEst: 40, tipoVehiculo: 'Todos', activa: true },
-  { id: 'RF-004', nombre: 'CDMX → Guadalajara', origen: 'CDMX Norte', destino: 'Guadalajara', distanciaKm: 540, tarifaFija: 4800, pagoConductor: 2800, tiempoEst: 360, tipoVehiculo: 'Todos', activa: false },
-]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const TIPOS_VEHICULO: TipoVehiculo[]  = ['Sedán','SUV','Pick-up','Van','Camioneta','Luxury','Todos']
@@ -270,24 +207,24 @@ function SimuladorTarifa({ tarifas, recargos, pagos }: {
           </select>
         </div>
         <div className="flex flex-col gap-2 justify-center">
-          {[
+          {([
             ['🌙 Horario nocturno', nocturno, setNocturno],
             ['⚡ Servicio urgente',  urgente,  setUrgente],
             ['🗺️ Viaje foráneo',    foraneo,  setForaneo],
-          ].map(([label, val, fn]) => (
+          ] as [string, boolean, (value: boolean) => void][]).map(([label, val, fn]) => (
             <label key={label as string} className="flex items-center gap-2 cursor-pointer text-sm">
-              <input type="checkbox" checked={val as boolean} onChange={e => (fn as Function)(e.target.checked)} className="w-4 h-4 accent-white" />
+              <input type="checkbox" checked={val as boolean} onChange={e => fn(e.target.checked)} className="w-4 h-4 accent-white" />
               {label as string}
             </label>
           ))}
         </div>
         <div className="flex flex-col gap-2 justify-center">
-          {[
+          {([
             ['🛣️ Peaje / Casetas',    peaje,       setPeaje],
             ['⛽ Combustible extra',  combustible, setCombustible],
-          ].map(([label, val, fn]) => (
+          ] as [string, boolean, (value: boolean) => void][]).map(([label, val, fn]) => (
             <label key={label as string} className="flex items-center gap-2 cursor-pointer text-sm">
-              <input type="checkbox" checked={val as boolean} onChange={e => (fn as Function)(e.target.checked)} className="w-4 h-4 accent-white" />
+              <input type="checkbox" checked={val as boolean} onChange={e => fn(e.target.checked)} className="w-4 h-4 accent-white" />
               {label as string}
             </label>
           ))}
@@ -348,8 +285,7 @@ export default function TarifasView() {
 
   // ── SUPABASE HELPER ──────────────────────────────────────────────────────
   const getSb = async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  return getSupabaseBrowserClient()
   }
 
   // ── CARGA INICIAL ────────────────────────────────────────────────────────
@@ -362,43 +298,6 @@ export default function TarifasView() {
       sb.from('tarifas_empresariales').select('*').order('created_at'),
       sb.from('rutas_frecuentes').select('*').order('created_at'),
     ])
-
-    // Si no hay datos aún → seed con los valores iniciales
-    if (!tb.data?.length) {
-      await sb.from('tarifas_base').insert(TARIFAS_BASE_INIT.map(t => ({
-        nombre: t.nombre, tipo_vehiculo: t.tipoVehiculo, tipo_servicio: t.tipoServicio,
-        tarifa_base: t.tarifaBase, por_km: t.porKm, tarifa_minima: t.tarifaMinima,
-        tiempo_estimado: t.tiempoEstimado, activa: t.activa,
-      })))
-      const { data } = await sb.from('tarifas_base').select('*').order('created_at')
-      tb.data = data
-    }
-    if (!rc.data?.length) {
-      await sb.from('recargos').insert(RECARGOS_INIT.map(r => ({
-        nombre: r.nombre, tipo: r.tipo, valor: r.valor, aplica: r.aplica, activo: r.activo,
-      })))
-      const { data } = await sb.from('recargos').select('*').order('created_at')
-      rc.data = data
-    }
-    if (!pc.data?.length) {
-      await sb.from('tarifas_conductor').insert(PAGOS_CONDUCTOR_INIT.map(p => ({
-        tipo_servicio: p.tipoServicio, tipo_vehiculo: p.tipoVehiculo,
-        pago_base: p.pagoBase, por_km: p.porKm,
-        gastos_autorizados: p.gastosAutorizados, viaticos: p.viaticos, activo: p.activo,
-      })))
-      const { data } = await sb.from('tarifas_conductor').select('*').order('created_at')
-      pc.data = data
-    }
-    if (!rf.data?.length) {
-      await sb.from('rutas_frecuentes').insert(RUTAS_FRECUENTES_INIT.map(r => ({
-        nombre: r.nombre, origen: r.origen, destino: r.destino,
-        distancia_km: r.distanciaKm, tarifa_fija: r.tarifaFija,
-        pago_conductor: r.pagoConductor, tiempo_est: r.tiempoEst,
-        tipo_vehiculo: r.tipoVehiculo, activa: r.activa,
-      })))
-      const { data } = await sb.from('rutas_frecuentes').select('*').order('created_at')
-      rf.data = data
-    }
 
     // Mapear BD → interfaces
     if (tb.data) setTarifasBase(tb.data.map((r: Record<string,unknown>) => ({

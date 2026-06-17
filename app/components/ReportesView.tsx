@@ -132,9 +132,10 @@ function ReporteOperativo({ periodo }: { periodo: Periodo }) {
     const cargar = async () => {
       const sb = await getSb()
       const desde = periodoFecha(periodo)
-      const { data: viajes } = await sb.from('viajes')
+      const { data: viajesRaw } = await sb.from('viajes')
         .select('status, created_at')
         .gte('created_at', desde)
+      const viajes = viajesRaw as { status: string; created_at: string }[] | null
 
       if (!viajes) return
       const total = viajes.length
@@ -156,7 +157,7 @@ function ReporteOperativo({ periodo }: { periodo: Periodo }) {
       })
       const barData = Object.entries(grupos).map(([label, value]) => ({ label, value }))
 
-      const { data: incs } = await sb.from('incidencias').select('tipo, estatus').gte('created_at', desde)
+      const { data: incs } = await sb.from('incidencias').select('tipo, estatus').gte('created_at', desde) as unknown as { data: { tipo: string; estatus: string }[] | null }
       const tiposInc: Record<string,{ count: number; resueltas: number }> = {}
       ;(incs ?? []).forEach(i => {
         if (!tiposInc[i.tipo]) tiposInc[i.tipo] = { count: 0, resueltas: 0 }
@@ -327,15 +328,15 @@ function ReporteConductores() {
     const sb = await getSb()
     const { data: conds } = await sb.from('conductores')
       .select('id, nombre, apellido, calificacion, viajes_realizados, ganancias_total, certificacion, estatus')
-      .order('ganancias_total', { ascending: false })
+      .order('ganancias_total', { ascending: false }) as unknown as { data: Record<string, unknown>[] | null }
 
     const { data: incs } = await sb.from('incidencias')
-      .select('conductor_id, estatus')
+      .select('conductor_id, estatus') as unknown as { data: { conductor_id: string; estatus: string }[] | null }
 
     const { data: docs } = await sb.from('documentos')
       .select('entidad_id, estatus')
       .eq('entidad_tipo', 'Conductor')
-      .in('estatus', ['Vencido', 'Pendiente de carga', 'Pendiente de actualización'])
+      .in('estatus', ['Vencido', 'Pendiente de carga', 'Pendiente de actualización']) as unknown as { data: { entidad_id: string; estatus: string }[] | null }
 
     if (conds) {
       setConductores(conds.map((c: Record<string,unknown>) => ({
@@ -425,11 +426,11 @@ function ReporteUsuarios() {
   const cargar = useCallback(async () => {
     const sb = await getSb()
     const [empRes, vRes, puRes, incRes, usrRes] = await Promise.all([
-      sb.from('empresas').select('id, nombre_comercial, tipo, estatus'),
-      sb.from('viajes').select('empresa_id'),
-      sb.from('pagos_usuarios').select('empresa_id, tarifa_cobrada, estatus'),
-      sb.from('incidencias').select('usuario_id'),
-      sb.from('usuarios').select('id, estatus'),
+      sb.from('empresas').select('id, nombre_comercial, tipo, estatus') as unknown as Promise<{ data: Record<string,unknown>[] | null }>,
+      sb.from('viajes').select('empresa_id') as unknown as Promise<{ data: { empresa_id: string }[] | null }>,
+      sb.from('pagos_usuarios').select('empresa_id, tarifa_cobrada, estatus') as unknown as Promise<{ data: { empresa_id: string; tarifa_cobrada: number; estatus: string }[] | null }>,
+      sb.from('incidencias').select('usuario_id') as unknown as Promise<{ data: { usuario_id: string }[] | null }>,
+      sb.from('usuarios').select('id, estatus') as unknown as Promise<{ data: { id: string; estatus: string }[] | null }>,
     ])
 
     const emps = empRes.data ?? []

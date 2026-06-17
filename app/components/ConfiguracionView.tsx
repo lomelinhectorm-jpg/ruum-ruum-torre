@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   ShieldCheckIcon,
   UsersIcon,
@@ -155,8 +156,7 @@ function TabUsuariosInternos() {
   const [guardando, setGuardando] = useState(false)
 
   const cargar = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const sb = getSupabaseBrowserClient()
     const { data } = await sb.from('usuarios_internos').select('id, nombre, apellido, email, rol, ultimo_acceso, activo').order('created_at', { ascending: false })
     if (data) setUsuarios(data.map((u: Record<string,unknown>) => ({
       id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''),
@@ -172,8 +172,7 @@ function TabUsuariosInternos() {
   const handleGuardar = async () => {
     if (!form.nombre || !form.email || !form.rol) return
     setGuardando(true)
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const sb = getSupabaseBrowserClient()
     await sb.from('usuarios_internos').insert({
       nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
       email: form.email.toLowerCase(), rol: form.rol, activo: true,
@@ -250,21 +249,11 @@ function TabZonas() {
   const [zonas, setZonas] = useState<{id:string;nombre:string;descripcion:string;radio:number;tarifa:string;activa:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
 
-  const SEED = [
-    { nombre: 'Zona Centro CDMX', descripcion: 'Radio 15 km desde el Zócalo', radio: 15, tarifa: 'Local', activa: true },
-    { nombre: 'Zona Norte Metropolitana', descripcion: 'Tlalnepantla, Satélite, Naucalpan', radio: 25, tarifa: 'Local', activa: true },
-    { nombre: 'Zona Sur', descripcion: 'Coyoacán, Tlalpan, Xochimilco, Tláhuac', radio: 20, tarifa: 'Local', activa: true },
-    { nombre: 'Zona Oriente', descripcion: 'Chalco, Iztapalapa, Texcoco', radio: 30, tarifa: 'Local recargo', activa: false },
-    { nombre: 'Zona Foránea — Querétaro', descripcion: 'Ciudad de Querétaro y municipios', radio: 50, tarifa: 'Foráneo', activa: true },
-    { nombre: 'Zona Foránea — Guadalajara', descripcion: 'Área metropolitana de Guadalajara', radio: 60, tarifa: 'Foráneo', activa: false },
-  ]
-
-  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+  const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
     const sb = await getSb()
-    let { data } = await sb.from('zonas').select('id,nombre,descripcion,radio,tarifa,activa').order('created_at')
-    if (!data?.length) { await sb.from('zonas').insert(SEED); const r = await sb.from('zonas').select('id,nombre,descripcion,radio,tarifa,activa').order('created_at'); data = r.data }
+    const { data } = await sb.from('zonas').select('id,nombre,descripcion,radio,tarifa,activa').order('created_at')
     if (data) setZonas(data.map((z: Record<string,unknown>) => ({ id: String(z.id), nombre: String(z.nombre??''), descripcion: String(z.descripcion??''), radio: Number(z.radio??0), tarifa: String(z.tarifa??''), activa: Boolean(z.activa) })))
     setCargando(false)
   }, [])
@@ -309,21 +298,11 @@ function TabServicios() {
   const [servicios, setServicios] = useState<{id:string;nombre:string;descripcion:string;icono:string;requiereEvidencia:boolean;requiereFirma:boolean;activo:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
 
-  const SEED = [
-    { nombre: 'Traslado local', descripcion: 'Viaje dentro de la zona metropolitana', icono: '🚗', requiere_evidencia: true, requiere_firma: true, activo: true },
-    { nombre: 'Traslado foráneo', descripcion: 'Viaje fuera de la zona metropolitana', icono: '🛣️', requiere_evidencia: true, requiere_firma: true, activo: true },
-    { nombre: 'Entrega al cliente', descripcion: 'El conductor entrega el vehículo en domicilio', icono: '📦', requiere_evidencia: true, requiere_firma: true, activo: true },
-    { nombre: 'Recolección', descripcion: 'Recolección de vehículo en punto de origen', icono: '🔄', requiere_evidencia: true, requiere_firma: false, activo: true },
-    { nombre: 'Largo recorrido', descripcion: 'Viaje de más de 200 km con posible pernocta', icono: '✈️', requiere_evidencia: true, requiere_firma: true, activo: true },
-    { nombre: 'Urgente', descripcion: 'Asignación prioritaria en menos de 2 horas', icono: '⚡', requiere_evidencia: true, requiere_firma: false, activo: true },
-  ]
-
-  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+  const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
     const sb = await getSb()
-    let { data } = await sb.from('tipos_servicio').select('id,nombre,descripcion,icono,requiere_evidencia,requiere_firma,activo').order('created_at')
-    if (!data?.length) { await sb.from('tipos_servicio').insert(SEED); const r = await sb.from('tipos_servicio').select('id,nombre,descripcion,icono,requiere_evidencia,requiere_firma,activo').order('created_at'); data = r.data }
+    const { data } = await sb.from('tipos_servicio').select('id,nombre,descripcion,icono,requiere_evidencia,requiere_firma,activo').order('created_at')
     if (data) setServicios(data.map((s: Record<string,unknown>) => ({ id: String(s.id), nombre: String(s.nombre??''), descripcion: String(s.descripcion??''), icono: String(s.icono??''), requiereEvidencia: Boolean(s.requiere_evidencia), requiereFirma: Boolean(s.requiere_firma), activo: Boolean(s.activo) })))
     setCargando(false)
   }, [])
@@ -378,21 +357,11 @@ function TabVehiculos() {
   const [tipos, setTipos] = useState<{id:string;nombre:string;descripcion:string;icono:string;capacidad:number;activo:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
 
-  const SEED = [
-    { nombre: 'Sedán', descripcion: 'Automóvil estándar 4 puertas', icono: '🚗', capacidad: 5, activo: true },
-    { nombre: 'SUV', descripcion: 'Vehículo utilitario deportivo', icono: '🚙', capacidad: 7, activo: true },
-    { nombre: 'Pick-up', descripcion: 'Camioneta con caja de carga', icono: '🛻', capacidad: 2, activo: true },
-    { nombre: 'Van', descripcion: 'Vehículo de pasajeros / carga', icono: '🚐', capacidad: 8, activo: true },
-    { nombre: 'Luxury', descripcion: 'Vehículo de lujo (BMW, Mercedes, etc.)', icono: '🏎️', capacidad: 4, activo: true },
-    { nombre: 'Camioneta de trabajo', descripcion: 'Vehículo pesado de trabajo', icono: '🚛', capacidad: 3, activo: false },
-  ]
-
-  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+  const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
     const sb = await getSb()
-    let { data } = await sb.from('tipos_vehiculo').select('id,nombre,descripcion,icono,capacidad,activo').order('created_at')
-    if (!data?.length) { await sb.from('tipos_vehiculo').insert(SEED); const r = await sb.from('tipos_vehiculo').select('id,nombre,descripcion,icono,capacidad,activo').order('created_at'); data = r.data }
+    const { data } = await sb.from('tipos_vehiculo').select('id,nombre,descripcion,icono,capacidad,activo').order('created_at')
     if (data) setTipos(data.map((t: Record<string,unknown>) => ({ id: String(t.id), nombre: String(t.nombre??''), descripcion: String(t.descripcion??''), icono: String(t.icono??''), capacidad: Number(t.capacidad??0), activo: Boolean(t.activo) })))
     setCargando(false)
   }, [])
@@ -563,25 +532,11 @@ function TabNotificaciones() {
   const [plantillas, setPlantillas] = useState<{id:string;evento:string;canal:string[];activa:boolean;destinatario:string}[]>([])
   const [cargando, setCargando] = useState(true)
 
-  const SEED = [
-    { evento: 'Viaje asignado a conductor', canal: ['App','WhatsApp'], activa: true, destinatario: 'Conductor' },
-    { evento: 'Evidencia incompleta', canal: ['Email','App'], activa: true, destinatario: 'Admin + Conductor' },
-    { evento: 'Incidencia reportada (Alta prioridad)', canal: ['Email','App','SMS'], activa: true, destinatario: 'Admin' },
-    { evento: 'Documento por vencer (5 días)', canal: ['Email'], activa: true, destinatario: 'Admin + Conductor' },
-    { evento: 'Pago procesado al conductor', canal: ['App','Email'], activa: true, destinatario: 'Conductor' },
-    { evento: 'Conductor retrasado (>20 min)', canal: ['App'], activa: true, destinatario: 'Admin + Usuario' },
-    { evento: 'Viaje finalizado', canal: ['App','Email'], activa: true, destinatario: 'Usuario' },
-    { evento: 'Solicitud de aclaración de evidencia', canal: ['App'], activa: true, destinatario: 'Conductor' },
-    { evento: 'Nuevo conductor registrado', canal: ['Email'], activa: false, destinatario: 'Admin' },
-    { evento: 'Convenio empresarial por vencer', canal: ['Email'], activa: true, destinatario: 'Admin' },
-  ]
-
-  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+  const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
     const sb = await getSb()
-    let { data } = await sb.from('plantillas_notificacion').select('id,evento,canal,activa,destinatario').order('created_at')
-    if (!data?.length) { await sb.from('plantillas_notificacion').insert(SEED); const r = await sb.from('plantillas_notificacion').select('id,evento,canal,activa,destinatario').order('created_at'); data = r.data }
+    const { data } = await sb.from('plantillas_notificacion').select('id,evento,canal,activa,destinatario').order('created_at')
     if (data) setPlantillas(data.map((p: Record<string,unknown>) => ({ id: String(p.id), evento: String(p.evento??''), canal: (p.canal as string[]) ?? [], activa: Boolean(p.activa), destinatario: String(p.destinatario??'') })))
     setCargando(false)
   }, [])
@@ -629,21 +584,11 @@ function TabPagos() {
   const [cargando, setCargando] = useState(true)
   const [guardandoCiclo, setGuardandoCiclo] = useState(false)
 
-  const SEED = [
-    { nombre: 'Transferencia bancaria', descripcion: 'SPEI a cuenta bancaria del conductor', activo: true },
-    { nombre: 'Depósito OXXO', descripcion: 'Pago en efectivo en tiendas OXXO', activo: false },
-    { nombre: 'Tarjeta de débito', descripcion: 'Pago con tarjeta Visa/Mastercard débito', activo: true },
-    { nombre: 'Tarjeta de crédito', descripcion: 'Cargo a tarjeta con posible comisión', activo: true },
-    { nombre: 'Efectivo', descripcion: 'Pago directo en efectivo al conductor', activo: false },
-    { nombre: 'Factura mensual', descripcion: 'Facturación mensual para cuentas empresariales', activo: true },
-  ]
-
-  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+  const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
     const sb = await getSb()
-    let { data } = await sb.from('metodos_pago').select('id,nombre,descripcion,activo').order('created_at')
-    if (!data?.length) { await sb.from('metodos_pago').insert(SEED); const r = await sb.from('metodos_pago').select('id,nombre,descripcion,activo').order('created_at'); data = r.data }
+    const { data } = await sb.from('metodos_pago').select('id,nombre,descripcion,activo').order('created_at')
     if (data) setMetodos(data.map((m: Record<string,unknown>) => ({ id: String(m.id), nombre: String(m.nombre??''), descripcion: String(m.descripcion??''), activo: Boolean(m.activo) })))
     // Cargar ciclo de pago
     const { data: cfg } = await sb.from('configuracion').select('valor').eq('clave', 'ciclo_pago').single()

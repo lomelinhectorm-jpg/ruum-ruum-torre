@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   XMarkIcon,
@@ -65,115 +66,6 @@ const FOTOS_BASE: FotoItem[] = [
   { label: 'Lado copiloto', inicial: false, final: false },
   { label: 'Trasera',  inicial: false, final: false },
   { label: 'Tablero',  inicial: false, final: false },
-]
-
-const EVIDENCIAS: EvidenciaViaje[] = [
-  {
-    id: 'EV-001', viajeId: '#TR-8848', conductor: 'Carlos Méndez',
-    vehiculo: 'Toyota Hilux', placas: 'XYZ-987', fecha: '14 Jun 2025', estatus: 'En revisión',
-    fotos: [
-      { label: 'Frente',        inicial: true,  final: true  },
-      { label: 'Lado piloto',   inicial: true,  final: true  },
-      { label: 'Lado copiloto', inicial: true,  final: false },
-      { label: 'Trasera',       inicial: true,  final: true  },
-      { label: 'Tablero',       inicial: true,  final: true  },
-    ],
-    kmInicial: 45820, kmFinal: 45971,
-    combustibleInicial: '3/4', combustibleFinal: '1/2',
-    llavesRecibidas: 2, llavesEntregadas: 2,
-    dañosIniciales: 'Raspón leve en defensa trasera.', dañosFinales: 'Sin daños adicionales.',
-    firmaInicial: true, firmaFinal: true,
-    notaAclaracion: '',
-    incidenciaVinculada: '',
-    historial: [
-      { evento: 'Evidencia inicial cargada', hora: '11:55', actor: 'Carlos M.' },
-      { evento: 'Evidencia final cargada', hora: '13:42', actor: 'Carlos M.' },
-      { evento: 'Enviada a revisión administrativa', hora: '13:45', actor: 'Sistema' },
-    ],
-  },
-  {
-    id: 'EV-002', viajeId: '#TR-8841', conductor: 'Ana Rodríguez',
-    vehiculo: 'Nissan Versa', placas: 'ABC-123', fecha: '13 Jun 2025', estatus: 'Aprobada',
-    fotos: [
-      { label: 'Frente',        inicial: true, final: true },
-      { label: 'Lado piloto',   inicial: true, final: true },
-      { label: 'Lado copiloto', inicial: true, final: true },
-      { label: 'Trasera',       inicial: true, final: true },
-      { label: 'Tablero',       inicial: true, final: true },
-    ],
-    kmInicial: 32100, kmFinal: 32248,
-    combustibleInicial: '1/4', combustibleFinal: '1/4',
-    llavesRecibidas: 1, llavesEntregadas: 1,
-    dañosIniciales: 'Sin daños.',
-    dañosFinales: 'Sin daños adicionales.',
-    firmaInicial: true, firmaFinal: true,
-    notaAclaracion: '',
-    incidenciaVinculada: '#INC-001',
-    historial: [
-      { evento: 'Evidencia inicial cargada', hora: '15:58', actor: 'Ana R.' },
-      { evento: 'Evidencia final cargada', hora: '17:18', actor: 'Ana R.' },
-      { evento: 'Revisada por admin', hora: '17:30', actor: 'Ops. Central' },
-      { evento: 'Evidencia aprobada', hora: '17:35', actor: 'Ops. Central' },
-    ],
-  },
-  {
-    id: 'EV-003', viajeId: '#TR-8844', conductor: 'Pedro Castillo',
-    vehiculo: 'Chevrolet Trax', placas: 'MNO-789', fecha: '14 Jun 2025', estatus: 'Relacionada con incidencia',
-    fotos: [
-      { label: 'Frente',        inicial: true,  final: true  },
-      { label: 'Lado piloto',   inicial: true,  final: true  },
-      { label: 'Lado copiloto', inicial: true,  final: false },
-      { label: 'Trasera',       inicial: true,  final: false },
-      { label: 'Tablero',       inicial: false, final: false },
-    ],
-    kmInicial: 18450, kmFinal: null,
-    combustibleInicial: 'Lleno', combustibleFinal: '—',
-    llavesRecibidas: 2, llavesEntregadas: 2,
-    dañosIniciales: 'Fisura leve en parabrisas.',
-    dañosFinales: 'Fisura en parabrisas se extendió durante traslado.',
-    firmaInicial: true, firmaFinal: false,
-    notaAclaracion: 'Se solicitó aclaración al conductor sobre el parabrisas.',
-    incidenciaVinculada: '#INC-005',
-    historial: [
-      { evento: 'Evidencia inicial cargada', hora: '11:02', actor: 'Pedro C.' },
-      { evento: 'Incidencia reportada', hora: '11:40', actor: 'Pedro C.' },
-      { evento: 'Evidencia vinculada a #INC-005', hora: '12:05', actor: 'Coordinador' },
-      { evento: 'Aclaración solicitada al conductor', hora: '12:10', actor: 'Admin' },
-    ],
-  },
-  {
-    id: 'EV-004', viajeId: '#TR-8849', conductor: 'Sin asignar',
-    vehiculo: 'Honda Civic', placas: 'DEF-456', fecha: '14 Jun 2025', estatus: 'Pendiente',
-    fotos: FOTOS_BASE.map(f => ({ ...f })),
-    kmInicial: null, kmFinal: null,
-    combustibleInicial: '—', combustibleFinal: '—',
-    llavesRecibidas: 0, llavesEntregadas: 0,
-    dañosIniciales: '—', dañosFinales: '—',
-    firmaInicial: false, firmaFinal: false,
-    notaAclaracion: '', incidenciaVinculada: '',
-    historial: [{ evento: 'Viaje creado. Evidencia pendiente.', hora: '10:00', actor: 'Sistema' }],
-  },
-  {
-    id: 'EV-005', viajeId: '#TR-8847', conductor: 'Mario García',
-    vehiculo: 'Ford F-150', placas: 'GHI-321', fecha: '15 Jun 2025', estatus: 'Incompleta',
-    fotos: [
-      { label: 'Frente',        inicial: true,  final: false },
-      { label: 'Lado piloto',   inicial: false, final: false },
-      { label: 'Lado copiloto', inicial: false, final: false },
-      { label: 'Trasera',       inicial: true,  final: false },
-      { label: 'Tablero',       inicial: true,  final: false },
-    ],
-    kmInicial: 68200, kmFinal: null,
-    combustibleInicial: '1/2', combustibleFinal: '—',
-    llavesRecibidas: 1, llavesEntregadas: 0,
-    dañosIniciales: 'Sin daños.', dañosFinales: '—',
-    firmaInicial: true, firmaFinal: false,
-    notaAclaracion: '', incidenciaVinculada: '',
-    historial: [
-      { evento: 'Evidencia inicial parcialmente cargada', hora: '09:10', actor: 'Mario G.' },
-      { evento: 'Marcada como incompleta', hora: '09:30', actor: 'Sistema' },
-    ],
-  },
 ]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -602,8 +494,7 @@ export default function EvidenciaView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarEvidencias = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('evidencias')
       .select(`id, estatus, km_inicial, km_final, combustible_inicial, combustible_final, danos_iniciales, danos_finales, nota_aclaracion, created_at, viajes(folio, fecha_programada), conductores(nombre,apellido), vehiculos(marca,modelo,placas)`)

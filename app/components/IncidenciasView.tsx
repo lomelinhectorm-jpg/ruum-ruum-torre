@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -75,186 +76,6 @@ const TIPOS: TipoIncidencia[] = [
 ]
 
 const RESPONSABLES = ['Ops. Central','Coordinador','Admin','Finanzas','Soporte']
-
-const INCIDENCIAS: Incidencia[] = [
-  {
-    id: '#INC-001',
-    viajeId: '#TR-8841',
-    usuario: 'Luis Hernández',
-    conductor: 'Ana Rodríguez',
-    tipo: 'Daños reportados',
-    fecha: '13 Jun 2025',
-    hora: '16:30',
-    descripcion: 'Rayón en puerta delantera derecha reportado por el conductor al recibir el vehículo. Cliente alega que el daño no existía antes del traslado.',
-    evidenciaAsociada: 'EV-002',
-    responsable: 'Ops. Central',
-    estatus: 'Cerrada',
-    prioridad: 'Alta',
-    resolucion: 'Se revisaron fotografías de evidencia inicial y final. El rayón aparece en la foto inicial. Caso cerrado sin cargo.',
-    notas: [
-      { autor: 'Ops. Central', texto: 'Revisión de evidencia confirma que el daño preexistía.', hora: '17:00' },
-      { autor: 'Admin', texto: 'Se notificó al cliente y al conductor. Caso cerrado.', hora: '17:35' },
-    ],
-    documentos: ['Fotos evidencia inicial', 'Fotos evidencia final'],
-    timeline: [
-      { evento: 'Incidencia creada', hora: '16:30', actor: 'Ana R.', tipo: 'conductor' },
-      { evento: 'Asignada a Ops. Central', hora: '16:35', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Revisión de evidencia fotográfica', hora: '17:00', actor: 'Ops. Central', tipo: 'admin' },
-      { evento: 'Conductor notificado', hora: '17:30', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Usuario notificado', hora: '17:32', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Resolución registrada', hora: '17:35', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Incidencia cerrada', hora: '17:35', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-002',
-    viajeId: '#TR-8839',
-    usuario: 'Ricardo Torres',
-    conductor: 'Mario García',
-    tipo: 'Retraso',
-    fecha: '13 Jun 2025',
-    hora: '14:45',
-    descripcion: 'Retraso de 45 minutos en llegada al origen por tráfico en Periférico Norte. Cliente solicitó compensación.',
-    evidenciaAsociada: '—',
-    responsable: 'Coordinador',
-    estatus: 'Resuelta',
-    prioridad: 'Media',
-    resolucion: 'Se ofreció descuento del 10% en próximo servicio. Cliente aceptó.',
-    notas: [
-      { autor: 'Coordinador', texto: 'El conductor avisó con 20 min de anticipación del retraso.', hora: '15:00' },
-    ],
-    documentos: [],
-    timeline: [
-      { evento: 'Incidencia creada', hora: '14:45', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Asignada a Coordinador', hora: '14:50', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Contacto con usuario', hora: '15:05', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Resolución: descuento en próximo servicio', hora: '15:20', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Incidencia resuelta', hora: '15:25', actor: 'Coordinador', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-003',
-    viajeId: '#TR-8838',
-    usuario: 'Pedro Castillo',
-    conductor: 'Sandra Pérez',
-    tipo: 'Cancelación',
-    fecha: '12 Jun 2025',
-    hora: '10:00',
-    descripcion: 'Cliente canceló el servicio con menos de 30 minutos de anticipación. Conductor ya se encontraba en camino.',
-    evidenciaAsociada: '—',
-    responsable: 'Admin',
-    estatus: 'Cerrada',
-    prioridad: 'Baja',
-    resolucion: 'Se aplicó política de cancelación. Cliente acepta cargo del 50% de la tarifa.',
-    notas: [
-      { autor: 'Admin', texto: 'Revisar política de cancelación tardía con el cliente.', hora: '10:10' },
-    ],
-    documentos: ['Política de cancelación'],
-    timeline: [
-      { evento: 'Cancelación registrada', hora: '10:00', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Incidencia creada automáticamente', hora: '10:01', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Política de cancelación aplicada', hora: '10:10', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Usuario notificado del cargo', hora: '10:15', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Incidencia cerrada', hora: '10:30', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-004',
-    viajeId: '#TR-8845',
-    usuario: 'Fernanda López',
-    conductor: 'Ana Rodríguez',
-    tipo: 'Retraso',
-    fecha: '14 Jun 2025',
-    hora: '11:20',
-    descripcion: 'Conductor lleva 20 minutos de retraso en llegada al origen. No hay respuesta en llamadas.',
-    evidenciaAsociada: '—',
-    responsable: 'Coordinador',
-    estatus: 'En seguimiento',
-    prioridad: 'Alta',
-    resolucion: '',
-    notas: [
-      { autor: 'Coordinador', texto: 'Se intentó contactar al conductor 3 veces sin respuesta.', hora: '11:25' },
-    ],
-    documentos: [],
-    timeline: [
-      { evento: 'Alerta de retraso generada', hora: '11:10', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Incidencia creada', hora: '11:20', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Intentos de contacto al conductor (x3)', hora: '11:25', actor: 'Coordinador', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-005',
-    viajeId: '#TR-8844',
-    usuario: 'Sandra Pérez (Empresa)',
-    conductor: 'Pedro Castillo',
-    tipo: 'Daños reportados',
-    fecha: '14 Jun 2025',
-    hora: '11:40',
-    descripcion: 'Fisura en parabrisas se extendió durante el traslado. El conductor reporta que la fisura preexistía pero se agravó por las condiciones del camino.',
-    evidenciaAsociada: 'EV-003',
-    responsable: 'Ops. Central',
-    estatus: 'En revisión',
-    prioridad: 'Alta',
-    resolucion: '',
-    notas: [
-      { autor: 'Coordinador', texto: 'En espera de respuesta de aseguradora antes de resolver.', hora: '12:10' },
-      { autor: 'Ops. Central', texto: 'Se solicitó cotización de reparación al taller destino.', hora: '12:30' },
-    ],
-    documentos: ['Fotos evidencia EV-003', 'Solicitud cotización taller'],
-    timeline: [
-      { evento: 'Incidencia reportada por conductor', hora: '11:40', actor: 'Pedro C.', tipo: 'conductor' },
-      { evento: 'Evidencia vinculada (EV-003)', hora: '12:05', actor: 'Coordinador', tipo: 'admin' },
-      { evento: 'Asignada a Ops. Central', hora: '12:08', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Contacto con aseguradora iniciado', hora: '12:25', actor: 'Ops. Central', tipo: 'admin' },
-      { evento: 'Cotización solicitada a taller', hora: '12:30', actor: 'Ops. Central', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-006',
-    viajeId: '#TR-8844',
-    usuario: 'Sandra Pérez (Empresa)',
-    conductor: 'Pedro Castillo',
-    tipo: 'Diferencia de kilometraje',
-    fecha: '14 Jun 2025',
-    hora: '12:00',
-    descripcion: 'El kilometraje final no fue registrado correctamente. Falta evidencia del odómetro al finalizar.',
-    evidenciaAsociada: 'EV-003',
-    responsable: 'Admin',
-    estatus: 'Requiere información',
-    prioridad: 'Media',
-    resolucion: '',
-    notas: [],
-    documentos: [],
-    timeline: [
-      { evento: 'Incidencia creada', hora: '12:00', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Aclaración solicitada al conductor', hora: '12:05', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-  {
-    id: '#INC-007',
-    viajeId: '#TR-8847',
-    usuario: 'Claudia Ríos',
-    conductor: 'Mario García',
-    tipo: 'Problema con documentación',
-    fecha: '14 Jun 2025',
-    hora: '08:50',
-    descripcion: 'Los antecedentes penales del conductor están vencidos. Viaje programado para mañana pero el documento no está vigente.',
-    evidenciaAsociada: '—',
-    responsable: 'Admin',
-    estatus: 'Escalada',
-    prioridad: 'Alta',
-    resolucion: '',
-    notas: [
-      { autor: 'Admin', texto: 'Se escaló a coordinación para decidir si reasignar el viaje.', hora: '09:00' },
-    ],
-    documentos: ['Copia licencia vencida'],
-    timeline: [
-      { evento: 'Alerta de documento vencido detectada', hora: '08:45', actor: 'Sistema', tipo: 'sistema' },
-      { evento: 'Incidencia creada', hora: '08:50', actor: 'Admin', tipo: 'admin' },
-      { evento: 'Escalada a coordinación', hora: '09:00', actor: 'Admin', tipo: 'admin' },
-    ],
-  },
-]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const estatusStyle: Record<EstatusIncidencia, string> = {
@@ -725,8 +546,7 @@ export default function IncidenciasView() {
   const [cargando, setCargando]     = useState(true)
 
   const cargarIncidencias = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('incidencias')
       .select(`
