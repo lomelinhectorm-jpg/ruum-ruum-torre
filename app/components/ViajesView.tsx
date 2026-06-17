@@ -1136,6 +1136,7 @@ interface ViajeDB {
   usuarios: { nombre: string; apellido: string }[] | null
   empresas: { nombre_comercial: string }[] | null
   vehiculos: { marca: string; modelo: string; placas: string }[] | null
+  tipos_servicio: { nombre: string }[] | null
 }
 
 function viajeDBaTrip(v: ViajeDB): Trip {
@@ -1143,6 +1144,7 @@ function viajeDBaTrip(v: ViajeDB): Trip {
   const usuario = v.usuarios?.[0] ?? null
   const empresa = v.empresas?.[0] ?? null
   const vehiculo = v.vehiculos?.[0] ?? null
+  const tipoServicio = v.tipos_servicio?.[0] ?? null
 
   return {
     id: v.folio ?? v.id.slice(0, 8).toUpperCase(),
@@ -1171,7 +1173,7 @@ function viajeDBaTrip(v: ViajeDB): Trip {
     ajustes: 0,
     evidencia: 'Pendiente',
     incidencias: 0,
-    tipoServicio: '—',
+    tipoServicio: tipoServicio?.nombre ?? '—',
     timeline: [], notas: [],
     observacionesConductor: '', revisionAdmin: '',
   }
@@ -1198,7 +1200,8 @@ export default function ViajesView() {
         conductores(nombre, apellido),
         usuarios(nombre, apellido),
         empresas(nombre_comercial),
-        vehiculos(marca, modelo, placas)
+        vehiculos(marca, modelo, placas),
+        tipos_servicio(nombre)
       `)
       .order('created_at', { ascending: false })
 
@@ -1330,6 +1333,7 @@ export default function ViajesView() {
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800 text-xs">{trip.usuario}</div>
                       <div className="text-xs text-slate-400 truncate max-w-[120px]">{trip.empresa}</div>
+                      <div className="text-xs text-blue-500 truncate max-w-[120px]">{trip.tipoServicio}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-xs">{trip.vehiculo.marca} {trip.vehiculo.modelo}</div>
