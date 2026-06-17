@@ -85,15 +85,50 @@ function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete?: () =>
 const MODULOS_SISTEMA = ['Dashboard','Viajes','Conductores','Usuarios','Evidencia','Incidencias','Pagos','Documentos','Tarifas','Empresas','Reportes','Configuración']
 
 function TabRoles() {
-  const [roles, setRoles] = useState([
-    { id: 1, nombre: 'Super Administrador', descripcion: 'Acceso total a todos los módulos', permisos: MODULOS_SISTEMA, activo: true, color: 'blue' },
-    { id: 2, nombre: 'Coordinador Operativo', descripcion: 'Gestión de viajes, conductores e incidencias', permisos: ['Dashboard','Viajes','Conductores','Evidencia','Incidencias'], activo: true, color: 'green' },
-    { id: 3, nombre: 'Analista Financiero', descripcion: 'Acceso a pagos, tarifas y reportes financieros', permisos: ['Pagos','Tarifas','Reportes'], activo: true, color: 'purple' },
-    { id: 4, nombre: 'Validador Documental', descripcion: 'Revisión y aprobación de documentos', permisos: ['Documentos','Conductores','Usuarios'], activo: true, color: 'amber' },
-    { id: 5, nombre: 'Soporte / Lectura', descripcion: 'Solo vista sin capacidad de edición', permisos: ['Dashboard','Viajes','Conductores'], activo: false, color: 'slate' },
-  ])
-  const [editing, setEditing] = useState<number | null>(null)
-  const [expanded, setExpanded] = useState<number | null>(null)
+  const [roles, setRoles] = useState<{id:string;nombre:string;descripcion:string;permisos:string[];activo:boolean;color:string}[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nombre: '', descripcion: '', color: 'blue', permisos: [] as string[] })
+  const [guardando, setGuardando] = useState(false)
+
+  const getSb = async () => getSupabaseBrowserClient()
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    const { data } = await sb.from('roles').select('id,nombre,descripcion,permisos,activo,color').order('created_at')
+    if (data) setRoles(data.map((r: Record<string,unknown>) => ({
+      id: String(r.id), nombre: String(r.nombre ?? ''), descripcion: String(r.descripcion ?? ''),
+      permisos: Array.isArray(r.permisos) ? r.permisos as string[] : [],
+      activo: Boolean(r.activo), color: String(r.color ?? 'slate'),
+    })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const toggleActivo = async (id: string, activo: boolean) => {
+    const sb = await getSb(); await sb.from('roles').update({ activo: !activo }).eq('id', id)
+    setRoles(prev => prev.map(r => r.id === id ? { ...r, activo: !activo } : r))
+  }
+
+  const togglePermiso = async (id: string, permisos: string[], modulo: string) => {
+    const nuevos = permisos.includes(modulo) ? permisos.filter(m => m !== modulo) : [...permisos, modulo]
+    const sb = await getSb(); await sb.from('roles').update({ permisos: nuevos }).eq('id', id)
+    setRoles(prev => prev.map(r => r.id === id ? { ...r, permisos: nuevos } : r))
+  }
+
+  const handleCrear = async () => {
+    if (!form.nombre) return
+    setGuardando(true)
+    const sb = await getSb()
+    await sb.from('roles').insert({ nombre: form.nombre.toUpperCase(), descripcion: form.descripcion, color: form.color, permisos: form.permisos, activo: true })
+    setForm({ nombre: '', descripcion: '', color: 'blue', permisos: [] })
+    setShowForm(false)
+    setGuardando(false)
+    cargar()
+  }
 
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-100 text-blue-700', green: 'bg-green-100 text-green-700',
@@ -104,8 +139,40 @@ function TabRoles() {
   return (
     <div className="space-y-4">
       <SCard title="🛡️ Roles del sistema" subtitle="Define qué puede ver y hacer cada rol"
-        action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo rol</button>}>
+        action={<button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo rol</button>}>
+        {showForm && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+            <p className="text-xs font-semibold text-blue-700 uppercase">Nuevo rol</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
+              <div><label className="text-xs text-slate-500 mb-1 block">Color</label>
+                <select value={form.color} onChange={e => setForm(f => ({...f, color: e.target.value}))} className={`${iCls()} bg-white`}>
+                  {Object.keys(colorMap).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="sm:col-span-2"><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Módulos con acceso</label>
+              <div className="flex flex-wrap gap-1.5">
+                {MODULOS_SISTEMA.map(m => (
+                  <button key={m} type="button"
+                    onClick={() => setForm(f => ({ ...f, permisos: f.permisos.includes(m) ? f.permisos.filter(x => x !== m) : [...f.permisos, m] }))}
+                    className={`px-2 py-1 rounded text-xs font-medium ${form.permisos.includes(m) ? 'bg-blue-100 text-blue-700' : 'bg-slate-50 text-slate-400'}`}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+              <button onClick={handleCrear} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            </div>
+          </div>
+        )}
+        {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
         <div className="space-y-3">
+          {roles.length === 0 && <p className="text-center py-8 text-slate-400 text-xs italic">Sin roles registrados.</p>}
           {roles.map(r => (
             <div key={r.id} className={`border rounded-xl transition-colors ${!r.activo ? 'opacity-60 border-slate-200' : 'border-slate-200 hover:border-slate-300'}`}>
               <div className="p-4 flex items-center justify-between gap-3">
@@ -115,7 +182,7 @@ function TabRoles() {
                   </button>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${colorMap[r.color]}`}>{r.nombre}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${colorMap[r.color] ?? colorMap.slate}`}>{r.nombre}</span>
                       {!r.activo && <Badge text="Inactivo" color="slate" />}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">{r.descripcion}</p>
@@ -123,18 +190,22 @@ function TabRoles() {
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-xs text-slate-400">{r.permisos.length} módulos</span>
-                  <Toggle value={r.activo} onChange={v => setRoles(prev => prev.map(x => x.id === r.id ? { ...x, activo: v } : x))} />
+                  <Toggle value={r.activo} onChange={() => toggleActivo(r.id, r.activo)} />
                   <RowActions onEdit={() => setEditing(editing === r.id ? null : r.id)} />
                 </div>
               </div>
-              {expanded === r.id && (
+              {(expanded === r.id || editing === r.id) && (
                 <div className="px-4 pb-4 border-t border-slate-100 pt-3">
-                  <p className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wide">Módulos con acceso</p>
+                  <p className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wide">
+                    Módulos con acceso {editing === r.id && <span className="text-blue-500">(toca para activar/desactivar)</span>}
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {MODULOS_SISTEMA.map(m => (
-                      <span key={m} className={`px-2 py-1 rounded text-xs font-medium ${r.permisos.includes(m) ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-300 line-through'}`}>
+                      <button key={m} type="button" disabled={editing !== r.id}
+                        onClick={() => togglePermiso(r.id, r.permisos, m)}
+                        className={`px-2 py-1 rounded text-xs font-medium transition-colors ${r.permisos.includes(m) ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-300 line-through'} ${editing === r.id ? 'cursor-pointer hover:ring-2 hover:ring-blue-300' : ''}`}>
                         {m}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -142,6 +213,7 @@ function TabRoles() {
             </div>
           ))}
         </div>
+        )}
       </SCard>
     </div>
   )
@@ -150,6 +222,7 @@ function TabRoles() {
 // ─── 2. USUARIOS INTERNOS ─────────────────────────────────────────────────────
 function TabUsuariosInternos() {
   const [usuarios, setUsuarios] = useState<{id:string;nombre:string;apellido:string;email:string;rol:string;ultimo:string;activo:boolean}[]>([])
+  const [rolesDisponibles, setRolesDisponibles] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ nombre: '', apellido: '', email: '', rol: '' })
@@ -157,13 +230,17 @@ function TabUsuariosInternos() {
 
   const cargar = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
-    const { data } = await sb.from('usuarios_internos').select('id, nombre, apellido, email, rol, ultimo_acceso, activo').order('created_at', { ascending: false })
-    if (data) setUsuarios(data.map((u: Record<string,unknown>) => ({
+    const [usrRes, rolRes] = await Promise.all([
+      sb.from('usuarios_internos').select('id, nombre, apellido, email, rol, ultimo_acceso, activo').order('created_at', { ascending: false }),
+      sb.from('roles').select('nombre').eq('activo', true).order('nombre'),
+    ])
+    if (usrRes.data) setUsuarios(usrRes.data.map((u: Record<string,unknown>) => ({
       id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''),
       email: String(u.email ?? ''), rol: String(u.rol ?? ''),
       ultimo: String((u.ultimo_acceso as string)?.slice(0,16).replace('T',' ') ?? '—'),
       activo: Boolean(u.activo),
     })))
+    if (rolRes.data) setRolesDisponibles(rolRes.data.map((r: Record<string,unknown>) => String(r.nombre ?? '')))
     setCargando(false)
   }, [])
 
@@ -183,7 +260,6 @@ function TabUsuariosInternos() {
     cargar()
   }
 
-  const ROLES = ['Super Administrador','Coordinador Operativo','Analista Financiero','Validador Documental','Soporte / Lectura']
   const iCls2 = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
   return (
@@ -198,8 +274,8 @@ function TabUsuariosInternos() {
             <div><label className="text-xs text-slate-500 mb-1 block">Correo*</label><input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={iCls2} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Rol*</label>
               <select value={form.rol} onChange={e => setForm(f => ({...f, rol: e.target.value}))} className={iCls2}>
-                <option value="">Seleccionar...</option>
-                {ROLES.map(r => <option key={r}>{r}</option>)}
+                <option value="">{rolesDisponibles.length === 0 ? 'Sin roles activos...' : 'Seleccionar...'}</option>
+                {rolesDisponibles.map(r => <option key={r}>{r}</option>)}
               </select>
             </div>
           </div>
@@ -408,6 +484,26 @@ function TabEvidencia() {
     firmaInicial: true, firmaFinal: true, dañosVisibles: true,
     tiempoLimiteHoras: 2, sancionIncompleta: 'Alerta + retención de pago',
   })
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+
+  const getSb = async () => getSupabaseBrowserClient()
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    const { data } = await sb.from('configuracion').select('valor').eq('clave', 'reglas_evidencia').single()
+    if (data?.valor) { try { setReglas(prev => ({ ...prev, ...JSON.parse(String(data.valor)) })) } catch {} }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const guardar = async () => {
+    setGuardando(true)
+    const sb = await getSb()
+    await sb.from('configuracion').upsert({ clave: 'reglas_evidencia', valor: JSON.stringify(reglas) }, { onConflict: 'clave' })
+    setGuardando(false)
+  }
 
   const fotos = [
     { key: 'fotoFrente', label: 'Foto frente' },
@@ -426,6 +522,8 @@ function TabEvidencia() {
     { key: 'firmaFinal', label: 'Firma/confirmación final' },
     { key: 'dañosVisibles', label: 'Reporte de daños visibles' },
   ] as const
+
+  if (cargando) return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 bg-slate-100 animate-pulse rounded-xl" />)}</div>
 
   return (
     <div className="space-y-4">
@@ -468,8 +566,8 @@ function TabEvidencia() {
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckIcon className="w-4 h-4" />Guardar reglas
+          <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar reglas'}
           </button>
         </div>
       </SCard>
@@ -479,50 +577,84 @@ function TabEvidencia() {
 
 // ─── 7. ESTADOS DE VIAJE ──────────────────────────────────────────────────────
 function TabEstados() {
-  const estados = [
-    { orden: 1, nombre: 'Solicitud recibida',         siguiente: 'Pendiente de revisión',         color: 'slate', auto: true },
-    { orden: 2, nombre: 'Pendiente de revisión',      siguiente: 'Pendiente de asignación',       color: 'slate', auto: false },
-    { orden: 3, nombre: 'Pendiente de asignación',    siguiente: 'Conductor asignado',            color: 'amber', auto: false },
-    { orden: 4, nombre: 'Conductor asignado',         siguiente: 'Conductor en camino',           color: 'blue',  auto: false },
-    { orden: 5, nombre: 'Conductor en camino',        siguiente: 'Recolección en proceso',        color: 'blue',  auto: false },
-    { orden: 6, nombre: 'Recolección en proceso',     siguiente: 'Evidencia inicial pendiente',   color: 'indigo',auto: false },
-    { orden: 7, nombre: 'Evidencia inicial pendiente',siguiente: 'Traslado en curso',             color: 'orange',auto: false },
-    { orden: 8, nombre: 'Traslado en curso',          siguiente: 'Entrega en proceso',            color: 'purple',auto: false },
-    { orden: 9, nombre: 'Entrega en proceso',         siguiente: 'Evidencia final pendiente',     color: 'violet',auto: false },
-    { orden: 10,nombre: 'Evidencia final pendiente',  siguiente: 'Finalizado',                    color: 'orange',auto: false },
-    { orden: 11,nombre: 'Finalizado',                 siguiente: '—',                             color: 'green', auto: false },
-    { orden: 12,nombre: 'Cancelado',                  siguiente: '—',                             color: 'red',   auto: false },
-    { orden: 13,nombre: 'En revisión por incidencia', siguiente: 'Finalizado / Cancelado',        color: 'rose',  auto: false },
-  ]
+  const [estados, setEstados] = useState<{id:string;orden:number;nombre:string;siguiente:string;color:string;auto:boolean}[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [editing, setEditing] = useState<string | null>(null)
+
+  const getSb = async () => getSupabaseBrowserClient()
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    const { data } = await sb.from('estados_viaje').select('id,orden,nombre,siguiente,color,auto').order('orden')
+    if (data) setEstados(data.map((e: Record<string,unknown>) => ({
+      id: String(e.id), orden: Number(e.orden ?? 0), nombre: String(e.nombre ?? ''),
+      siguiente: String(e.siguiente ?? '—'), color: String(e.color ?? 'slate'), auto: Boolean(e.auto),
+    })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const guardarSiguiente = async (id: string, siguiente: string, auto: boolean) => {
+    const sb = await getSb()
+    await sb.from('estados_viaje').update({ siguiente, auto }).eq('id', id)
+    setEstados(prev => prev.map(e => e.id === id ? { ...e, siguiente, auto } : e))
+    setEditing(null)
+  }
+
   const colorDot: Record<string, string> = {
     slate: 'bg-slate-400', amber: 'bg-amber-500', blue: 'bg-blue-500',
     indigo: 'bg-indigo-500', orange: 'bg-orange-500', purple: 'bg-purple-500',
     violet: 'bg-violet-500', green: 'bg-green-500', red: 'bg-red-500', rose: 'bg-rose-500',
   }
+
+  if (cargando) return <div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
+
   return (
     <SCard title="🔄 Estados del ciclo de vida de un viaje" subtitle="Flujo de estados configurado por operaciones">
+      {estados.length === 0 ? (
+        <p className="text-center py-8 text-slate-400 text-xs italic">Sin estados configurados en la tabla estados_viaje.</p>
+      ) : (
       <ol className="relative border-l-2 border-slate-200 space-y-4 ml-3">
-        {estados.map((e, i) => (
-          <li key={i} className="ml-5">
-            <span className={`absolute -left-2 w-4 h-4 rounded-full flex items-center justify-center ${colorDot[e.color]}`}>
+        {estados.map((e) => (
+          <li key={e.id} className="ml-5">
+            <span className={`absolute -left-2 w-4 h-4 rounded-full flex items-center justify-center ${colorDot[e.color] ?? colorDot.slate}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-white" />
             </span>
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-semibold text-slate-800">
                   <span className="text-xs text-slate-400 font-normal mr-2">#{e.orden}</span>
                   {e.nombre}
                 </p>
-                <p className="text-xs text-slate-400">Siguiente: {e.siguiente}</p>
+                {editing === e.id ? (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <input defaultValue={e.siguiente} id={`sig-${e.id}`} className="text-xs border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="flex items-center gap-1 text-xs text-slate-500">
+                      <input type="checkbox" defaultChecked={e.auto} id={`auto-${e.id}`} /> Automático
+                    </label>
+                    <button
+                      onClick={() => {
+                        const sig = (document.getElementById(`sig-${e.id}`) as HTMLInputElement)?.value ?? e.siguiente
+                        const auto = (document.getElementById(`auto-${e.id}`) as HTMLInputElement)?.checked ?? e.auto
+                        guardarSiguiente(e.id, sig, auto)
+                      }}
+                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700">Guardar</button>
+                    <button onClick={() => setEditing(null)} className="text-xs text-slate-500 px-2 py-1 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400">Siguiente: {e.siguiente}</p>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {e.auto && <Badge text="Automático" color="blue" />}
-                <RowActions onEdit={() => {}} />
+                <RowActions onEdit={() => setEditing(editing === e.id ? null : e.id)} />
               </div>
             </div>
           </li>
         ))}
       </ol>
+      )}
     </SCard>
   )
 }
@@ -658,19 +790,32 @@ function TabPagos() {
 // ─── 10. DATOS FISCALES ───────────────────────────────────────────────────────
 function TabFiscal() {
   const [form, setForm] = useState({
-    razonSocial: 'MoviliaX Tecnología SA de CV',
-    rfc: 'MXT220310XY1',
-    regimen: '601 - General de Ley Personas Morales',
-    domicilio: 'Av. Paseo de la Reforma 250, Cuauhtémoc, CDMX',
-    codigoPostal: '06600',
-    email: 'facturacion@movilax.mx',
-    telefono: '55-4000-1200',
-    serie: 'A',
-    folioActual: '1441',
-    certificado: 'CSD-2024-MXT-001',
-    venceCSD: '31 Mar 2026',
+    razonSocial: '', rfc: '', regimen: '', domicilio: '', codigoPostal: '',
+    email: '', telefono: '', serie: '', folioActual: '', certificado: '', venceCSD: '',
   })
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
   const set = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const getSb = async () => getSupabaseBrowserClient()
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    const { data } = await sb.from('configuracion').select('valor').eq('clave', 'datos_fiscales').single()
+    if (data?.valor) { try { setForm(prev => ({ ...prev, ...JSON.parse(String(data.valor)) })) } catch {} }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const guardar = async () => {
+    setGuardando(true)
+    const sb = await getSb()
+    await sb.from('configuracion').upsert({ clave: 'datos_fiscales', valor: JSON.stringify(form) }, { onConflict: 'clave' })
+    setGuardando(false)
+  }
+
+  if (cargando) return <div className="space-y-3">{[1,2].map(i => <div key={i} className="h-32 bg-slate-100 animate-pulse rounded-xl" />)}</div>
 
   return (
     <div className="space-y-4">
@@ -690,13 +835,19 @@ function TabFiscal() {
           <div><label className="block text-xs text-slate-500 font-medium mb-1">Folio actual</label><input value={form.folioActual} onChange={e => set('folioActual', e.target.value)} className={`${iCls()} font-mono`} /></div>
           <div><label className="block text-xs text-slate-500 font-medium mb-1">Certificado CSD</label><input value={form.certificado} onChange={e => set('certificado', e.target.value.toUpperCase())} className={iCls()} /></div>
         </div>
-        <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
-          <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500" />
-          El CSD vigente vence el <strong>{form.venceCSD}</strong>. Recuerda renovarlo antes de esa fecha.
+        {form.venceCSD && (
+          <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
+            <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500" />
+            El CSD vigente vence el <strong>{form.venceCSD}</strong>. Recuerda renovarlo antes de esa fecha.
+          </div>
+        )}
+        <div className="mt-4">
+          <label className="block text-xs text-slate-500 font-medium mb-1">Vencimiento del CSD</label>
+          <input type="text" placeholder="31 Mar 2026" value={form.venceCSD} onChange={e => set('venceCSD', e.target.value)} className={`${iCls()} max-w-xs`} />
         </div>
         <div className="mt-4 flex justify-end">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckIcon className="w-4 h-4" />Guardar datos fiscales
+          <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar datos fiscales'}
           </button>
         </div>
       </SCard>
@@ -716,7 +867,43 @@ function TabSeguridad() {
     backupAutomatico: true,
     frecuenciaBackup: 'Diario',
   })
-  const set = (k: keyof typeof config, v: any) => setConfig(c => ({ ...c, [k]: v }))
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [ejecutandoBackup, setEjecutandoBackup] = useState(false)
+  const [backupMsg, setBackupMsg] = useState('')
+  const set = (k: keyof typeof config, v: string | number | boolean) => setConfig(c => ({ ...c, [k]: v }))
+
+  const getSb = async () => getSupabaseBrowserClient()
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    const { data } = await sb.from('configuracion').select('valor').eq('clave', 'seguridad').single()
+    if (data?.valor) { try { setConfig(prev => ({ ...prev, ...JSON.parse(String(data.valor)) })) } catch {} }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const guardar = async () => {
+    setGuardando(true)
+    const sb = await getSb()
+    await sb.from('configuracion').upsert({ clave: 'seguridad', valor: JSON.stringify(config) }, { onConflict: 'clave' })
+    setGuardando(false)
+  }
+
+  const ejecutarBackup = async () => {
+    setEjecutandoBackup(true)
+    setBackupMsg('')
+    const sb = await getSb()
+    await sb.from('bitacora').insert({
+      usuario: 'Admin', accion: 'Backup manual ejecutado', modulo: 'Configuración',
+      detalle: 'Respaldo manual solicitado desde Seguridad', ip: null,
+    })
+    setEjecutandoBackup(false)
+    setBackupMsg('Solicitud de backup registrada correctamente.')
+  }
+
+  if (cargando) return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
 
   return (
     <div className="space-y-4">
@@ -748,8 +935,8 @@ function TabSeguridad() {
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckIcon className="w-4 h-4" />Guardar seguridad
+          <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar seguridad'}
           </button>
         </div>
       </SCard>
@@ -764,18 +951,19 @@ function TabSeguridad() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-slate-500 font-medium mb-1">Frecuencia</label>
-            <select value={config.frecuenciaBackup} onChange={e => set('frecuenciaBackup', e.target.value.toUpperCase())} className={`${iCls()} bg-white`}>
+            <select value={config.frecuenciaBackup} onChange={e => set('frecuenciaBackup', e.target.value)} className={`${iCls()} bg-white`}>
               <option>Horario</option>
               <option>Diario</option>
               <option>Semanal</option>
             </select>
           </div>
           <div className="flex items-end">
-            <button className="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
-              <ArrowPathIcon className="w-4 h-4" />Ejecutar backup ahora
+            <button onClick={ejecutarBackup} disabled={ejecutandoBackup} className="w-full border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+              <ArrowPathIcon className={`w-4 h-4 ${ejecutandoBackup ? 'animate-spin' : ''}`} />{ejecutandoBackup ? 'Ejecutando...' : 'Ejecutar backup ahora'}
             </button>
           </div>
         </div>
+        {backupMsg && <p className="text-xs text-green-600 mt-3">{backupMsg}</p>}
       </SCard>
     </div>
   )
@@ -783,29 +971,44 @@ function TabSeguridad() {
 
 // ─── 12. BITÁCORA ─────────────────────────────────────────────────────────────
 function TabBitacora() {
-  const registros = [
-    { id: 1, usuario: 'Alejandro Méndez', accion: 'Tarifa base actualizada', modulo: 'Tarifas', detalle: 'TB-003: tarifaBase $500 → $520', ip: '192.168.1.10', fecha: '14 Jun 2025 11:42' },
-    { id: 2, usuario: 'Carmen Villanueva', accion: 'Viaje asignado a conductor', modulo: 'Viajes', detalle: '#TR-8848 → Carlos Méndez', ip: '192.168.1.12', fecha: '14 Jun 2025 10:55' },
-    { id: 3, usuario: 'Roberto Salas', accion: 'Pago aprobado', modulo: 'Pagos', detalle: 'PC-003 → Mario García $1,600', ip: '192.168.1.14', fecha: '14 Jun 2025 09:30' },
-    { id: 4, usuario: 'Patricia Luna', accion: 'Documento aprobado', modulo: 'Documentos', detalle: 'DOC-001 Licencia Carlos Méndez', ip: '192.168.1.16', fecha: '14 Jun 2025 09:15' },
-    { id: 5, usuario: 'Alejandro Méndez', accion: 'Conductor suspendido', modulo: 'Conductores', detalle: 'CON-005 Pedro Castillo → Suspendido', ip: '192.168.1.10', fecha: '14 Jun 2025 08:50' },
-    { id: 6, usuario: 'Sistema', accion: 'Alerta: documento vencido', modulo: 'Documentos', detalle: 'DOC-004 Licencia Mario García', ip: '—', fecha: '14 Jun 2025 08:00' },
-    { id: 7, usuario: 'Carmen Villanueva', accion: 'Incidencia escalada', modulo: 'Incidencias', detalle: '#INC-007 → Coordinación', ip: '192.168.1.12', fecha: '13 Jun 2025 18:05' },
-    { id: 8, usuario: 'Alejandro Méndez', accion: 'Zona desactivada', modulo: 'Configuración', detalle: 'Zona Foránea Guadalajara → inactiva', ip: '192.168.1.10', fecha: '13 Jun 2025 17:20' },
-    { id: 9, usuario: 'Roberto Salas', accion: 'Reporte exportado', modulo: 'Reportes', detalle: 'Reporte financiero semana 9-14 Jun', ip: '192.168.1.14', fecha: '13 Jun 2025 16:45' },
-    { id: 10,usuario: 'Patricia Luna', accion: 'Nuevo usuario creado', modulo: 'Configuración', detalle: 'Usuario: efuentes@admin.com (Soporte)', ip: '192.168.1.16', fecha: '01 Jun 2025 10:00' },
-  ]
+  const [registros, setRegistros] = useState<{id:string;usuario:string;accion:string;modulo:string;detalle:string;ip:string;fecha:string}[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [filtroModulo, setFiltroModulo] = useState('Todos')
+
+  const cargar = useCallback(async () => {
+    const sb = getSupabaseBrowserClient()
+    const { data } = await sb.from('bitacora').select('id,usuario,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(200)
+    if (data) setRegistros(data.map((r: Record<string,unknown>) => ({
+      id: String(r.id), usuario: String(r.usuario ?? 'Sistema'), accion: String(r.accion ?? ''),
+      modulo: String(r.modulo ?? 'Sistema'), detalle: String(r.detalle ?? ''), ip: String(r.ip ?? '—'),
+      fecha: String((r.created_at as string)?.slice(0,16).replace('T',' ') ?? '—'),
+    })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const exportarCSV = () => {
+    const filas = registros.filter(r => filtroModulo === 'Todos' || r.modulo === filtroModulo)
+    const header = ['Usuario','Acción','Módulo','Detalle','IP','Fecha'].join(',')
+    const body = filas.map(r => [r.usuario, r.accion, r.modulo, r.detalle, r.ip, r.fecha].map(v => `"${v.replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bitacora_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const moduloColor: Record<string, string> = {
     Tarifas: 'blue', Viajes: 'purple', Pagos: 'emerald', Documentos: 'amber',
     Conductores: 'indigo', Incidencias: 'rose', Configuración: 'slate', Reportes: 'teal', Sistema: 'slate',
   }
 
-  const [filtroModulo, setFiltroModulo] = useState('Todos')
-
   return (
     <SCard title="📋 Bitácora de cambios" subtitle="Registro de todas las acciones relevantes del sistema"
-      action={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+      action={<button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
         Exportar CSV
       </button>}>
       <div className="flex flex-wrap gap-1.5 mb-4">
@@ -816,6 +1019,7 @@ function TabBitacora() {
           </button>
         ))}
       </div>
+      {cargando ? <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div> : (
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -829,6 +1033,9 @@ function TabBitacora() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
+            {registros.filter(r => filtroModulo === 'Todos' || r.modulo === filtroModulo).length === 0 && (
+              <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-xs italic">Sin registros en la bitácora.</td></tr>
+            )}
             {registros.filter(r => filtroModulo === 'Todos' || r.modulo === filtroModulo).map(r => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-800 text-xs whitespace-nowrap">{r.usuario}</td>
@@ -842,6 +1049,7 @@ function TabBitacora() {
           </tbody>
         </table>
       </div>
+      )}
     </SCard>
   )
 }
