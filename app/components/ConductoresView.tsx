@@ -19,6 +19,7 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type EstatusDisponibilidad = 'Disponible' | 'No disponible' | 'En viaje'
@@ -731,11 +732,7 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
     setGuardando(true)
     setErrorGuardar('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      const sb = getSupabaseBrowserClient()
       const { error } = await sb.from('conductores').insert({
         nombre:            form.nombre.toUpperCase(),
         apellido:          form.apellido.toUpperCase(),
@@ -864,11 +861,7 @@ export default function ConductoresView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarConductores = useCallback(async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('conductores')
       .select(`

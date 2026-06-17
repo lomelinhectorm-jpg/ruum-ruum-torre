@@ -8,6 +8,7 @@ import {
   UserGroupIcon,
   BuildingOfficeIcon,
 } from '@heroicons/react/24/outline'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 type MainTab = 'operativos' | 'financieros' | 'conductores' | 'usuarios'
 type Periodo = 'hoy' | 'semana' | 'mes' | 'trimestre'
@@ -107,8 +108,7 @@ function SkeletonCard() {
 
 // ─── SUPABASE HELPER ──────────────────────────────────────────────────────────
 async function getSb() {
-  const { createClient } = await import('@supabase/supabase-js')
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  return getSupabaseBrowserClient()
 }
 
 function periodoFecha(periodo: Periodo): string {
@@ -242,11 +242,11 @@ function ReporteFinanciero({ periodo }: { periodo: Periodo }) {
       const pc = pcRes.data ?? []
       const gs = gsRes.data ?? []
 
-      const totalIng = pu.filter(p => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0)
-      const pendienteCobro = pu.filter(p => ['Pendiente','Aprobado','En revisión'].includes(p.estatus)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0)
-      const totalPagado = pc.filter(p => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.deposito_esperado ?? 0), 0)
-      const pendienteConductores = pc.filter(p => ['Pendiente','Aprobado'].includes(p.estatus)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.deposito_esperado ?? 0), 0)
-      const totalGastos = gs.filter(g => g.estatus === 'Aprobado').reduce((s: number, g: Record<string,unknown>) => s + Number(g.monto ?? 0), 0)
+      const totalIng = pu.filter((p: Record<string,unknown>) => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0)
+      const pendienteCobro = pu.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado','En revisión'].includes(p.estatus as string)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0)
+      const totalPagado = pc.filter((p: Record<string,unknown>) => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.deposito_esperado ?? 0), 0)
+      const pendienteConductores = pc.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado'].includes(p.estatus as string)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.deposito_esperado ?? 0), 0)
+      const totalGastos = gs.filter((g: Record<string,unknown>) => g.estatus === 'Aprobado').reduce((s: number, g: Record<string,unknown>) => s + Number(g.monto ?? 0), 0)
 
       // Agrupar ingresos para gráfica
       const grupos: Record<string,number> = {}
@@ -257,13 +257,13 @@ function ReporteFinanciero({ periodo }: { periodo: Periodo }) {
       })
       const barData = Object.entries(grupos).map(([label, value]) => ({ label, value }))
 
-      const viajes = pu.filter(p => ['Pendiente','En revisión','Aprobado'].includes(p.estatus)).slice(0,5).map((p: Record<string,unknown>) => {
+      const viajes = pu.filter((p: Record<string,unknown>) => ['Pendiente','En revisión','Aprobado'].includes(p.estatus as string)).slice(0,5).map((p: Record<string,unknown>) => {
         const v = p.viajes as Record<string,string>|null
         const e = p.empresas as Record<string,string>|null
         return { folio: v?.folio ?? '—', empresa: e?.nombre_comercial ?? '—', tarifa: Number(p.tarifa_cobrada ?? 0), status: String(p.estatus) }
       })
 
-      const conductoresData = pc.filter(p => ['Pendiente','Aprobado'].includes(p.estatus)).slice(0,5).map((p: Record<string,unknown>) => {
+      const conductoresData = pc.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado'].includes(p.estatus as string)).slice(0,5).map((p: Record<string,unknown>) => {
         const c = p.conductores as Record<string,string>|null
         return { nombre: c ? `${c.nombre} ${c.apellido}` : '—', deposito: Number(p.deposito_esperado ?? 0), viajes: Number(p.viajes_revisados ?? 0), status: String(p.estatus) }
       })
