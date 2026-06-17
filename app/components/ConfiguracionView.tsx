@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   ShieldCheckIcon,
   UsersIcon,
@@ -148,17 +148,72 @@ function TabRoles() {
 
 // ─── 2. USUARIOS INTERNOS ─────────────────────────────────────────────────────
 function TabUsuariosInternos() {
-  const [usuarios] = useState([
-    { id: 1, nombre: 'Alejandro Méndez', email: 'amendez@admin.com', rol: 'Super Administrador', ultimo: '14 Jun 2025 11:32', activo: true },
-    { id: 2, nombre: 'Carmen Villanueva', email: 'cvillanueva@admin.com', rol: 'Coordinador Operativo', ultimo: '14 Jun 2025 09:15', activo: true },
-    { id: 3, nombre: 'Roberto Salas', email: 'rsalas@admin.com', rol: 'Analista Financiero', ultimo: '13 Jun 2025 18:40', activo: true },
-    { id: 4, nombre: 'Patricia Luna', email: 'pluna@admin.com', rol: 'Validador Documental', ultimo: '12 Jun 2025 14:22', activo: true },
-    { id: 5, nombre: 'Ernesto Fuentes', email: 'efuentes@admin.com', rol: 'Soporte / Lectura', ultimo: '01 Jun 2025 10:00', activo: false },
-  ])
+  const [usuarios, setUsuarios] = useState<{id:string;nombre:string;apellido:string;email:string;rol:string;ultimo:string;activo:boolean}[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', rol: '' })
+  const [guardando, setGuardando] = useState(false)
+
+  const cargar = useCallback(async () => {
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const { data } = await sb.from('usuarios_internos').select('id, nombre, apellido, email, rol, ultimo_acceso, activo').order('created_at', { ascending: false })
+    if (data) setUsuarios(data.map((u: Record<string,unknown>) => ({
+      id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''),
+      email: String(u.email ?? ''), rol: String(u.rol ?? ''),
+      ultimo: String((u.ultimo_acceso as string)?.slice(0,16).replace('T',' ') ?? '—'),
+      activo: Boolean(u.activo),
+    })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const handleGuardar = async () => {
+    if (!form.nombre || !form.email || !form.rol) return
+    setGuardando(true)
+    const { createClient } = await import('@supabase/supabase-js')
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    await sb.from('usuarios_internos').insert({
+      nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
+      email: form.email.toLowerCase(), rol: form.rol, activo: true,
+    })
+    setForm({ nombre: '', apellido: '', email: '', rol: '' })
+    setShowForm(false)
+    setGuardando(false)
+    cargar()
+  }
+
+  const ROLES = ['Super Administrador','Coordinador Operativo','Analista Financiero','Validador Documental','Soporte / Lectura']
+  const iCls2 = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
   return (
     <SCard title="👥 Usuarios internos del sistema" subtitle="Personal con acceso al panel de administración"
-      action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo usuario</button>}>
+      action={<button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo usuario</button>}>
+      {showForm && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-blue-700 uppercase">Nuevo usuario interno</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-slate-500 mb-1 block">Nombre(s)*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls2} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Apellido(s)</label><input type="text" value={form.apellido} onChange={e => setForm(f => ({...f, apellido: e.target.value.toUpperCase()}))} className={iCls2} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Correo*</label><input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={iCls2} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Rol*</label>
+              <select value={form.rol} onChange={e => setForm(f => ({...f, rol: e.target.value}))} className={iCls2}>
+                <option value="">Seleccionar...</option>
+                {ROLES.map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+            <button onClick={handleGuardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
+        {cargando ? (
+          <div className="space-y-2 py-4">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />)}</div>
+        ) : (
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
             <tr>
@@ -171,18 +226,20 @@ function TabUsuariosInternos() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
+            {usuarios.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-xs italic">Sin usuarios internos registrados.</td></tr>}
             {usuarios.map(u => (
               <tr key={u.id} className={`hover:bg-slate-50 ${!u.activo ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-3 font-medium text-slate-800">{u.nombre}</td>
+                <td className="px-4 py-3 font-medium text-slate-800">{u.nombre} {u.apellido}</td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{u.email}</td>
                 <td className="px-4 py-3"><Badge text={u.rol} color="blue" /></td>
                 <td className="px-4 py-3 text-xs text-slate-400">{u.ultimo}</td>
                 <td className="px-4 py-3 text-center"><span className={`inline-block w-2 h-2 rounded-full ${u.activo ? 'bg-green-500' : 'bg-slate-300'}`} /></td>
-                <td className="px-4 py-3 text-right"><RowActions onEdit={() => {}} onDelete={() => {}} /></td>
+                <td className="px-4 py-3 text-right"><RowActions onEdit={() => {}} /></td>
               </tr>
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </SCard>
   )
@@ -190,17 +247,39 @@ function TabUsuariosInternos() {
 
 // ─── 3. ZONAS DE OPERACIÓN ────────────────────────────────────────────────────
 function TabZonas() {
-  const [zonas, setZonas] = useState([
-    { id: 1, nombre: 'Zona Centro CDMX', descripcion: 'Radio 15 km desde el Zócalo', radio: 15, tarifa: 'Local', activa: true },
-    { id: 2, nombre: 'Zona Norte Metropolitana', descripcion: 'Tlalnepantla, Satélite, Naucalpan', radio: 25, tarifa: 'Local', activa: true },
-    { id: 3, nombre: 'Zona Sur', descripcion: 'Coyoacán, Tlalpan, Xochimilco, Tláhuac', radio: 20, tarifa: 'Local', activa: true },
-    { id: 4, nombre: 'Zona Oriente', descripcion: 'Chalco, Iztapalapa, Texcoco', radio: 30, tarifa: 'Local recargo', activa: false },
-    { id: 5, nombre: 'Zona Foránea — Querétaro', descripcion: 'Ciudad de Querétaro y municipios', radio: 50, tarifa: 'Foráneo', activa: true },
-    { id: 6, nombre: 'Zona Foránea — Guadalajara', descripcion: 'Área metropolitana de Guadalajara', radio: 60, tarifa: 'Foráneo', activa: false },
-  ])
+  const [zonas, setZonas] = useState<{id:string;nombre:string;descripcion:string;radio:number;tarifa:string;activa:boolean}[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  const SEED = [
+    { nombre: 'Zona Centro CDMX', descripcion: 'Radio 15 km desde el Zócalo', radio: 15, tarifa: 'Local', activa: true },
+    { nombre: 'Zona Norte Metropolitana', descripcion: 'Tlalnepantla, Satélite, Naucalpan', radio: 25, tarifa: 'Local', activa: true },
+    { nombre: 'Zona Sur', descripcion: 'Coyoacán, Tlalpan, Xochimilco, Tláhuac', radio: 20, tarifa: 'Local', activa: true },
+    { nombre: 'Zona Oriente', descripcion: 'Chalco, Iztapalapa, Texcoco', radio: 30, tarifa: 'Local recargo', activa: false },
+    { nombre: 'Zona Foránea — Querétaro', descripcion: 'Ciudad de Querétaro y municipios', radio: 50, tarifa: 'Foráneo', activa: true },
+    { nombre: 'Zona Foránea — Guadalajara', descripcion: 'Área metropolitana de Guadalajara', radio: 60, tarifa: 'Foráneo', activa: false },
+  ]
+
+  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    let { data } = await sb.from('zonas').select('id,nombre,descripcion,radio,tarifa,activa').order('created_at')
+    if (!data?.length) { await sb.from('zonas').insert(SEED); const r = await sb.from('zonas').select('id,nombre,descripcion,radio,tarifa,activa').order('created_at'); data = r.data }
+    if (data) setZonas(data.map((z: Record<string,unknown>) => ({ id: String(z.id), nombre: String(z.nombre??''), descripcion: String(z.descripcion??''), radio: Number(z.radio??0), tarifa: String(z.tarifa??''), activa: Boolean(z.activa) })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const toggleZona = async (id: string, activa: boolean) => {
+    const sb = await getSb(); await sb.from('zonas').update({ activa: !activa }).eq('id', id)
+    setZonas(prev => prev.map(z => z.id === id ? { ...z, activa: !activa } : z))
+  }
+
   return (
     <SCard title="📍 Zonas de operación" subtitle="Define las áreas de cobertura del servicio"
       action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva zona</button>}>
+      {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="space-y-2">
         {zonas.map(z => (
           <div key={z.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${z.activa ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
@@ -214,29 +293,52 @@ function TabZonas() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Toggle value={z.activa} onChange={v => setZonas(prev => prev.map(x => x.id === z.id ? { ...x, activa: v } : x))} />
+              <Toggle value={z.activa} onChange={() => toggleZona(z.id, z.activa)} />
               <RowActions onEdit={() => {}} onDelete={() => {}} />
             </div>
           </div>
         ))}
       </div>
+      )}
     </SCard>
   )
 }
 
 // ─── 4. TIPOS DE SERVICIO ─────────────────────────────────────────────────────
 function TabServicios() {
-  const [servicios, setServicios] = useState([
-    { id: 1, nombre: 'Traslado local', descripcion: 'Viaje dentro de la zona metropolitana', icono: '🚗', requiereEvidencia: true, requiereFirma: true, activo: true },
-    { id: 2, nombre: 'Traslado foráneo', descripcion: 'Viaje fuera de la zona metropolitana', icono: '🛣️', requiereEvidencia: true, requiereFirma: true, activo: true },
-    { id: 3, nombre: 'Entrega al cliente', descripcion: 'El conductor entrega el vehículo en domicilio', icono: '📦', requiereEvidencia: true, requiereFirma: true, activo: true },
-    { id: 4, nombre: 'Recolección', descripcion: 'Recolección de vehículo en punto de origen', icono: '🔄', requiereEvidencia: true, requiereFirma: false, activo: true },
-    { id: 5, nombre: 'Largo recorrido', descripcion: 'Viaje de más de 200 km con posible pernocta', icono: '✈️', requiereEvidencia: true, requiereFirma: true, activo: true },
-    { id: 6, nombre: 'Urgente', descripcion: 'Asignación prioritaria en menos de 2 horas', icono: '⚡', requiereEvidencia: true, requiereFirma: false, activo: true },
-  ])
+  const [servicios, setServicios] = useState<{id:string;nombre:string;descripcion:string;icono:string;requiereEvidencia:boolean;requiereFirma:boolean;activo:boolean}[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  const SEED = [
+    { nombre: 'Traslado local', descripcion: 'Viaje dentro de la zona metropolitana', icono: '🚗', requiere_evidencia: true, requiere_firma: true, activo: true },
+    { nombre: 'Traslado foráneo', descripcion: 'Viaje fuera de la zona metropolitana', icono: '🛣️', requiere_evidencia: true, requiere_firma: true, activo: true },
+    { nombre: 'Entrega al cliente', descripcion: 'El conductor entrega el vehículo en domicilio', icono: '📦', requiere_evidencia: true, requiere_firma: true, activo: true },
+    { nombre: 'Recolección', descripcion: 'Recolección de vehículo en punto de origen', icono: '🔄', requiere_evidencia: true, requiere_firma: false, activo: true },
+    { nombre: 'Largo recorrido', descripcion: 'Viaje de más de 200 km con posible pernocta', icono: '✈️', requiere_evidencia: true, requiere_firma: true, activo: true },
+    { nombre: 'Urgente', descripcion: 'Asignación prioritaria en menos de 2 horas', icono: '⚡', requiere_evidencia: true, requiere_firma: false, activo: true },
+  ]
+
+  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    let { data } = await sb.from('tipos_servicio').select('id,nombre,descripcion,icono,requiere_evidencia,requiere_firma,activo').order('created_at')
+    if (!data?.length) { await sb.from('tipos_servicio').insert(SEED); const r = await sb.from('tipos_servicio').select('id,nombre,descripcion,icono,requiere_evidencia,requiere_firma,activo').order('created_at'); data = r.data }
+    if (data) setServicios(data.map((s: Record<string,unknown>) => ({ id: String(s.id), nombre: String(s.nombre??''), descripcion: String(s.descripcion??''), icono: String(s.icono??''), requiereEvidencia: Boolean(s.requiere_evidencia), requiereFirma: Boolean(s.requiere_firma), activo: Boolean(s.activo) })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const toggle = async (id: string, field: string, val: boolean) => {
+    const sb = await getSb(); await sb.from('tipos_servicio').update({ [field]: !val }).eq('id', id)
+    setServicios(prev => prev.map(s => s.id === id ? { ...s, [field === 'requiere_evidencia' ? 'requiereEvidencia' : field === 'requiere_firma' ? 'requiereFirma' : 'activo']: !val } : s))
+  }
+
   return (
     <SCard title="🚘 Tipos de servicio" subtitle="Configura los tipos de traslado disponibles"
       action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-slate-100 animate-pulse rounded-lg" />)}</div> : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -254,44 +356,58 @@ function TabServicios() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{s.icono}</span>
-                    <div>
-                      <p className="font-medium text-slate-800">{s.nombre}</p>
-                      <p className="text-xs text-slate-400">{s.descripcion}</p>
-                    </div>
+                    <div><p className="font-medium text-slate-800">{s.nombre}</p><p className="text-xs text-slate-400">{s.descripcion}</p></div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-center">
-                  <Toggle value={s.requiereEvidencia} onChange={v => setServicios(p => p.map(x => x.id === s.id ? { ...x, requiereEvidencia: v } : x))} />
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <Toggle value={s.requiereFirma} onChange={v => setServicios(p => p.map(x => x.id === s.id ? { ...x, requiereFirma: v } : x))} />
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <Toggle value={s.activo} onChange={v => setServicios(p => p.map(x => x.id === s.id ? { ...x, activo: v } : x))} />
-                </td>
+                <td className="px-4 py-3 text-center"><Toggle value={s.requiereEvidencia} onChange={() => toggle(s.id, 'requiere_evidencia', s.requiereEvidencia)} /></td>
+                <td className="px-4 py-3 text-center"><Toggle value={s.requiereFirma} onChange={() => toggle(s.id, 'requiere_firma', s.requiereFirma)} /></td>
+                <td className="px-4 py-3 text-center"><Toggle value={s.activo} onChange={() => toggle(s.id, 'activo', s.activo)} /></td>
                 <td className="px-4 py-3 text-right"><RowActions onEdit={() => {}} onDelete={() => {}} /></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      )}
     </SCard>
   )
 }
 
 // ─── 5. TIPOS DE VEHÍCULOS ────────────────────────────────────────────────────
 function TabVehiculos() {
-  const [tipos, setTipos] = useState([
-    { id: 1, nombre: 'Sedán', descripcion: 'Automóvil estándar 4 puertas', icono: '🚗', capacidad: 5, activo: true },
-    { id: 2, nombre: 'SUV', descripcion: 'Vehículo utilitario deportivo', icono: '🚙', capacidad: 7, activo: true },
-    { id: 3, nombre: 'Pick-up', descripcion: 'Camioneta con caja de carga', icono: '🛻', capacidad: 2, activo: true },
-    { id: 4, nombre: 'Van', descripcion: 'Vehículo de pasajeros / carga', icono: '🚐', capacidad: 8, activo: true },
-    { id: 5, nombre: 'Luxury', descripcion: 'Vehículo de lujo (BMW, Mercedes, etc.)', icono: '🏎️', capacidad: 4, activo: true },
-    { id: 6, nombre: 'Camioneta de trabajo', descripcion: 'Vehículo pesado de trabajo', icono: '🚛', capacidad: 3, activo: false },
-  ])
+  const [tipos, setTipos] = useState<{id:string;nombre:string;descripcion:string;icono:string;capacidad:number;activo:boolean}[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  const SEED = [
+    { nombre: 'Sedán', descripcion: 'Automóvil estándar 4 puertas', icono: '🚗', capacidad: 5, activo: true },
+    { nombre: 'SUV', descripcion: 'Vehículo utilitario deportivo', icono: '🚙', capacidad: 7, activo: true },
+    { nombre: 'Pick-up', descripcion: 'Camioneta con caja de carga', icono: '🛻', capacidad: 2, activo: true },
+    { nombre: 'Van', descripcion: 'Vehículo de pasajeros / carga', icono: '🚐', capacidad: 8, activo: true },
+    { nombre: 'Luxury', descripcion: 'Vehículo de lujo (BMW, Mercedes, etc.)', icono: '🏎️', capacidad: 4, activo: true },
+    { nombre: 'Camioneta de trabajo', descripcion: 'Vehículo pesado de trabajo', icono: '🚛', capacidad: 3, activo: false },
+  ]
+
+  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    let { data } = await sb.from('tipos_vehiculo').select('id,nombre,descripcion,icono,capacidad,activo').order('created_at')
+    if (!data?.length) { await sb.from('tipos_vehiculo').insert(SEED); const r = await sb.from('tipos_vehiculo').select('id,nombre,descripcion,icono,capacidad,activo').order('created_at'); data = r.data }
+    if (data) setTipos(data.map((t: Record<string,unknown>) => ({ id: String(t.id), nombre: String(t.nombre??''), descripcion: String(t.descripcion??''), icono: String(t.icono??''), capacidad: Number(t.capacidad??0), activo: Boolean(t.activo) })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const toggleTipo = async (id: string, activo: boolean) => {
+    const sb = await getSb(); await sb.from('tipos_vehiculo').update({ activo: !activo }).eq('id', id)
+    setTipos(prev => prev.map(t => t.id === id ? { ...t, activo: !activo } : t))
+  }
+
   return (
     <SCard title="🚘 Tipos de vehículo" subtitle="Categorías de vehículos que opera la plataforma"
       action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      {cargando ? <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-20 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {tipos.map(t => (
           <div key={t.id} className={`border rounded-xl p-4 flex items-center justify-between gap-3 ${!t.activo ? 'opacity-50 border-slate-100' : 'border-slate-200'}`}>
@@ -304,12 +420,13 @@ function TabVehiculos() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Toggle value={t.activo} onChange={v => setTipos(p => p.map(x => x.id === t.id ? { ...x, activo: v } : x))} />
+              <Toggle value={t.activo} onChange={() => toggleTipo(t.id, t.activo)} />
               <RowActions onEdit={() => {}} />
             </div>
           </div>
         ))}
       </div>
+      )}
     </SCard>
   )
 }
@@ -443,24 +560,46 @@ function TabEstados() {
 
 // ─── 8. NOTIFICACIONES ────────────────────────────────────────────────────────
 function TabNotificaciones() {
-  const [plantillas, setPlantillas] = useState([
-    { id: 1, evento: 'Viaje asignado a conductor', canal: ['App', 'WhatsApp'], activa: true, destinatario: 'Conductor' },
-    { id: 2, evento: 'Evidencia incompleta', canal: ['Email', 'App'], activa: true, destinatario: 'Admin + Conductor' },
-    { id: 3, evento: 'Incidencia reportada (Alta prioridad)', canal: ['Email', 'App', 'SMS'], activa: true, destinatario: 'Admin' },
-    { id: 4, evento: 'Documento por vencer (5 días)', canal: ['Email'], activa: true, destinatario: 'Admin + Conductor' },
-    { id: 5, evento: 'Pago procesado al conductor', canal: ['App', 'Email'], activa: true, destinatario: 'Conductor' },
-    { id: 6, evento: 'Conductor retrasado (>20 min)', canal: ['App'], activa: true, destinatario: 'Admin + Usuario' },
-    { id: 7, evento: 'Viaje finalizado', canal: ['App', 'Email'], activa: true, destinatario: 'Usuario' },
-    { id: 8, evento: 'Solicitud de aclaración de evidencia', canal: ['App'], activa: true, destinatario: 'Conductor' },
-    { id: 9, evento: 'Nuevo conductor registrado', canal: ['Email'], activa: false, destinatario: 'Admin' },
-    { id: 10, evento: 'Convenio empresarial por vencer', canal: ['Email'], activa: true, destinatario: 'Admin' },
-  ])
+  const [plantillas, setPlantillas] = useState<{id:string;evento:string;canal:string[];activa:boolean;destinatario:string}[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  const SEED = [
+    { evento: 'Viaje asignado a conductor', canal: ['App','WhatsApp'], activa: true, destinatario: 'Conductor' },
+    { evento: 'Evidencia incompleta', canal: ['Email','App'], activa: true, destinatario: 'Admin + Conductor' },
+    { evento: 'Incidencia reportada (Alta prioridad)', canal: ['Email','App','SMS'], activa: true, destinatario: 'Admin' },
+    { evento: 'Documento por vencer (5 días)', canal: ['Email'], activa: true, destinatario: 'Admin + Conductor' },
+    { evento: 'Pago procesado al conductor', canal: ['App','Email'], activa: true, destinatario: 'Conductor' },
+    { evento: 'Conductor retrasado (>20 min)', canal: ['App'], activa: true, destinatario: 'Admin + Usuario' },
+    { evento: 'Viaje finalizado', canal: ['App','Email'], activa: true, destinatario: 'Usuario' },
+    { evento: 'Solicitud de aclaración de evidencia', canal: ['App'], activa: true, destinatario: 'Conductor' },
+    { evento: 'Nuevo conductor registrado', canal: ['Email'], activa: false, destinatario: 'Admin' },
+    { evento: 'Convenio empresarial por vencer', canal: ['Email'], activa: true, destinatario: 'Admin' },
+  ]
+
+  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    let { data } = await sb.from('plantillas_notificacion').select('id,evento,canal,activa,destinatario').order('created_at')
+    if (!data?.length) { await sb.from('plantillas_notificacion').insert(SEED); const r = await sb.from('plantillas_notificacion').select('id,evento,canal,activa,destinatario').order('created_at'); data = r.data }
+    if (data) setPlantillas(data.map((p: Record<string,unknown>) => ({ id: String(p.id), evento: String(p.evento??''), canal: (p.canal as string[]) ?? [], activa: Boolean(p.activa), destinatario: String(p.destinatario??'') })))
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const togglePlantilla = async (id: string, activa: boolean) => {
+    const sb = await getSb(); await sb.from('plantillas_notificacion').update({ activa: !activa }).eq('id', id)
+    setPlantillas(prev => prev.map(p => p.id === id ? { ...p, activa: !activa } : p))
+  }
+
   const canalColor: Record<string, string> = {
     Email: 'bg-blue-50 text-blue-700', App: 'bg-green-50 text-green-700',
     SMS: 'bg-orange-50 text-orange-700', WhatsApp: 'bg-emerald-50 text-emerald-700',
   }
   return (
     <SCard title="🔔 Plantillas de notificación" subtitle="Configura qué notificaciones se envían y por qué canal">
+      {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="space-y-2">
         {plantillas.map(p => (
           <div key={p.id} className={`flex items-center justify-between p-3.5 border rounded-xl gap-3 ${!p.activa ? 'opacity-50 border-slate-100' : 'border-slate-200'}`}>
@@ -472,32 +611,65 @@ function TabNotificaciones() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Toggle value={p.activa} onChange={v => setPlantillas(prev => prev.map(x => x.id === p.id ? { ...x, activa: v } : x))} />
+              <Toggle value={p.activa} onChange={() => togglePlantilla(p.id, p.activa)} />
               <RowActions onEdit={() => {}} />
             </div>
           </div>
         ))}
       </div>
+      )}
     </SCard>
   )
 }
 
 // ─── 9. MÉTODOS DE PAGO ───────────────────────────────────────────────────────
 function TabPagos() {
-  const [metodos, setMetodos] = useState([
-    { id: 1, nombre: 'Transferencia bancaria', descripcion: 'SPEI a cuenta bancaria del conductor', activo: true },
-    { id: 2, nombre: 'Depósito OXXO', descripcion: 'Pago en efectivo en tiendas OXXO', activo: false },
-    { id: 3, nombre: 'Tarjeta de débito', descripcion: 'Pago con tarjeta Visa/Mastercard débito', activo: true },
-    { id: 4, nombre: 'Tarjeta de crédito', descripcion: 'Cargo a tarjeta con posible comisión', activo: true },
-    { id: 5, nombre: 'Efectivo', descripcion: 'Pago directo en efectivo al conductor', activo: false },
-    { id: 6, nombre: 'Factura mensual', descripcion: 'Facturación mensual para cuentas empresariales', activo: true },
-  ])
+  const [metodos, setMetodos] = useState<{id:string;nombre:string;descripcion:string;activo:boolean}[]>([])
   const [ciclo, setCiclo] = useState({ frecuencia: 'Quincenal', diaPago: '1 y 15', comision: 2.5 })
+  const [cargando, setCargando] = useState(true)
+  const [guardandoCiclo, setGuardandoCiclo] = useState(false)
+
+  const SEED = [
+    { nombre: 'Transferencia bancaria', descripcion: 'SPEI a cuenta bancaria del conductor', activo: true },
+    { nombre: 'Depósito OXXO', descripcion: 'Pago en efectivo en tiendas OXXO', activo: false },
+    { nombre: 'Tarjeta de débito', descripcion: 'Pago con tarjeta Visa/Mastercard débito', activo: true },
+    { nombre: 'Tarjeta de crédito', descripcion: 'Cargo a tarjeta con posible comisión', activo: true },
+    { nombre: 'Efectivo', descripcion: 'Pago directo en efectivo al conductor', activo: false },
+    { nombre: 'Factura mensual', descripcion: 'Facturación mensual para cuentas empresariales', activo: true },
+  ]
+
+  const getSb = async () => { const { createClient } = await import('@supabase/supabase-js'); return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) }
+
+  const cargar = useCallback(async () => {
+    const sb = await getSb()
+    let { data } = await sb.from('metodos_pago').select('id,nombre,descripcion,activo').order('created_at')
+    if (!data?.length) { await sb.from('metodos_pago').insert(SEED); const r = await sb.from('metodos_pago').select('id,nombre,descripcion,activo').order('created_at'); data = r.data }
+    if (data) setMetodos(data.map((m: Record<string,unknown>) => ({ id: String(m.id), nombre: String(m.nombre??''), descripcion: String(m.descripcion??''), activo: Boolean(m.activo) })))
+    // Cargar ciclo de pago
+    const { data: cfg } = await sb.from('configuracion').select('valor').eq('clave', 'ciclo_pago').single()
+    if (cfg?.valor) { try { const v = JSON.parse(String(cfg.valor)); setCiclo(v) } catch {} }
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const toggleMetodo = async (id: string, activo: boolean) => {
+    const sb = await getSb(); await sb.from('metodos_pago').update({ activo: !activo }).eq('id', id)
+    setMetodos(prev => prev.map(m => m.id === id ? { ...m, activo: !activo } : m))
+  }
+
+  const guardarCiclo = async () => {
+    setGuardandoCiclo(true)
+    const sb = await getSb()
+    await sb.from('configuracion').upsert({ clave: 'ciclo_pago', valor: JSON.stringify(ciclo) }, { onConflict: 'clave' })
+    setGuardandoCiclo(false)
+  }
 
   return (
     <div className="space-y-4">
       <SCard title="💳 Métodos de pago habilitados" subtitle="Configura las formas de pago disponibles para usuarios y conductores"
         action={<button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Agregar método</button>}>
+        {cargando ? <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {metodos.map(m => (
             <div key={m.id} className={`flex items-center justify-between p-4 border rounded-xl ${!m.activo ? 'opacity-50 border-slate-100' : 'border-slate-200'}`}>
@@ -505,20 +677,18 @@ function TabPagos() {
                 <p className="font-medium text-slate-800 text-sm">{m.nombre}</p>
                 <p className="text-xs text-slate-400">{m.descripcion}</p>
               </div>
-              <Toggle value={m.activo} onChange={v => setMetodos(p => p.map(x => x.id === m.id ? { ...x, activo: v } : x))} />
+              <Toggle value={m.activo} onChange={() => toggleMetodo(m.id, m.activo)} />
             </div>
           ))}
         </div>
+        )}
       </SCard>
       <SCard title="📅 Ciclo de pago a conductores" subtitle="Define cuándo y cómo se liquida a los conductores">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <div>
             <label className="block text-xs text-slate-500 font-medium mb-1">Frecuencia de pago</label>
             <select value={ciclo.frecuencia} onChange={e => setCiclo(c => ({ ...c, frecuencia: e.target.value }))} className={`${iCls()} bg-white`}>
-              <option>Semanal</option>
-              <option>Quincenal</option>
-              <option>Mensual</option>
-              <option>Por viaje</option>
+              <option>Semanal</option><option>Quincenal</option><option>Mensual</option><option>Por viaje</option>
             </select>
           </div>
           <div>
@@ -531,8 +701,8 @@ function TabPagos() {
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-            <CheckIcon className="w-4 h-4" />Guardar ciclo
+          <button onClick={guardarCiclo} disabled={guardandoCiclo} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <CheckIcon className="w-4 h-4" />{guardandoCiclo ? 'Guardando...' : 'Guardar ciclo'}
           </button>
         </div>
       </SCard>
