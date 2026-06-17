@@ -443,7 +443,7 @@ export default function TarifasView() {
   useEffect(() => { cargar() }, [cargar])
 
   // ── EDICIÓN ──────────────────────────────────────────────────────────────
-  const startEdit = (id: string, data: Record<string,unknown>) => { setEditId(id); setEditData({ ...data }) }
+  const startEdit = (id: string, data: object) => { setEditId(id); setEditData({ ...data } as Record<string, unknown>) }
   const cancelEdit = () => { setEditId(null); setEditData({}) }
 
   const TABLA: Record<MainTab, string> = {
@@ -504,6 +504,8 @@ export default function TarifasView() {
 
   const E = (id: string) => editId === id
   const set = (k: string, v: unknown) => setEditData(d => ({ ...d, [k]: v }))
+  const str = (v: unknown) => String(v ?? '')
+  const num = (v: unknown) => Number(v ?? 0)
 
   const mainTabs: { id: MainTab; label: string; icon: string }[] = [
     { id: 'bases',         label: 'Tarifas base',          icon: '💰' },
@@ -587,32 +589,32 @@ export default function TarifasView() {
               <tbody className="divide-y divide-slate-100">
                 {tarifasBase.map(t => (
                   <tr key={t.id} className={`hover:bg-slate-50 ${!t.activa ? 'opacity-50' : ''}`}>
-                    <td className={tdCls + ' font-medium'}>{E(t.id) ? <InlineInput value={editData.nombre} onChange={v => set('nombre', v)} type="text" /> : t.nombre}</td>
+                    <td className={tdCls + ' font-medium'}>{E(t.id) ? <InlineInput value={str(editData.nombre)} onChange={v => set('nombre', v)} type="text" /> : t.nombre}</td>
                     <td className={tdCls}>
                       {E(t.id) ? (
-                        <select value={editData.tipoVehiculo} onChange={e => set('tipoVehiculo', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-28">
+                        <select value={str(editData.tipoVehiculo)} onChange={e => set('tipoVehiculo', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-28">
                           {TIPOS_VEHICULO.map(v => <option key={v}>{v}</option>)}
                         </select>
                       ) : <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">{t.tipoVehiculo}</span>}
                     </td>
                     <td className={tdCls}>
                       {E(t.id) ? (
-                        <select value={editData.tipoServicio} onChange={e => set('tipoServicio', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-36">
+                        <select value={str(editData.tipoServicio)} onChange={e => set('tipoServicio', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-36">
                           {TIPOS_SERVICIO.map(v => <option key={v}>{v}</option>)}
                         </select>
                       ) : <span className="text-slate-600 text-xs">{t.tipoServicio}</span>}
                     </td>
                     <td className={tdCls + ' text-right font-semibold'}>
-                      {E(t.id) ? <InlineInput value={editData.tarifaBase} onChange={v => set('tarifaBase', v)} /> : `$${t.tarifaBase.toLocaleString()}`}
+                      {E(t.id) ? <InlineInput value={num(editData.tarifaBase)} onChange={v => set('tarifaBase', v)} /> : `$${t.tarifaBase.toLocaleString()}`}
                     </td>
                     <td className={tdCls + ' text-right'}>
-                      {E(t.id) ? <InlineInput value={editData.porKm} onChange={v => set('porKm', v)} small /> : `$${t.porKm}`}
+                      {E(t.id) ? <InlineInput value={num(editData.porKm)} onChange={v => set('porKm', v)} small /> : `$${t.porKm}`}
                     </td>
                     <td className={tdCls + ' text-right text-slate-500'}>
-                      {E(t.id) ? <InlineInput value={editData.tarifaMinima} onChange={v => set('tarifaMinima', v)} /> : `$${t.tarifaMinima.toLocaleString()}`}
+                      {E(t.id) ? <InlineInput value={num(editData.tarifaMinima)} onChange={v => set('tarifaMinima', v)} /> : `$${t.tarifaMinima.toLocaleString()}`}
                     </td>
                     <td className={tdCls + ' text-center text-slate-500'}>
-                      {E(t.id) ? <InlineInput value={editData.tiempoEstimado} onChange={v => set('tiempoEstimado', v)} small /> : `${t.tiempoEstimado} min`}
+                      {E(t.id) ? <InlineInput value={num(editData.tiempoEstimado)} onChange={v => set('tiempoEstimado', v)} small /> : `${t.tiempoEstimado} min`}
                     </td>
                     <td className={tdCls + ' text-center'}><Toggle value={t.activa} onChange={() => toggleActiva('bases', t.id)} /></td>
                     <td className={tdCls + ' text-right'}>
@@ -654,11 +656,11 @@ export default function TarifasView() {
               <tbody className="divide-y divide-slate-100">
                 {recargos.map(r => (
                   <tr key={r.id} className={`hover:bg-slate-50 ${!r.activo ? 'opacity-50' : ''}`}>
-                    <td className={tdCls + ' font-medium'}>{E(r.id) ? <InlineInput value={editData.nombre} onChange={v => set('nombre', v)} type="text" /> : r.nombre}</td>
-                    <td className={tdCls + ' text-xs text-slate-500 max-w-[180px]'}>{E(r.id) ? <InlineInput value={editData.aplica} onChange={v => set('aplica', v)} type="text" /> : r.aplica}</td>
+                    <td className={tdCls + ' font-medium'}>{E(r.id) ? <InlineInput value={str(editData.nombre)} onChange={v => set('nombre', v)} type="text" /> : r.nombre}</td>
+                    <td className={tdCls + ' text-xs text-slate-500 max-w-[180px]'}>{E(r.id) ? <InlineInput value={str(editData.aplica)} onChange={v => set('aplica', v)} type="text" /> : r.aplica}</td>
                     <td className={tdCls}>
                       {E(r.id) ? (
-                        <select value={editData.tipo} onChange={e => set('tipo', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm">
+                        <select value={str(editData.tipo)} onChange={e => set('tipo', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm">
                           <option value="porcentaje">Porcentaje</option>
                           <option value="fijo">Fijo</option>
                         </select>
@@ -666,7 +668,7 @@ export default function TarifasView() {
                     </td>
                     <td className={tdCls + ' text-right font-semibold'}>
                       {E(r.id)
-                        ? <InlineInput value={editData.valor} onChange={v => set('valor', v)} small />
+                        ? <InlineInput value={num(editData.valor)} onChange={v => set('valor', v)} small />
                         : r.tipo === 'porcentaje' ? `+${r.valor}%` : `+$${r.valor}`}
                     </td>
                     <td className={tdCls + ' text-center'}><Toggle value={r.activo} onChange={() => toggleActiva('recargos', r.id)} /></td>
@@ -724,29 +726,29 @@ export default function TarifasView() {
                     <tr key={p.id} className={`hover:bg-slate-50 ${!p.activo ? 'opacity-50' : ''}`}>
                       <td className={tdCls}>
                         {E(p.id) ? (
-                          <select value={editData.tipoServicio} onChange={e => set('tipoServicio', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-36">
+                          <select value={str(editData.tipoServicio)} onChange={e => set('tipoServicio', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-36">
                             {TIPOS_SERVICIO.map(v => <option key={v}>{v}</option>)}
                           </select>
                         ) : <span className="text-xs font-medium text-slate-700">{p.tipoServicio}</span>}
                       </td>
                       <td className={tdCls}>
                         {E(p.id) ? (
-                          <select value={editData.tipoVehiculo} onChange={e => set('tipoVehiculo', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-24">
+                          <select value={str(editData.tipoVehiculo)} onChange={e => set('tipoVehiculo', e.target.value)} className="border border-blue-400 rounded px-2 py-1 text-sm w-24">
                             {TIPOS_VEHICULO.map(v => <option key={v}>{v}</option>)}
                           </select>
                         ) : <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs">{p.tipoVehiculo}</span>}
                       </td>
                       <td className={tdCls + ' text-right font-semibold text-slate-800'}>
-                        {E(p.id) ? <InlineInput value={editData.pagoBase} onChange={v => set('pagoBase', v)} /> : `$${p.pagoBase.toLocaleString()}`}
+                        {E(p.id) ? <InlineInput value={num(editData.pagoBase)} onChange={v => set('pagoBase', v)} /> : `$${p.pagoBase.toLocaleString()}`}
                       </td>
                       <td className={tdCls + ' text-right text-slate-600'}>
-                        {E(p.id) ? <InlineInput value={editData.porKm} onChange={v => set('porKm', v)} small /> : `$${p.porKm}`}
+                        {E(p.id) ? <InlineInput value={num(editData.porKm)} onChange={v => set('porKm', v)} small /> : `$${p.porKm}`}
                       </td>
                       <td className={tdCls + ' text-right text-green-700'}>
-                        {E(p.id) ? <InlineInput value={editData.gastosAutorizados} onChange={v => set('gastosAutorizados', v)} /> : `$${p.gastosAutorizados}`}
+                        {E(p.id) ? <InlineInput value={num(editData.gastosAutorizados)} onChange={v => set('gastosAutorizados', v)} /> : `$${p.gastosAutorizados}`}
                       </td>
                       <td className={tdCls + ' text-right text-blue-700'}>
-                        {E(p.id) ? <InlineInput value={editData.viaticos} onChange={v => set('viaticos', v)} /> : `$${p.viaticos}`}
+                        {E(p.id) ? <InlineInput value={num(editData.viaticos)} onChange={v => set('viaticos', v)} /> : `$${p.viaticos}`}
                       </td>
                       <td className={tdCls + ' text-right'}>
                         {margenEj
@@ -799,11 +801,11 @@ export default function TarifasView() {
                   <tr key={t.id} className={`hover:bg-slate-50 ${!t.activa ? 'opacity-50' : ''}`}>
                     <td className={tdCls + ' font-medium text-slate-800'}>{t.empresa}</td>
                     <td className={tdCls + ' text-center'}>
-                      {E(t.id) ? <InlineInput value={editData.descuento} onChange={v => set('descuento', v)} small />
+                      {E(t.id) ? <InlineInput value={num(editData.descuento)} onChange={v => set('descuento', v)} small />
                         : t.descuento > 0 ? <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">{t.descuento}% dto.</span> : <span className="text-slate-400 text-xs">—</span>}
                     </td>
                     <td className={tdCls + ' text-right'}>
-                      {E(t.id) ? <InlineInput value={editData.tarifaFija ?? 0} onChange={v => set('tarifaFija', v)} />
+                      {E(t.id) ? <InlineInput value={num(editData.tarifaFija)} onChange={v => set('tarifaFija', v)} />
                         : t.tarifaFija ? `$${t.tarifaFija.toLocaleString()}` : <span className="text-slate-400 text-xs">—</span>}
                     </td>
                     <td className={tdCls}>
@@ -862,24 +864,24 @@ export default function TarifasView() {
                   return (
                     <tr key={r.id} className={`hover:bg-slate-50 ${!r.activa ? 'opacity-50' : ''}`}>
                       <td className={tdCls + ' font-medium text-slate-800'}>
-                        {E(r.id) ? <InlineInput value={editData.nombre} onChange={v => set('nombre', v)} type="text" /> : r.nombre}
+                        {E(r.id) ? <InlineInput value={str(editData.nombre)} onChange={v => set('nombre', v)} type="text" /> : r.nombre}
                       </td>
                       <td className={tdCls + ' text-xs text-slate-600'}>
                         <div>{r.origen}</div>
                         <div className="text-slate-400">→ {r.destino}</div>
                       </td>
                       <td className={tdCls + ' text-center font-mono text-xs'}>
-                        {E(r.id) ? <InlineInput value={editData.distanciaKm} onChange={v => set('distanciaKm', v)} small /> : `${r.distanciaKm} km`}
+                        {E(r.id) ? <InlineInput value={num(editData.distanciaKm)} onChange={v => set('distanciaKm', v)} small /> : `${r.distanciaKm} km`}
                       </td>
                       <td className={tdCls + ' text-center text-xs text-slate-500'}>
-                        {E(r.id) ? <InlineInput value={editData.tiempoEst} onChange={v => set('tiempoEst', v)} small /> : `${r.tiempoEst} min`}
+                        {E(r.id) ? <InlineInput value={num(editData.tiempoEst)} onChange={v => set('tiempoEst', v)} small /> : `${r.tiempoEst} min`}
                       </td>
                       <td className={tdCls}><span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{r.tipoVehiculo}</span></td>
                       <td className={tdCls + ' text-right font-bold text-slate-800'}>
-                        {E(r.id) ? <InlineInput value={editData.tarifaFija} onChange={v => set('tarifaFija', v)} /> : `$${r.tarifaFija.toLocaleString()}`}
+                        {E(r.id) ? <InlineInput value={num(editData.tarifaFija)} onChange={v => set('tarifaFija', v)} /> : `$${r.tarifaFija.toLocaleString()}`}
                       </td>
                       <td className={tdCls + ' text-right text-slate-600'}>
-                        {E(r.id) ? <InlineInput value={editData.pagoConductor} onChange={v => set('pagoConductor', v)} /> : `$${r.pagoConductor.toLocaleString()}`}
+                        {E(r.id) ? <InlineInput value={num(editData.pagoConductor)} onChange={v => set('pagoConductor', v)} /> : `$${r.pagoConductor.toLocaleString()}`}
                       </td>
                       <td className={tdCls + ' text-right'}>
                         <span className={`text-xs font-semibold ${m.monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
