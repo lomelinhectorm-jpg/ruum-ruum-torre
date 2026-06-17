@@ -38,6 +38,9 @@ Use this checklist before exposing the admin panel outside the internal team.
 - `timeline_viaje`
 - `notas_internas`
 - `usuarios_internos`
+- `roles`
+- `estados_viaje`
+- `bitacora`
 
 ## Suggested helper
 
