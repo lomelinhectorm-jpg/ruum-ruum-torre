@@ -40,6 +40,7 @@ type StatusKey =
 
 interface Trip {
   id: string
+  dbId: string
   usuario: string
   empresa: string
   vehiculo: { marca: string; modelo: string; anio: string; color: string; placas: string; vin: string; transmision: string; observaciones: string }
@@ -52,6 +53,7 @@ interface Trip {
   fecha: string
   hora: string
   conductor: string | null
+  conductorId: string | null
   status: StatusKey
   tarifaCliente: number
   pagoConductor: number
@@ -107,18 +109,22 @@ const ALL_STATUSES: StatusKey[] = [
   'Evidencia final pendiente', 'Finalizado', 'Cancelado', 'En revisión por incidencia',
 ]
 
+// ─── ACTION TYPES ─────────────────────────────────────────────────────────────
+type ActionId =
+  | 'detalle' | 'asignar-conductor' | 'editar-fecha' | 'incidencia'
+  | 'finalizar' | 'nota' | 'cancelar'
+
 // ─── MODAL COMPONENTS ─────────────────────────────────────────────────────────
-function ActionMenu({ trip, onClose, onOpenDetail }: { trip: Trip; onClose: () => void; onOpenDetail: () => void }) {
-  const actions = [
-    { icon: EyeIcon, label: 'Ver detalle completo', action: () => { onClose(); onOpenDetail() }, color: 'blue' },
-    { icon: UserPlusIcon, label: 'Asignar conductor', action: onClose, color: 'indigo' },
-    { icon: ArrowsRightLeftIcon, label: 'Cambiar conductor', action: onClose, color: 'indigo' },
-    { icon: CalendarDaysIcon, label: 'Editar fecha y hora', action: onClose, color: 'slate' },
-    { icon: CameraIcon, label: 'Revisar evidencia', action: onClose, color: 'purple' },
-    { icon: ExclamationTriangleIcon, label: 'Registrar incidencia', action: onClose, color: 'amber' },
-    { icon: CheckCircleIcon, label: 'Marcar como finalizado', action: onClose, color: 'green' },
-    { icon: DocumentTextIcon, label: 'Agregar nota interna', action: onClose, color: 'slate' },
-    { icon: XCircleIcon, label: 'Cancelar viaje', action: onClose, color: 'red' },
+function ActionMenu({ trip, onClose, onAction }: { trip: Trip; onClose: () => void; onAction: (a: ActionId) => void }) {
+  const actions: { id: ActionId; icon: typeof EyeIcon; label: string; color: string; hidden?: boolean }[] = [
+    { id: 'detalle', icon: EyeIcon, label: 'Ver detalle completo', color: 'blue' },
+    { id: 'asignar-conductor', icon: UserPlusIcon, label: 'Asignar conductor', color: 'indigo', hidden: !!trip.conductorId },
+    { id: 'asignar-conductor', icon: ArrowsRightLeftIcon, label: 'Cambiar conductor', color: 'indigo', hidden: !trip.conductorId },
+    { id: 'editar-fecha', icon: CalendarDaysIcon, label: 'Editar fecha y hora', color: 'slate' },
+    { id: 'incidencia', icon: ExclamationTriangleIcon, label: 'Registrar incidencia', color: 'amber' },
+    { id: 'finalizar', icon: CheckCircleIcon, label: 'Marcar como finalizado', color: 'green', hidden: trip.status === 'Finalizado' || trip.status === 'Cancelado' },
+    { id: 'nota', icon: DocumentTextIcon, label: 'Agregar nota interna', color: 'slate' },
+    { id: 'cancelar', icon: XCircleIcon, label: 'Cancelar viaje', color: 'red', hidden: trip.status === 'Finalizado' || trip.status === 'Cancelado' },
   ]
   const colorCls: Record<string, string> = {
     blue: 'text-blue-600 hover:bg-blue-50', indigo: 'text-indigo-600 hover:bg-indigo-50',
@@ -134,10 +140,10 @@ function ActionMenu({ trip, onClose, onOpenDetail }: { trip: Trip; onClose: () =
           <button onClick={onClose}><XMarkIcon className="w-4 h-4 text-slate-400" /></button>
         </div>
         <div className="space-y-0.5">
-          {actions.map((a, i) => {
+          {actions.filter(a => !a.hidden).map((a, i) => {
             const Icon = a.icon
             return (
-              <button key={i} onClick={a.action}
+              <button key={i} onClick={() => onAction(a.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${colorCls[a.color]}`}>
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 {a.label}
@@ -150,14 +156,414 @@ function ActionMenu({ trip, onClose, onOpenDetail }: { trip: Trip; onClose: () =
   )
 }
 
+// ─── ASIGNAR / CAMBIAR CONDUCTOR ───────────────────────────────────────────────
+function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () => void; onSaved: () => void }) {
+  const [conductores, setConductores] = useState<{ id: string; nombre: string; apellido: string; disponibilidad: string }[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [seleccionado, setSeleccionado] = useState(trip.conductorId ?? '')
+  const [guardando, setGuardando] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    const cargar = async () => {
+      const sb = getSupabaseBrowserClient()
+      const { data } = await sb
+        .from('conductores')
+        .select('id, nombre, apellido, disponibilidad')
+        .order('nombre')
+      if (data) setConductores(data as { id: string; nombre: string; apellido: string; disponibilidad: string }[])
+      setCargando(false)
+    }
+    cargar()
+  }, [])
+
+  const guardar = async () => {
+    if (!seleccionado) { setErrorMsg('Selecciona un conductor'); return }
+    setGuardando(true)
+    setErrorMsg('')
+    try {
+      const sb = getSupabaseBrowserClient()
+      const nuevoStatus: StatusKey = trip.status === 'Solicitud recibida' || trip.status === 'Pendiente de revisión' || trip.status === 'Pendiente de asignación'
+        ? 'Conductor asignado'
+        : trip.status
+
+      const { error } = await sb
+        .from('viajes')
+        .update({ conductor_id: seleccionado, status: nuevoStatus })
+        .eq('id', trip.dbId)
+      if (error) throw error
+
+      const conductor = conductores.find(c => c.id === seleccionado)
+      await sb.from('timeline_viaje').insert({
+        viaje_id: trip.dbId,
+        evento: trip.conductorId ? 'Conductor reasignado' : 'Conductor asignado',
+        actor: conductor ? `${conductor.nombre} ${conductor.apellido}` : 'Admin',
+        actor_tipo: 'admin',
+      })
+
+      onSaved()
+      onClose()
+    } catch (e) {
+      console.error('Error asignando conductor:', e)
+      setErrorMsg('No se pudo guardar. Intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">{trip.conductorId ? 'Cambiar conductor' : 'Asignar conductor'} · {trip.id}</h2>
+          <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <select value={seleccionado} onChange={e => setSeleccionado(e.target.value)} disabled={cargando}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="">{cargando ? 'Cargando...' : 'Seleccionar conductor...'}</option>
+            {conductores.map(c => (
+              <option key={c.id} value={c.id}>{c.nombre} {c.apellido} · {c.disponibilidad}</option>
+            ))}
+          </select>
+          {!cargando && conductores.length === 0 && (
+            <p className="text-xs text-amber-500">No hay conductores capturados.</p>
+          )}
+          {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Cancelar</button>
+          <button onClick={guardar} disabled={guardando}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── EDITAR FECHA Y HORA ───────────────────────────────────────────────────────
+function EditarFechaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () => void; onSaved: () => void }) {
+  const [fecha, setFecha] = useState(trip.fecha !== '—' ? trip.fecha : '')
+  const [hora, setHora] = useState(trip.hora !== '—' ? trip.hora : '')
+  const [guardando, setGuardando] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const guardar = async () => {
+    if (!fecha || !hora) { setErrorMsg('Fecha y hora son requeridas'); return }
+    setGuardando(true)
+    setErrorMsg('')
+    try {
+      const sb = getSupabaseBrowserClient()
+      const { error } = await sb
+        .from('viajes')
+        .update({ fecha_programada: fecha, hora_programada: hora })
+        .eq('id', trip.dbId)
+      if (error) throw error
+
+      await sb.from('timeline_viaje').insert({
+        viaje_id: trip.dbId,
+        evento: 'Fecha y hora actualizadas',
+        actor: 'Admin',
+        actor_tipo: 'admin',
+      })
+
+      onSaved()
+      onClose()
+    } catch (e) {
+      console.error('Error editando fecha:', e)
+      setErrorMsg('No se pudo guardar. Intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">Editar fecha y hora · {trip.id}</h2>
+          <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Fecha</label>
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Hora</label>
+            <input type="time" value={hora} onChange={e => setHora(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Cancelar</button>
+          <button onClick={guardar} disabled={guardando}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── REGISTRAR INCIDENCIA ──────────────────────────────────────────────────────
+const TIPOS_INCIDENCIA = ['Daño al vehículo', 'Retraso', 'Accidente', 'Comportamiento del conductor', 'Comportamiento del cliente', 'Otro']
+const PRIORIDADES_INCIDENCIA = ['Baja', 'Media', 'Alta', 'Crítica']
+
+function IncidenciaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () => void; onSaved: () => void }) {
+  const [tipo, setTipo] = useState('')
+  const [prioridad, setPrioridad] = useState('Media')
+  const [descripcion, setDescripcion] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const guardar = async () => {
+    if (!tipo) { setErrorMsg('Selecciona un tipo de incidencia'); return }
+    if (!descripcion.trim()) { setErrorMsg('Describe la incidencia'); return }
+    setGuardando(true)
+    setErrorMsg('')
+    try {
+      const sb = getSupabaseBrowserClient()
+      const { error } = await sb.from('incidencias').insert({
+        viaje_id: trip.dbId,
+        conductor_id: trip.conductorId,
+        tipo,
+        descripcion: descripcion.trim(),
+        prioridad,
+        estatus: 'Abierta',
+      })
+      if (error) throw error
+
+      await sb.from('viajes').update({ status: 'En revisión por incidencia' }).eq('id', trip.dbId)
+      await sb.from('timeline_viaje').insert({
+        viaje_id: trip.dbId,
+        evento: 'Incidencia registrada',
+        actor: 'Admin',
+        actor_tipo: 'admin',
+      })
+
+      onSaved()
+      onClose()
+    } catch (e) {
+      console.error('Error registrando incidencia:', e)
+      setErrorMsg('No se pudo guardar. Intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">Registrar incidencia · {trip.id}</h2>
+          <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
+            <select value={tipo} onChange={e => setTipo(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+              <option value="">Seleccionar...</option>
+              {TIPOS_INCIDENCIA.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Prioridad</label>
+            <div className="flex gap-2">
+              {PRIORIDADES_INCIDENCIA.map(p => (
+                <button key={p} type="button" onClick={() => setPrioridad(p)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${prioridad === p ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Descripción</label>
+            <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={3}
+              placeholder="Describe lo ocurrido..."
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          </div>
+          {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Cancelar</button>
+          <button onClick={guardar} disabled={guardando}
+            className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {guardando ? 'Guardando...' : 'Registrar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── AGREGAR NOTA INTERNA (desde menú de acciones, fuera del detalle) ─────────
+function NotaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () => void; onSaved: () => void }) {
+  const [texto, setTexto] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const guardar = async () => {
+    if (!texto.trim()) { setErrorMsg('Escribe una nota'); return }
+    setGuardando(true)
+    setErrorMsg('')
+    try {
+      const sb = getSupabaseBrowserClient()
+      const { error } = await sb.from('notas_internas').insert({
+        entidad_tipo: 'viaje',
+        entidad_id: trip.dbId,
+        texto: texto.trim(),
+        autor_nombre: 'Admin',
+      })
+      if (error) throw error
+      onSaved()
+      onClose()
+    } catch (e) {
+      console.error('Error agregando nota:', e)
+      setErrorMsg('No se pudo guardar. Intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">Nota interna · {trip.id}</h2>
+          <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={4}
+            placeholder="Escribe una nota visible solo para el equipo de operaciones..."
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Cancelar</button>
+          <button onClick={guardar} disabled={guardando}
+            className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {guardando ? 'Guardando...' : 'Guardar nota'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CONFIRMACIÓN (finalizar / cancelar) ───────────────────────────────────────
+function ConfirmModal({
+  title, message, confirmLabel, color, onClose, onConfirm,
+}: {
+  title: string; message: string; confirmLabel: string; color: 'green' | 'red'
+  onClose: () => void; onConfirm: () => Promise<void>
+}) {
+  const [guardando, setGuardando] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleConfirm = async () => {
+    setGuardando(true)
+    setErrorMsg('')
+    try {
+      await onConfirm()
+    } catch (e) {
+      console.error('Error en confirmación:', e)
+      setErrorMsg('No se pudo completar la acción. Intenta de nuevo.')
+      setGuardando(false)
+    }
+  }
+
+  const colorCls = color === 'green'
+    ? 'bg-green-600 hover:bg-green-700'
+    : 'bg-red-600 hover:bg-red-700'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="p-5 space-y-3">
+          <h2 className="font-bold text-slate-800">{title}</h2>
+          <p className="text-sm text-slate-500">{message}</p>
+          {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button onClick={onClose} disabled={guardando} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">No</button>
+          <button onClick={handleConfirm} disabled={guardando}
+            className={`${colorCls} disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium`}>
+            {guardando ? 'Procesando...' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   const [newNote, setNewNote] = useState('')
   const [notes, setNotes] = useState(trip.notas)
+  const [timeline, setTimeline] = useState(trip.timeline)
+  const [cargandoExtras, setCargandoExtras] = useState(true)
+  const [guardandoNota, setGuardandoNota] = useState(false)
+  const [errorNota, setErrorNota] = useState('')
 
-  const addNote = () => {
+  useEffect(() => {
+    const cargarExtras = async () => {
+      const sb = getSupabaseBrowserClient()
+      const [notasRes, timelineRes] = await Promise.all([
+        sb.from('notas_internas').select('autor_nombre, texto, created_at')
+          .eq('entidad_tipo', 'viaje').eq('entidad_id', trip.dbId)
+          .order('created_at', { ascending: true }),
+        sb.from('timeline_viaje').select('evento, actor, created_at')
+          .eq('viaje_id', trip.dbId)
+          .order('created_at', { ascending: true }),
+      ])
+      if (notasRes.data) {
+        setNotes(notasRes.data.map((n: Record<string, unknown>) => ({
+          autor: String(n.autor_nombre ?? 'Admin'),
+          texto: String(n.texto ?? ''),
+          hora: n.created_at ? new Date(String(n.created_at)).toLocaleString('es-MX') : '—',
+        })))
+      }
+      if (timelineRes.data) {
+        setTimeline(timelineRes.data.map((t: Record<string, unknown>) => ({
+          evento: String(t.evento ?? ''),
+          actor: String(t.actor ?? ''),
+          hora: t.created_at ? new Date(String(t.created_at)).toLocaleString('es-MX') : '—',
+        })))
+      }
+      setCargandoExtras(false)
+    }
+    cargarExtras()
+  }, [trip.dbId])
+
+  const addNote = async () => {
     if (!newNote.trim()) return
-    setNotes([...notes, { autor: 'Admin', texto: newNote.trim(), hora: 'Ahora' }])
-    setNewNote('')
+    setGuardandoNota(true)
+    setErrorNota('')
+    try {
+      const sb = getSupabaseBrowserClient()
+      const texto = newNote.trim()
+      const { error } = await sb.from('notas_internas').insert({
+        entidad_tipo: 'viaje',
+        entidad_id: trip.dbId,
+        texto,
+        autor_nombre: 'Admin',
+      })
+      if (error) throw error
+      setNotes([...notes, { autor: 'Admin', texto, hora: 'Ahora' }])
+      setNewNote('')
+    } catch (e) {
+      console.error('Error agregando nota:', e)
+      setErrorNota('No se pudo guardar la nota. Intenta de nuevo.')
+    } finally {
+      setGuardandoNota(false)
+    }
   }
 
   const margen = trip.tarifaCliente - trip.pagoConductor - trip.gastosAutorizados + trip.ajustes
@@ -263,12 +669,12 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
           <Section title="6. Línea del Tiempo" icon="⏱️">
             <ol className="relative border-l-2 border-slate-200 space-y-4 ml-3">
               {TIMELINE_ALL.map((evento, i) => {
-                const real = trip.timeline.find(t =>
+                const real = timeline.find(t =>
                   t.evento.toLowerCase().includes(evento.toLowerCase().split(' ')[0]) ||
                   evento.toLowerCase().includes(t.evento.toLowerCase().split(' ')[0])
                 )
                 const isIncidencia = evento === 'Incidencias reportadas'
-                if (isIncidencia && trip.incidencias === 0) return null
+                if (isIncidencia && trip.incidencias === 0 && !real) return null
                 return (
                   <li key={i} className="ml-5">
                     <span className={`absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full ${real ? 'bg-blue-500' : 'bg-slate-200'}`}>
@@ -290,7 +696,8 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
           <Section title="7. Notas Internas" icon="📝">
             <p className="text-xs text-slate-400 mb-3 italic">Visibles únicamente para el equipo de operaciones.</p>
             <div className="space-y-2 mb-4">
-              {notes.length === 0 && <p className="text-sm text-slate-400 italic">Sin notas aún.</p>}
+              {cargandoExtras && <p className="text-sm text-slate-400 italic">Cargando notas...</p>}
+              {!cargandoExtras && notes.length === 0 && <p className="text-sm text-slate-400 italic">Sin notas aún.</p>}
               {notes.map((n, i) => (
                 <div key={i} className="bg-amber-50 border border-amber-100 rounded-lg p-3">
                   <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
@@ -305,13 +712,15 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
                 value={newNote}
                 onChange={e => setNewNote(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addNote()}
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                disabled={guardandoNota}
+                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:bg-slate-50"
               />
-              <button onClick={addNote}
-                className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg transition-colors">
+              <button onClick={addNote} disabled={guardandoNota}
+                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white px-3 py-2 rounded-lg transition-colors">
                 <PaperAirplaneIcon className="w-4 h-4" />
               </button>
             </div>
+            {errorNota && <p className="text-xs text-red-500 mt-1.5">{errorNota}</p>}
           </Section>
         </div>
       </div>
@@ -1123,6 +1532,9 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 interface ViajeDB {
   id: string
   folio: string | null
+  conductor_id: string | null
+  usuario_id: string | null
+  empresa_id: string | null
   status: StatusKey
   fecha_programada: string | null
   hora_programada: string | null
@@ -1148,6 +1560,7 @@ function viajeDBaTrip(v: ViajeDB): Trip {
 
   return {
     id: v.folio ?? v.id.slice(0, 8).toUpperCase(),
+    dbId: v.id,
     usuario: usuario ? `${usuario.nombre} ${usuario.apellido}` : '—',
     empresa: empresa?.nombre_comercial ?? '—',
     vehiculo: {
@@ -1165,6 +1578,7 @@ function viajeDBaTrip(v: ViajeDB): Trip {
     fecha: v.fecha_programada ?? '—',
     hora: v.hora_programada ?? '—',
     conductor: conductor ? `${conductor.nombre} ${conductor.apellido}` : null,
+    conductorId: v.conductor_id ?? null,
     status: v.status,
     tarifaCliente: v.tarifa_cliente ?? 0,
     pagoConductor: v.pago_conductor ?? 0,
@@ -1185,6 +1599,7 @@ export default function ViajesView() {
   const [search, setSearch] = useState('')
   const [actionTrip, setActionTrip] = useState<Trip | null>(null)
   const [detailTrip, setDetailTrip] = useState<Trip | null>(null)
+  const [activeAction, setActiveAction] = useState<ActionId | null>(null)
   const [showNewForm, setShowNewForm] = useState(false)
   const [trips, setTrips] = useState<Trip[]>([])
   const [cargando, setCargando] = useState(true)
@@ -1195,6 +1610,7 @@ export default function ViajesView() {
       .from('viajes')
       .select(`
         id, folio, status, fecha_programada, hora_programada,
+        conductor_id, usuario_id, empresa_id,
         origen_calle, origen_colonia, destino_calle, destino_colonia,
         tarifa_cliente, pago_conductor,
         conductores(nombre, apellido),
@@ -1256,11 +1672,87 @@ export default function ViajesView() {
         />
       )}
       {detailTrip && <TripDetail trip={detailTrip} onClose={() => setDetailTrip(null)} />}
-      {actionTrip && (
+      {actionTrip && !activeAction && (
         <ActionMenu
           trip={actionTrip}
           onClose={() => setActionTrip(null)}
-          onOpenDetail={() => setDetailTrip(actionTrip)}
+          onAction={(a) => {
+            if (a === 'detalle') {
+              setDetailTrip(actionTrip)
+              setActionTrip(null)
+            } else {
+              setActiveAction(a)
+            }
+          }}
+        />
+      )}
+
+      {actionTrip && activeAction === 'asignar-conductor' && (
+        <AsignarConductorModal
+          trip={actionTrip}
+          onClose={() => { setActiveAction(null); setActionTrip(null) }}
+          onSaved={cargarViajes}
+        />
+      )}
+      {actionTrip && activeAction === 'editar-fecha' && (
+        <EditarFechaModal
+          trip={actionTrip}
+          onClose={() => { setActiveAction(null); setActionTrip(null) }}
+          onSaved={cargarViajes}
+        />
+      )}
+      {actionTrip && activeAction === 'incidencia' && (
+        <IncidenciaModal
+          trip={actionTrip}
+          onClose={() => { setActiveAction(null); setActionTrip(null) }}
+          onSaved={cargarViajes}
+        />
+      )}
+      {actionTrip && activeAction === 'nota' && (
+        <NotaModal
+          trip={actionTrip}
+          onClose={() => { setActiveAction(null); setActionTrip(null) }}
+          onSaved={cargarViajes}
+        />
+      )}
+      {actionTrip && activeAction === 'finalizar' && (
+        <ConfirmModal
+          title={`Marcar como finalizado · ${actionTrip.id}`}
+          message="¿Confirmas que este viaje fue completado? Esta acción actualizará su estatus a Finalizado."
+          confirmLabel="Sí, finalizar"
+          color="green"
+          onClose={() => { setActiveAction(null); setActionTrip(null) }}
+          onConfirm={async () => {
+            const sb = getSupabaseBrowserClient()
+            const { error } = await sb.from('viajes').update({ status: 'Finalizado' }).eq('id', actionTrip.dbId)
+            if (error) throw error
+            await sb.from('timeline_viaje').insert({
+              viaje_id: actionTrip.dbId, evento: 'Viaje cerrado', actor: 'Admin', actor_tipo: 'admin',
+            })
+            setActiveAction(null)
+            setActionTrip(null)
+            cargarViajes()
+          }}
+        />
+      )}
+      {actionTrip && activeAction === 'cancelar' && (
+        <ConfirmModal
+          title={`Cancelar viaje · ${actionTrip.id}`}
+          message="¿Confirmas que deseas cancelar este viaje? Esta acción no se puede revertir desde aquí."
+          confirmLabel="Sí, cancelar"
+          color="red"
+          onClose={() => { setActiveAction(null); setActionTrip(null) }}
+          onConfirm={async () => {
+            const sb = getSupabaseBrowserClient()
+            const { error } = await sb.from('viajes').update({ status: 'Cancelado' }).eq('id', actionTrip.dbId)
+            if (error) throw error
+            await sb.from('timeline_viaje').insert({
+              viaje_id: actionTrip.dbId, evento: 'Viaje cancelado', actor: 'Admin', actor_tipo: 'admin',
+            })
+            setActiveAction(null)
+            setActionTrip(null)
+            cargarViajes()
+          }}
         />
       )}
 
