@@ -17,7 +17,6 @@ import {
   PencilSquareIcon,
   TrashIcon,
   CheckIcon,
-  XMarkIcon,
   ExclamationTriangleIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -386,50 +385,101 @@ function TabUsuariosInternos() {
 }
 
 // ─── 3. ZONAS DE OPERACIÓN ────────────────────────────────────────────────────
+type ZonaOperacion = {
+  id: string
+  nombre: string
+  descripcion: string
+  radioKm: number
+  activa: boolean
+}
+
 function TabZonas() {
-  const [zonas, setZonas] = useState<{id:string;nombre:string;descripcion:string;radio:number;tarifa:string;activa:boolean}[]>([])
+  const [zonas, setZonas] = useState<ZonaOperacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ nombre: '', descripcion: '', radio: '', tarifa: '' })
+  const [form, setForm] = useState({ nombre: '', descripcion: '', radioKm: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
-    const sb = await getSb()
-    const { data } = await sb.from('zonas').select('id,nombre,descripcion,radio,tarifa,activa').order('created_at')
-    if (data) setZonas(data.map((z: Record<string,unknown>) => ({ id: String(z.id), nombre: String(z.nombre??''), descripcion: String(z.descripcion??''), radio: Number(z.radio??0), tarifa: String(z.tarifa??''), activa: Boolean(z.activa) })))
-    setCargando(false)
+    setCargando(true)
+    setError('')
+    try {
+      const sb = await getSb()
+      const { data, error: e } = await sb.from('zonas').select('id,nombre,descripcion,radio_km,activa').order('created_at')
+      if (e) {
+        setError(e.message)
+        return
+      }
+      setZonas((data ?? []).map((z: Record<string,unknown>) => ({
+        id: String(z.id),
+        nombre: String(z.nombre ?? ''),
+        descripcion: String(z.descripcion ?? ''),
+        radioKm: Number(z.radio_km ?? 0),
+        activa: Boolean(z.activa),
+      })))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar las zonas.')
+    } finally {
+      setCargando(false)
+    }
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
 
   const toggleZona = async (id: string, activa: boolean) => {
-    const sb = await getSb(); await sb.from('zonas').update({ activa: !activa }).eq('id', id)
+    setError('')
+    const sb = await getSb()
+    const { error: e } = await sb.from('zonas').update({ activa: !activa }).eq('id', id)
+    if (e) {
+      setError(e.message)
+      return
+    }
     setZonas(prev => prev.map(z => z.id === id ? { ...z, activa: !activa } : z))
   }
 
-  const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radio: '', tarifa: '' }); setShowForm(true) }
-  const abrirEditar = (z: typeof zonas[number]) => { setEditId(z.id); setForm({ nombre: z.nombre, descripcion: z.descripcion, radio: String(z.radio), tarifa: z.tarifa }); setShowForm(true) }
+  const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radioKm: '' }); setError(''); setShowForm(true) }
+  const abrirEditar = (z: ZonaOperacion) => { setEditId(z.id); setForm({ nombre: z.nombre, descripcion: z.descripcion, radioKm: String(z.radioKm) }); setError(''); setShowForm(true) }
 
   const guardar = async () => {
-    if (!form.nombre) return
-    setGuardando(true)
-    const sb = await getSb()
-    const payload = { nombre: form.nombre.toUpperCase(), descripcion: form.descripcion, radio: Number(form.radio) || 0, tarifa: form.tarifa }
-    if (editId) {
-      await sb.from('zonas').update(payload).eq('id', editId)
-    } else {
-      await sb.from('zonas').insert({ ...payload, activa: true })
+    if (!form.nombre.trim()) {
+      setError('El nombre es obligatorio.')
+      return
     }
-    setShowForm(false); setEditId(null); setGuardando(false)
-    cargar()
+    setGuardando(true)
+    setError('')
+    try {
+      const sb = await getSb()
+      const payload = { nombre: form.nombre.trim().toUpperCase(), descripcion: form.descripcion.trim(), radio_km: Number(form.radioKm) || 0 }
+      const { error: e } = editId
+        ? await sb.from('zonas').update(payload).eq('id', editId)
+        : await sb.from('zonas').insert({ ...payload, activa: true })
+      if (e) {
+        setError(e.message)
+        return
+      }
+      setShowForm(false)
+      setEditId(null)
+      await cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar la zona.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const eliminar = async (id: string) => {
-    const sb = await getSb(); await sb.from('zonas').delete().eq('id', id)
+    setError('')
+    const sb = await getSb()
+    const { error: e } = await sb.from('zonas').delete().eq('id', id)
+    if (e) {
+      setError(e.message)
+      return
+    }
     setZonas(prev => prev.filter(z => z.id !== id))
     setConfirmDelete(null)
   }
@@ -442,9 +492,8 @@ function TabZonas() {
           <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar zona' : 'Nueva zona'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls()} /></div>
-            <div><label className="text-xs text-slate-500 mb-1 block">Radio (km)</label><input type="number" min="0" value={form.radio} onChange={e => setForm(f => ({...f, radio: e.target.value}))} className={iCls()} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Radio (km)</label><input type="number" min="0" value={form.radioKm} onChange={e => setForm(f => ({...f, radioKm: e.target.value}))} className={iCls()} /></div>
             <div className="sm:col-span-2"><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
-            <div className="sm:col-span-2"><label className="text-xs text-slate-500 mb-1 block">Tarifa asociada</label><input type="text" placeholder="Ej. Tarifa local" value={form.tarifa} onChange={e => setForm(f => ({...f, tarifa: e.target.value}))} className={iCls()} /></div>
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
@@ -452,6 +501,7 @@ function TabZonas() {
           </div>
         </div>
       )}
+      {error && <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="space-y-2">
         {zonas.length === 0 && <p className="text-center py-8 text-slate-400 text-xs italic">Sin zonas registradas.</p>}
@@ -463,7 +513,7 @@ function TabZonas() {
               </div>
               <div>
                 <p className="font-medium text-slate-800 text-sm">{z.nombre}</p>
-                <p className="text-xs text-slate-400">{z.descripcion} · Radio: {z.radio} km · <span className="text-blue-600">{z.tarifa}</span></p>
+                <p className="text-xs text-slate-400">{z.descripcion} · Radio: {z.radioKm} km</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -609,52 +659,112 @@ function TabServicios() {
 }
 
 // ─── 5. TIPOS DE VEHÍCULOS ────────────────────────────────────────────────────
+type TipoVehiculoConfig = {
+  id: string
+  nombre: string
+  descripcion: string
+  icono: string
+  capacidad: number
+  activo: boolean
+}
+
 function TabVehiculos() {
-  const [tipos, setTipos] = useState<{id:string;nombre:string;descripcion:string;icono:string;capacidad:number;activo:boolean}[]>([])
+  const [tipos, setTipos] = useState<TipoVehiculoConfig[]>([])
   const [cargando, setCargando] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({ nombre: '', descripcion: '', icono: '🚗', capacidad: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
-    const sb = await getSb()
-    const { data } = await sb.from('tipos_vehiculo').select('id,nombre,descripcion,icono,capacidad,activo').order('created_at')
-    if (data) setTipos(data.map((t: Record<string,unknown>) => ({ id: String(t.id), nombre: String(t.nombre??''), descripcion: String(t.descripcion??''), icono: String(t.icono??''), capacidad: Number(t.capacidad??0), activo: Boolean(t.activo) })))
-    setCargando(false)
+    setCargando(true)
+    setError('')
+    try {
+      const sb = await getSb()
+      const { data, error: e } = await sb.from('configuracion').select('valor').eq('clave', 'tipos_vehiculo').maybeSingle()
+      if (e) {
+        setError(e.message)
+        return
+      }
+      const parsed = data?.valor ? JSON.parse(String(data.valor)) : []
+      setTipos(Array.isArray(parsed) ? parsed.map((t: Record<string, unknown>) => ({
+        id: String(t.id ?? crypto.randomUUID()),
+        nombre: String(t.nombre ?? ''),
+        descripcion: String(t.descripcion ?? ''),
+        icono: String(t.icono ?? '🚗'),
+        capacidad: Number(t.capacidad ?? 0),
+        activo: Boolean(t.activo ?? true),
+      })) : [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar los tipos de vehículo.')
+    } finally {
+      setCargando(false)
+    }
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
 
-  const toggleTipo = async (id: string, activo: boolean) => {
-    const sb = await getSb(); await sb.from('tipos_vehiculo').update({ activo: !activo }).eq('id', id)
-    setTipos(prev => prev.map(t => t.id === id ? { ...t, activo: !activo } : t))
+  const guardarTipos = async (next: TipoVehiculoConfig[]) => {
+    const sb = await getSb()
+    const { error: e } = await sb.from('configuracion').upsert(
+      { clave: 'tipos_vehiculo', valor: JSON.stringify(next) },
+      { onConflict: 'clave' }
+    )
+    if (e) throw e
+    setTipos(next)
   }
 
-  const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚗', capacidad: '' }); setShowForm(true) }
-  const abrirEditar = (t: typeof tipos[number]) => { setEditId(t.id); setForm({ nombre: t.nombre, descripcion: t.descripcion, icono: t.icono || '🚗', capacidad: String(t.capacidad) }); setShowForm(true) }
+  const toggleTipo = async (id: string) => {
+    setError('')
+    try {
+      await guardarTipos(tipos.map(t => t.id === id ? { ...t, activo: !t.activo } : t))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo actualizar el tipo de vehículo.')
+    }
+  }
+
+  const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚗', capacidad: '' }); setError(''); setShowForm(true) }
+  const abrirEditar = (t: TipoVehiculoConfig) => { setEditId(t.id); setForm({ nombre: t.nombre, descripcion: t.descripcion, icono: t.icono || '🚗', capacidad: String(t.capacidad) }); setError(''); setShowForm(true) }
 
   const guardar = async () => {
-    if (!form.nombre) return
-    setGuardando(true)
-    const sb = await getSb()
-    const payload = { nombre: form.nombre, descripcion: form.descripcion, icono: form.icono, capacidad: Number(form.capacidad) || 0 }
-    if (editId) {
-      await sb.from('tipos_vehiculo').update(payload).eq('id', editId)
-    } else {
-      await sb.from('tipos_vehiculo').insert({ ...payload, activo: true })
+    if (!form.nombre.trim()) {
+      setError('El nombre es obligatorio.')
+      return
     }
-    setShowForm(false); setEditId(null); setGuardando(false)
-    cargar()
+    setGuardando(true)
+    setError('')
+    try {
+      const payload: TipoVehiculoConfig = {
+        id: editId ?? crypto.randomUUID(),
+        nombre: form.nombre.trim(),
+        descripcion: form.descripcion.trim(),
+        icono: form.icono || '🚗',
+        capacidad: Number(form.capacidad) || 0,
+        activo: editId ? tipos.find(t => t.id === editId)?.activo ?? true : true,
+      }
+      const next = editId ? tipos.map(t => t.id === editId ? payload : t) : [payload, ...tipos]
+      await guardarTipos(next)
+      setShowForm(false)
+      setEditId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar el tipo de vehículo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const eliminar = async (id: string) => {
-    const sb = await getSb(); await sb.from('tipos_vehiculo').delete().eq('id', id)
-    setTipos(prev => prev.filter(t => t.id !== id))
-    setConfirmDelete(null)
+    setError('')
+    try {
+      await guardarTipos(tipos.filter(t => t.id !== id))
+      setConfirmDelete(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo eliminar el tipo de vehículo.')
+    }
   }
 
   return (
@@ -675,6 +785,7 @@ function TabVehiculos() {
           </div>
         </div>
       )}
+      {error && <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
       {cargando ? <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-20 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {tipos.length === 0 && <p className="col-span-2 text-center py-8 text-slate-400 text-xs italic">Sin tipos de vehículo registrados.</p>}
@@ -689,7 +800,7 @@ function TabVehiculos() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Toggle value={t.activo} onChange={() => toggleTipo(t.id, t.activo)} />
+              <Toggle value={t.activo} onChange={() => toggleTipo(t.id)} />
               {confirmDelete === t.id ? (
                 <span className="inline-flex items-center gap-1.5">
                   <button onClick={() => eliminar(t.id)} className="text-xs text-red-600 font-medium hover:underline">Sí</button>

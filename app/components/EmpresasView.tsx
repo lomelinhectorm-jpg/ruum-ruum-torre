@@ -48,14 +48,12 @@ interface Empresa {
   contactoPrincipal: string
   telefono: string
   correo: string
-  direccion: string
   estatus: EstatusEmpresa
   fechaRegistro: string
   // condiciones comerciales
   descuento: number
   creditoDias: number
   limiteCredito: number
-  convenio: string
   vigenciaConvenio: string
   // resumen
   usuariosVinculados: UsuarioVinculado[]
@@ -125,7 +123,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
   const [nuevaNota, setNuevaNota] = useState('')
   const [form, setForm] = useState({
     razonSocial: empresa.razonSocial, nombreComercial: empresa.nombreComercial, tipo: empresa.tipo,
-    contactoPrincipal: empresa.contactoPrincipal, telefono: empresa.telefono, correo: empresa.correo, direccion: empresa.direccion,
+    contactoPrincipal: empresa.contactoPrincipal, telefono: empresa.telefono, correo: empresa.correo,
     regimenFiscal: empresa.regimenFiscal, cfdi: empresa.cfdi, domicilioFiscal: empresa.domicilioFiscal,
     descuento: empresa.descuento, creditoDias: empresa.creditoDias, limiteCredito: empresa.limiteCredito,
   })
@@ -142,7 +140,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
       const [viajesRes, vehRes, notasRes] = await Promise.all([
         sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, tarifa_cliente, status, usuarios(nombre, apellido, email)').eq('empresa_id', empresa.id).order('created_at', { ascending: false }),
         sb.from('vehiculos').select('marca, modelo, placas, anio').eq('empresa_id', empresa.id),
-        sb.from('notas_internas').select('id, nota, autor, created_at').eq('entidad_tipo', 'empresa').eq('entidad_id', empresa.id).order('created_at', { ascending: false }),
+        sb.from('notas_internas').select('id, texto, created_at').eq('entidad_tipo', 'empresa').eq('entidad_id', empresa.id).order('created_at', { ascending: false }),
       ])
 
       if (viajesRes.data) {
@@ -175,8 +173,8 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
       }
       if (notasRes.data) {
         setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
-          autor: String(n.autor ?? 'Admin'),
-          texto: String(n.nota ?? ''),
+          autor: 'Admin',
+          texto: String(n.texto ?? ''),
           hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
         })))
       }
@@ -200,7 +198,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
     const sb = getSupabaseBrowserClient()
     await sb.from('empresas').update({
       razon_social: form.razonSocial.toUpperCase(), nombre_comercial: form.nombreComercial.toUpperCase(), tipo: form.tipo,
-      contacto_principal: form.contactoPrincipal.toUpperCase(), telefono: form.telefono, correo: form.correo.toLowerCase(), direccion: form.direccion.toUpperCase(),
+      contacto_principal: form.contactoPrincipal.toUpperCase(), telefono: form.telefono, correo: form.correo.toLowerCase(),
       regimen_fiscal: form.regimenFiscal, cfdi: form.cfdi, domicilio_fiscal: form.domicilioFiscal.toUpperCase(),
       descuento: form.descuento, credito_dias: form.creditoDias, limite_credito: form.limiteCredito,
     }).eq('id', empresa.id)
@@ -213,7 +211,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
     if (!nuevaNota.trim()) return
     const sb = getSupabaseBrowserClient()
     const texto = nuevaNota.trim()
-    await sb.from('notas_internas').insert({ entidad_tipo: 'empresa', entidad_id: empresa.id, nota: texto, autor: 'Admin' })
+    await sb.from('notas_internas').insert({ entidad_tipo: 'empresa', entidad_id: empresa.id, texto })
     setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')
   }
@@ -324,7 +322,6 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                   <F label="Contacto principal" value={form.contactoPrincipal} editable={editMode} onChange={v => setForm(f => ({ ...f, contactoPrincipal: v }))} />
                   <F label="Teléfono" value={form.telefono} editable={editMode} onChange={v => setForm(f => ({ ...f, telefono: v }))} />
                   <F label="Correo electrónico" value={form.correo} editable={editMode} onChange={v => setForm(f => ({ ...f, correo: v }))} />
-                  <F label="Dirección" value={form.direccion} editable={editMode} onChange={v => setForm(f => ({ ...f, direccion: v }))} />
                 </G2>
               </SCard>
 
@@ -369,7 +366,6 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                       ? <input type="number" value={form.limiteCredito} onChange={e => setForm(f => ({ ...f, limiteCredito: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
                       : <span className="text-xl font-bold text-slate-800">${empresa.limiteCredito.toLocaleString()} MXN</span>}
                   </div>
-                  <F label="Convenio" value={<span className="font-mono text-xs text-blue-600">{empresa.convenio}</span>} />
                   <F label="Vigencia del convenio" value={empresa.vigenciaConvenio} />
                 </G2>
               </SCard>
@@ -522,7 +518,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
 function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
   const [tipo, setTipo] = useState<TipoEmpresa | ''>('')
   const [form, setForm] = useState({
-    razonSocial: '', nombreComercial: '', rfc: '', contacto: '', telefono: '', email: '', direccion: '',
+    razonSocial: '', nombreComercial: '', rfc: '', contacto: '', telefono: '', email: '',
     regimenFiscal: '', cfdi: '', domicilioFiscal: '',
     descuento: '0', creditoDias: '0', limiteCredito: '0',
   })
@@ -546,7 +542,6 @@ function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: ()
         contacto_principal:form.contacto.toUpperCase(),
         telefono:          form.telefono,
         correo:            form.email.toLowerCase() || null,
-        direccion:         form.direccion.toUpperCase() || null,
         regimen_fiscal:    form.regimenFiscal || null,
         cfdi:              form.cfdi || null,
         domicilio_fiscal:  form.domicilioFiscal.toUpperCase() || null,
@@ -601,7 +596,6 @@ function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: ()
               <div><L c="Contacto principal" req /><input type="text" value={form.contacto} onChange={e => set('contacto', e.target.value.toUpperCase())} className={iCls} /></div>
               <div><L c="Teléfono" req /><input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={iCls} /></div>
               <div className="col-span-2"><L c="Correo electrónico" /><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={iCls} /></div>
-              <div className="col-span-2"><L c="Dirección" /><input type="text" value={form.direccion} onChange={e => set('direccion', e.target.value.toUpperCase())} className={iCls} /></div>
             </div>
           </div>
 
@@ -675,7 +669,7 @@ export default function EmpresasView() {
   const cargarEmpresas = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
     const [empRes, viajesRes] = await Promise.all([
-      sb.from('empresas').select('id, razon_social, nombre_comercial, tipo, rfc, regimen_fiscal, domicilio_fiscal, cfdi, contacto_principal, telefono, correo, direccion, estatus, descuento, credito_dias, limite_credito, convenio, vigencia_convenio, created_at').order('created_at', { ascending: false }),
+      sb.from('empresas').select('id, razon_social, nombre_comercial, tipo, rfc, regimen_fiscal, domicilio_fiscal, cfdi, contacto_principal, telefono, correo, estatus, descuento, credito_dias, limite_credito, vigencia_convenio, created_at').order('created_at', { ascending: false }),
       sb.from('viajes').select('empresa_id, usuario_id, tarifa_cliente').not('empresa_id', 'is', null),
     ])
     const { data, error } = empRes
@@ -705,13 +699,11 @@ export default function EmpresasView() {
         contactoPrincipal:String(e.contacto_principal ?? ''),
         telefono:         String(e.telefono ?? ''),
         correo:           String(e.correo ?? ''),
-        direccion:        String(e.direccion ?? ''),
         estatus:          (e.estatus as EstatusEmpresa) ?? 'Activa',
         fechaRegistro:    String((e.created_at as string)?.slice(0,10) ?? ''),
         descuento:        Number(e.descuento ?? 0),
         creditoDias:      Number(e.credito_dias ?? 0),
         limiteCredito:    Number(e.limite_credito ?? 0),
-        convenio:         String(e.convenio ?? ''),
         vigenciaConvenio: String(e.vigencia_convenio ?? ''),
         usuariosVinculados: Array.from({ length: resumen.usuarios.size }, () => ({ nombre: '', rol: '', email: '' })),
         vehiculosFrecuentes: [], historialViajes: [], notas: [],

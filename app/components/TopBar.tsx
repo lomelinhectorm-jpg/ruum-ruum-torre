@@ -1,6 +1,9 @@
 'use client'
 
-import { Bars3Icon, BellIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Bars3Icon, BellIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 interface TopBarProps {
   title: string
@@ -8,6 +11,18 @@ interface TopBarProps {
 }
 
 export default function TopBar({ title, onMenuClick }: TopBarProps) {
+  const router = useRouter()
+  const [cerrandoSesion, setCerrandoSesion] = useState(false)
+
+  const cerrarSesion = async () => {
+    if (cerrandoSesion) return
+    setCerrandoSesion(true)
+    const supabase = getSupabaseBrowserClient()
+    await supabase.auth.signOut()
+    router.replace('/login')
+    router.refresh()
+  }
+
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 flex-shrink-0">
       <div className="flex items-center gap-4">
@@ -24,9 +39,13 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           <BellIcon className="w-5 h-5" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
-          <PlusIcon className="w-4 h-4" />
-          Cerrar Sesión
+        <button
+          onClick={cerrarSesion}
+          disabled={cerrandoSesion}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2 disabled:opacity-60"
+        >
+          <ArrowRightOnRectangleIcon className="w-4 h-4" />
+          {cerrandoSesion ? 'Cerrando...' : 'Cerrar Sesión'}
         </button>
       </div>
     </header>
