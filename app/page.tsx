@@ -6,6 +6,7 @@ import TopBar from './components/TopBar'
 import DashboardView from './components/DashboardView'
 import ViajesView from './components/ViajesView'
 import ConductoresView from './components/ConductoresView'
+import VehiculosView from './components/VehiculosView'
 import UsuariosView from './components/UsuariosView'
 import EvidenciaView from './components/EvidenciaView'
 import IncidenciasView from './components/IncidenciasView'
@@ -22,6 +23,7 @@ const titles: Record<string, string> = {
   viajes: 'Gestión de Viajes',
   conductores: 'Conductores Certificados',
   usuarios: 'Usuarios y Empresas',
+  vehiculos: 'Gestión de Vehículos',
   evidencia: 'Revisión de Evidencia',
   incidencias: 'Control de Incidencias',
   pagos: 'Pagos y Finanzas',
@@ -46,6 +48,8 @@ export default function Home() {
         return <ConductoresView />
       case 'usuarios':
         return <UsuariosView />
+      case 'vehiculos':
+        return <VehiculosView />
       case 'evidencia':
         return <EvidenciaView />
       case 'incidencias':
