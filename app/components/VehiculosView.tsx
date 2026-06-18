@@ -17,9 +17,9 @@ import {
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
 // ─── CATÁLOGOS COMPARTIDOS (mismos valores que TarifasView / ViajesView) ──────
-const TIPOS_VEHICULO = ['Sedán', 'SUV', 'Pick-up', 'Van', 'Camioneta', 'Luxury'] as const
 const TRANSMISIONES = ['Automática', 'Manual', 'CVT', 'Secuencial'] as const
 const TIPOS_DOC_VEHICULO = ['Tarjeta circulación', 'Verificación', 'Seguro vehicular', 'Otro'] as const
+const COMBUSTIBLES = ['Gasolina', 'Diésel', 'Eléctrico'] as const
 
 type TipoDueno = 'usuario' | 'empresa' | 'flota'
 
@@ -48,6 +48,7 @@ interface NotaInterna {
 
 interface Vehiculo {
   id: string
+  folio: string
   marca: string
   modelo: string
   anio: string
@@ -56,6 +57,7 @@ interface Vehiculo {
   vin: string
   transmision: string
   tipoVehiculo: string
+  combustible: string
   alias: string
   observaciones: string
   activo: boolean
@@ -66,9 +68,19 @@ interface Vehiculo {
   createdAt: string
   verificacion: DocEstatusResumen
   tarjetaCirculacion: DocEstatusResumen
+  verificacionVigente: boolean
+  tarjetaCirculacionFisica: boolean
+  numLlaves: number
 }
 
 type DocEstatusResumen = 'Vigente' | 'Vencido' | 'Sin registrar'
+
+const FOLIO_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // sin I/O para evitar confusión visual
+function generarFolioVehiculo() {
+  let folio = ''
+  for (let i = 0; i < 8; i++) folio += FOLIO_CHARS[Math.floor(Math.random() * FOLIO_CHARS.length)]
+  return folio
+}
 
 // ─── HELPERS DE ESTILO ─────────────────────────────────────────────────────────
 const docStyle: Record<string, string> = {
@@ -95,6 +107,14 @@ function DocEstatusBadge({ estatus }: { estatus: DocEstatusResumen }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls[estatus]}`}>{estatus}</span>
 }
 
+function SiNoBadge({ valor }: { valor: boolean }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${valor ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+      {valor ? 'Sí' : 'No'}
+    </span>
+  )
+}
+
 function DuenoBadge({ tipo, nombre }: { tipo: TipoDueno; nombre: string }) {
   if (tipo === 'flota') {
     return <span className="flex items-center gap-1.5 text-xs text-slate-500"><TruckIcon className="w-3.5 h-3.5" />Flota propia</span>
@@ -117,6 +137,9 @@ function VehiculoDetalle({
 }) {
   const [tab, setTab] = useState<DetailTab>(initialTab)
   const [activo, setActivo] = useState(vehiculo.activo)
+  const [verificacionVigente, setVerificacionVigente] = useState(vehiculo.verificacionVigente)
+  const [tarjetaCirculacionFisica, setTarjetaCirculacionFisica] = useState(vehiculo.tarjetaCirculacionFisica)
+  const [numLlaves, setNumLlaves] = useState(vehiculo.numLlaves)
   const [viajes, setViajes] = useState<ViajeResumen[]>([])
   const [docs, setDocs] = useState<Documento[]>([])
   const [notas, setNotas] = useState<NotaInterna[]>([])
@@ -168,6 +191,27 @@ function VehiculoDetalle({
     const sb = getSupabaseBrowserClient()
     await sb.from('vehiculos').update({ activo: nuevo }).eq('id', vehiculo.id)
     setActivo(nuevo)
+    onUpdate()
+  }
+
+  const cambiarVerificacion = async (nuevo: boolean) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('vehiculos').update({ verificacion_vigente: nuevo }).eq('id', vehiculo.id)
+    setVerificacionVigente(nuevo)
+    onUpdate()
+  }
+
+  const cambiarTarjeta = async (nuevo: boolean) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('vehiculos').update({ tarjeta_circulacion: nuevo }).eq('id', vehiculo.id)
+    setTarjetaCirculacionFisica(nuevo)
+    onUpdate()
+  }
+
+  const cambiarLlaves = async (nuevo: number) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('vehiculos').update({ num_llaves: nuevo }).eq('id', vehiculo.id)
+    setNumLlaves(nuevo)
     onUpdate()
   }
 
@@ -263,6 +307,7 @@ function VehiculoDetalle({
 
               <SectionCard title="Datos del vehículo" icon="🚗">
                 <Grid2>
+                  <Field label="ID interno" value={<span className="font-mono text-xs">{vehiculo.folio}</span>} />
                   <Field label="Marca / Modelo" value={`${vehiculo.marca} ${vehiculo.modelo}`} />
                   <Field label="Año" value={vehiculo.anio || '—'} />
                   <Field label="Color" value={vehiculo.color || '—'} />
@@ -270,9 +315,48 @@ function VehiculoDetalle({
                   <Field label="VIN" value={vehiculo.vin || '—'} mono />
                   <Field label="Transmisión" value={vehiculo.transmision || '—'} />
                   <Field label="Tipo de vehículo" value={vehiculo.tipoVehiculo || '—'} />
+                  <Field label="Combustible" value={vehiculo.combustible || '—'} />
                   <Field label="Alias / Apodo" value={vehiculo.alias || '—'} />
                 </Grid2>
                 {vehiculo.observaciones && <Field label="Observaciones" value={vehiculo.observaciones} />}
+              </SectionCard>
+
+              <SectionCard title="Verificación y resguardo" icon="🪪">
+                <Grid2>
+                  <div>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Verificación vigente</p>
+                    <div className="flex gap-2">
+                      {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
+                        <button key={String(opt.v)} onClick={() => cambiarVerificacion(opt.v)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${verificacionVigente === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Tarjeta de circulación</p>
+                    <div className="flex gap-2">
+                      {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
+                        <button key={String(opt.v)} onClick={() => cambiarTarjeta(opt.v)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${tarjetaCirculacionFisica === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Número de llaves</p>
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map(n => (
+                        <button key={n} onClick={() => cambiarLlaves(n)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${numLlaves === n ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </Grid2>
               </SectionCard>
             </div>
           )}
@@ -446,14 +530,19 @@ interface FormState {
   vin: string
   transmision: string
   tipoVehiculo: string
+  combustible: string
   alias: string
   observaciones: string
+  verificacionVigente: boolean
+  tarjetaCirculacion: boolean
+  numLlaves: number
 }
 
 const EMPTY_FORM: FormState = {
   duenoTipo: 'flota', duenoId: '',
   marca: '', modelo: '', anio: '', color: '', placas: '', vin: '',
-  transmision: '', tipoVehiculo: '', alias: '', observaciones: '',
+  transmision: '', tipoVehiculo: '', combustible: '', alias: '', observaciones: '',
+  verificacionVigente: false, tarjetaCirculacion: false, numLlaves: 1,
 }
 
 function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
@@ -464,17 +553,34 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
 
   const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[]>([])
   const [usuarios, setUsuarios] = useState<{ id: string; nombre: string; apellido: string }[]>([])
+  const [tiposVehiculo, setTiposVehiculo] = useState<{ id: string; nombre: string }[]>([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
 
   useEffect(() => {
     const cargarCatalogos = async () => {
       const sb = getSupabaseBrowserClient()
-      const [empRes, usrRes] = await Promise.all([
-        sb.from('empresas').select('id, nombre_comercial').eq('estatus', 'Activo').order('nombre_comercial'),
+      const [empRes, usrRes, tiposRes] = await Promise.all([
+        sb.from('empresas').select('id, nombre_comercial').eq('estatus', 'Activa').order('nombre_comercial'),
         sb.from('usuarios').select('id, nombre, apellido').order('nombre'),
+        sb.from('configuracion').select('valor').eq('clave', 'tipos_vehiculo').maybeSingle(),
       ])
       if (empRes.data) setEmpresas(empRes.data.map((e: Record<string, unknown>) => ({ id: String(e.id), nombre: String(e.nombre_comercial ?? '') })))
       if (usrRes.data) setUsuarios(usrRes.data.map((u: Record<string, unknown>) => ({ id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? '') })))
+      if (tiposRes.data?.valor) {
+        try {
+          const parsed = JSON.parse(String(tiposRes.data.valor))
+          if (Array.isArray(parsed)) {
+            setTiposVehiculo(
+              parsed
+                .filter((t: Record<string, unknown>) => t.activo !== false)
+                .map((t: Record<string, unknown>) => ({ id: String(t.id ?? t.nombre), nombre: String(t.nombre ?? '') }))
+                .filter(t => t.nombre)
+            )
+          }
+        } catch {
+          // catálogo vacío o corrupto: se deja vacío, el campo queda sin opciones
+        }
+      }
       setCargandoCatalogos(false)
     }
     cargarCatalogos()
@@ -512,22 +618,41 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
         return
       }
 
-      const { error } = await sb.from('vehiculos').insert({
-        usuario_id: form.duenoTipo === 'usuario' ? form.duenoId : null,
-        empresa_id: form.duenoTipo === 'empresa' ? form.duenoId : null,
-        marca: form.marca.toUpperCase(),
-        modelo: form.modelo.toUpperCase(),
-        anio: form.anio || null,
-        color: form.color.toUpperCase() || null,
-        placas: form.placas.toUpperCase(),
-        vin: form.vin.toUpperCase() || null,
-        transmision: form.transmision || null,
-        tipo_vehiculo: form.tipoVehiculo || null,
-        alias: form.alias.toUpperCase() || null,
-        observaciones: form.observaciones || null,
-        activo: true,
-      })
-      if (error) throw error
+      // Generar folio interno único (8 caracteres); reintenta en la rara
+      // colisión de unicidad antes de rendirse.
+      let insertError: { code?: string; message: string } | null = null
+      for (let intento = 0; intento < 5; intento++) {
+        const folio = generarFolioVehiculo()
+        const { error } = await sb.from('vehiculos').insert({
+          folio,
+          usuario_id: form.duenoTipo === 'usuario' ? form.duenoId : null,
+          empresa_id: form.duenoTipo === 'empresa' ? form.duenoId : null,
+          marca: form.marca.toUpperCase(),
+          modelo: form.modelo.toUpperCase(),
+          anio: form.anio || null,
+          color: form.color.toUpperCase() || null,
+          placas: form.placas.toUpperCase(),
+          vin: form.vin.toUpperCase() || null,
+          transmision: form.transmision || null,
+          tipo_vehiculo: form.tipoVehiculo || null,
+          combustible: form.combustible || null,
+          alias: form.alias.toUpperCase() || null,
+          observaciones: form.observaciones || null,
+          verificacion_vigente: form.verificacionVigente,
+          tarjeta_circulacion: form.tarjetaCirculacion,
+          num_llaves: form.numLlaves,
+          activo: true,
+        })
+        if (!error) { insertError = null; break }
+        // 23505 = unique_violation; si es por folio, reintenta con uno nuevo
+        if (error.code === '23505' && error.message.includes('folio')) {
+          insertError = error
+          continue
+        }
+        insertError = error
+        break
+      }
+      if (insertError) throw insertError
 
       onSave()
       onClose()
@@ -613,9 +738,19 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
               </div>
               <div>
                 <L c="Tipo de vehículo" />
-                <select value={form.tipoVehiculo} onChange={e => set('tipoVehiculo', e.target.value)} className={I('tipoVehiculo')}>
+                <select value={form.tipoVehiculo} onChange={e => set('tipoVehiculo', e.target.value)} className={I('tipoVehiculo')} disabled={cargandoCatalogos}>
+                  <option value="">{cargandoCatalogos ? 'Cargando...' : 'Seleccionar...'}</option>
+                  {tiposVehiculo.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
+                </select>
+                {!cargandoCatalogos && tiposVehiculo.length === 0 && (
+                  <p className="text-xs text-amber-500 mt-0.5">No hay tipos de vehículo capturados. Configúralos en Configuración → Tipos de vehículo.</p>
+                )}
+              </div>
+              <div>
+                <L c="Combustible" />
+                <select value={form.combustible} onChange={e => set('combustible', e.target.value)} className={I('combustible')}>
                   <option value="">Seleccionar...</option>
-                  {TIPOS_VEHICULO.map(t => <option key={t} value={t}>{t}</option>)}
+                  {COMBUSTIBLES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="col-span-2"><L c="Alias / Apodo" /><input type="text" value={form.alias} onChange={e => set('alias', e.target.value.toUpperCase())} placeholder="EJ. CAMIONETA GRIS 1" className={I('alias')} /></div>
@@ -624,6 +759,48 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
                 <textarea value={form.observaciones} onChange={e => set('observaciones', e.target.value)} rows={2}
                   placeholder="Detalles adicionales, golpes previos, accesorios, etc."
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">🪪 Verificación y resguardo</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <L c="Verificación vigente" />
+                <div className="flex gap-2">
+                  {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
+                    <button key={String(opt.v)} type="button"
+                      onClick={() => setForm(f => ({ ...f, verificacionVigente: opt.v }))}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.verificacionVigente === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <L c="Tarjeta de circulación" />
+                <div className="flex gap-2">
+                  {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
+                    <button key={String(opt.v)} type="button"
+                      onClick={() => setForm(f => ({ ...f, tarjetaCirculacion: opt.v }))}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.tarjetaCirculacion === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <L c="Número de llaves" />
+                <div className="flex gap-2">
+                  {[1, 2, 3].map(n => (
+                    <button key={n} type="button"
+                      onClick={() => setForm(f => ({ ...f, numLlaves: n }))}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.numLlaves === n ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -668,6 +845,7 @@ function Field({ label, value, mono }: { label: string; value: React.ReactNode; 
 // ─── TIPOS SUPABASE ───────────────────────────────────────────────────────────
 interface VehiculoDB {
   id: string
+  folio: string | null
   marca: string | null
   modelo: string | null
   anio: string | null
@@ -676,9 +854,13 @@ interface VehiculoDB {
   vin: string | null
   transmision: string | null
   tipo_vehiculo: string | null
+  combustible: string | null
   alias: string | null
   observaciones: string | null
   activo: boolean | null
+  verificacion_vigente: boolean | null
+  tarjeta_circulacion: boolean | null
+  num_llaves: number | null
   usuario_id: string | null
   empresa_id: string | null
   created_at: string
@@ -715,6 +897,7 @@ function vehiculoDBaVehiculo(
 
   return {
     id: v.id,
+    folio: v.folio ?? v.id.slice(0, 8).toUpperCase(),
     marca: v.marca ?? '—',
     modelo: v.modelo ?? '—',
     anio: v.anio ?? '',
@@ -723,6 +906,7 @@ function vehiculoDBaVehiculo(
     vin: v.vin ?? '',
     transmision: v.transmision ?? '',
     tipoVehiculo: v.tipo_vehiculo ?? '',
+    combustible: v.combustible ?? '',
     alias: v.alias ?? '',
     observaciones: v.observaciones ?? '',
     activo: v.activo ?? true,
@@ -733,6 +917,9 @@ function vehiculoDBaVehiculo(
     createdAt: v.created_at,
     verificacion: resolverEstatusDoc(docs.verificacion),
     tarjetaCirculacion: resolverEstatusDoc(docs.tarjetaCirculacion),
+    verificacionVigente: v.verificacion_vigente ?? false,
+    tarjetaCirculacionFisica: v.tarjeta_circulacion ?? false,
+    numLlaves: v.num_llaves ?? 1,
   }
 }
 
@@ -751,8 +938,9 @@ export default function VehiculosView() {
     const sb = getSupabaseBrowserClient()
     const [vehRes, docsRes] = await Promise.all([
       sb.from('vehiculos').select(`
-        id, marca, modelo, anio, color, placas, vin, transmision,
-        tipo_vehiculo, alias, observaciones, activo,
+        id, folio, marca, modelo, anio, color, placas, vin, transmision,
+        tipo_vehiculo, combustible, alias, observaciones, activo,
+        verificacion_vigente, tarjeta_circulacion, num_llaves,
         usuario_id, empresa_id, created_at,
         usuarios(nombre, apellido),
         empresas(nombre_comercial)
@@ -903,15 +1091,18 @@ export default function VehiculosView() {
                   <th className="px-4 py-3">Placas</th>
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Propietario</th>
-                  <th className="px-4 py-3">Verificación</th>
-                  <th className="px-4 py-3">Tarjeta circulación</th>
+                  <th className="px-4 py-3">Verificación (doc.)</th>
+                  <th className="px-4 py-3">Tarjeta circ. (doc.)</th>
+                  <th className="px-4 py-3 text-center">Verif. vigente</th>
+                  <th className="px-4 py-3 text-center">Tarjeta física</th>
+                  <th className="px-4 py-3 text-center">Llaves</th>
                   <th className="px-4 py-3 text-center">Estatus</th>
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-10 text-slate-400 italic text-sm">Sin resultados.</td></tr>
+                  <tr><td colSpan={11} className="text-center py-10 text-slate-400 italic text-sm">Sin resultados.</td></tr>
                 )}
                 {filtered.map((v, i) => {
                   const color = avatarColors[i % avatarColors.length]
@@ -934,6 +1125,9 @@ export default function VehiculosView() {
                       <td className="px-4 py-3"><DuenoBadge tipo={v.duenoTipo} nombre={v.duenoNombre} /></td>
                       <td className="px-4 py-3"><DocEstatusBadge estatus={v.verificacion} /></td>
                       <td className="px-4 py-3"><DocEstatusBadge estatus={v.tarjetaCirculacion} /></td>
+                      <td className="px-4 py-3 text-center"><SiNoBadge valor={v.verificacionVigente} /></td>
+                      <td className="px-4 py-3 text-center"><SiNoBadge valor={v.tarjetaCirculacionFisica} /></td>
+                      <td className="px-4 py-3 text-center text-xs font-semibold text-slate-700">{v.numLlaves}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${v.activo ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-500'}`}>
                           {v.activo ? 'Activo' : 'Inactivo'}
