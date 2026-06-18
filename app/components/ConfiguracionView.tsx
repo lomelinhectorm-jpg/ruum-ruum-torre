@@ -78,6 +78,27 @@ function configWriteError(error: { code?: string; message?: string }, fallback: 
   return error.message || fallback
 }
 
+async function registrarBitacora(accion: string, modulo: string, detalle: string) {
+  const sb = getSupabaseBrowserClient()
+  const { data } = await sb.auth.getUser()
+  const usuario = data.user?.email ?? 'Admin'
+  const { error } = await sb.from('bitacora').insert({
+    accion,
+    modulo,
+    detalle: `${detalle} | Usuario: ${usuario}`,
+    ip: null,
+  })
+  if (error) throw error
+}
+
+async function intentarRegistrarBitacora(accion: string, modulo: string, detalle: string) {
+  try {
+    await registrarBitacora(accion, modulo, detalle)
+  } catch (error) {
+    console.warn('No se pudo registrar bitácora:', error)
+  }
+}
+
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete?: () => void }) {
   return (
     <div className="flex items-center gap-1">
@@ -140,6 +161,7 @@ function TabRoles() {
     setForm({ nombre: '', descripcion: '', color: 'blue', permisos: [] })
     setShowForm(false)
     setGuardando(false)
+    intentarRegistrarBitacora('Rol creado', 'Configuración', `Rol: ${form.nombre.toUpperCase()}`)
     cargar()
   }
 
@@ -447,6 +469,7 @@ function TabZonas() {
       return
     }
     setZonas(prev => prev.map(z => z.id === id ? { ...z, activa: !activa } : z))
+    intentarRegistrarBitacora('Zona activada/desactivada', 'Configuración', `Zona ID: ${id}, activa: ${!activa}`)
   }
 
   const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radioKm: '' }); setError(''); setShowForm(true) }
@@ -471,6 +494,7 @@ function TabZonas() {
       }
       setShowForm(false)
       setEditId(null)
+      await intentarRegistrarBitacora(editId ? 'Zona actualizada' : 'Zona creada', 'Configuración', `Zona: ${payload.nombre}`)
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar la zona.')
@@ -489,6 +513,7 @@ function TabZonas() {
     }
     setZonas(prev => prev.filter(z => z.id !== id))
     setConfirmDelete(null)
+    intentarRegistrarBitacora('Zona eliminada', 'Configuración', `Zona ID: ${id}`)
   }
 
   return (
@@ -733,7 +758,9 @@ function TabVehiculos() {
   const toggleTipo = async (id: string) => {
     setError('')
     try {
+      const actual = tipos.find(t => t.id === id)
       await guardarTipos(tipos.map(t => t.id === id ? { ...t, activo: !t.activo } : t))
+      await intentarRegistrarBitacora('Tipo de vehículo activado/desactivado', 'Configuración', `Tipo: ${actual?.nombre ?? id}, activo: ${!(actual?.activo ?? false)}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo actualizar el tipo de vehículo.')
     }
@@ -760,6 +787,7 @@ function TabVehiculos() {
       }
       const next = editId ? tipos.map(t => t.id === editId ? payload : t) : [payload, ...tipos]
       await guardarTipos(next)
+      await intentarRegistrarBitacora(editId ? 'Tipo de vehículo actualizado' : 'Tipo de vehículo creado', 'Configuración', `Tipo: ${payload.nombre}`)
       setShowForm(false)
       setEditId(null)
     } catch (e) {
@@ -772,7 +800,9 @@ function TabVehiculos() {
   const eliminar = async (id: string) => {
     setError('')
     try {
+      const eliminado = tipos.find(t => t.id === id)
       await guardarTipos(tipos.filter(t => t.id !== id))
+      await intentarRegistrarBitacora('Tipo de vehículo eliminado', 'Configuración', `Tipo: ${eliminado?.nombre ?? id}`)
       setConfirmDelete(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo eliminar el tipo de vehículo.')
@@ -862,6 +892,7 @@ function TabEvidencia() {
     const { error: e } = await sb.from('configuracion').upsert({ clave: 'reglas_evidencia', valor: JSON.stringify(reglas) }, { onConflict: 'clave' })
     setGuardando(false)
     if (e) { setError(e.message); return }
+    intentarRegistrarBitacora('Reglas de evidencia actualizadas', 'Configuración', 'Se actualizaron requisitos de evidencia')
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
   }
@@ -962,6 +993,7 @@ function TabEstados() {
     const sb = await getSb()
     await sb.from('estados_viaje').update({ siguiente, auto }).eq('id', id)
     setEstados(prev => prev.map(e => e.id === id ? { ...e, siguiente, auto } : e))
+    intentarRegistrarBitacora('Estado de viaje actualizado', 'Configuración', `Estado ID: ${id}, siguiente: ${siguiente}, automático: ${auto}`)
     setEditing(null)
   }
 
@@ -1046,8 +1078,15 @@ function TabNotificaciones() {
   useEffect(() => { cargar() }, [cargar])
 
   const togglePlantilla = async (id: string, activa: boolean) => {
-    const sb = await getSb(); await sb.from('plantillas_notificacion').update({ activa: !activa }).eq('id', id)
+    setError('')
+    const sb = await getSb()
+    const { error: e } = await sb.from('plantillas_notificacion').update({ activa: !activa }).eq('id', id)
+    if (e) {
+      setError(configWriteError(e, 'No se pudo actualizar la plantilla.'))
+      return
+    }
     setPlantillas(prev => prev.map(p => p.id === id ? { ...p, activa: !activa } : p))
+    intentarRegistrarBitacora('Plantilla de notificación activada/desactivada', 'Configuración', `Plantilla ID: ${id}, activa: ${!activa}`)
   }
 
   const abrirNueva = () => { setEditId(null); setForm({ evento: '', destinatario: '', canal: [] }); setError(''); setShowForm(true) }
@@ -1067,6 +1106,7 @@ function TabNotificaciones() {
       setGuardando(false)
       return
     }
+    intentarRegistrarBitacora(editId ? 'Plantilla de notificación actualizada' : 'Plantilla de notificación creada', 'Configuración', `Evento: ${payload.evento}`)
     setShowForm(false); setEditId(null); setGuardando(false)
     cargar()
   }
@@ -1158,8 +1198,15 @@ function TabPagos() {
   useEffect(() => { cargar() }, [cargar])
 
   const toggleMetodo = async (id: string, activo: boolean) => {
-    const sb = await getSb(); await sb.from('metodos_pago').update({ activo: !activo }).eq('id', id)
+    setError('')
+    const sb = await getSb()
+    const { error: e } = await sb.from('metodos_pago').update({ activo: !activo }).eq('id', id)
+    if (e) {
+      setError(configWriteError(e, 'No se pudo actualizar el método de pago.'))
+      return
+    }
     setMetodos(prev => prev.map(m => m.id === id ? { ...m, activo: !activo } : m))
+    intentarRegistrarBitacora('Método de pago activado/desactivado', 'Configuración', `Método ID: ${id}, activo: ${!activo}`)
   }
 
   const abrirNuevoMetodo = () => { setEditId(null); setForm({ nombre: '', descripcion: '' }); setError(''); setShowForm(true) }
@@ -1178,14 +1225,22 @@ function TabPagos() {
       setGuardando(false)
       return
     }
+    intentarRegistrarBitacora(editId ? 'Método de pago actualizado' : 'Método de pago creado', 'Configuración', `Método: ${form.nombre}`)
     setForm({ nombre: '', descripcion: '' }); setEditId(null); setShowForm(false); setGuardando(false)
     cargar()
   }
 
   const eliminarMetodo = async (id: string) => {
-    const sb = await getSb(); await sb.from('metodos_pago').delete().eq('id', id)
+    setError('')
+    const sb = await getSb()
+    const { error: e } = await sb.from('metodos_pago').delete().eq('id', id)
+    if (e) {
+      setError(configWriteError(e, 'No se pudo eliminar el método de pago.'))
+      return
+    }
     setMetodos(prev => prev.filter(m => m.id !== id))
     setConfirmDelete(null)
+    intentarRegistrarBitacora('Método de pago eliminado', 'Configuración', `Método ID: ${id}`)
   }
 
   const guardarCiclo = async () => {
@@ -1196,6 +1251,7 @@ function TabPagos() {
     const { error: e } = await sb.from('configuracion').upsert({ clave: 'ciclo_pago', valor: JSON.stringify(ciclo) }, { onConflict: 'clave' })
     setGuardandoCiclo(false)
     if (e) { setErrorCiclo(configWriteError(e, 'No se pudo guardar el ciclo de pago.')); return }
+    intentarRegistrarBitacora('Ciclo de pago actualizado', 'Configuración', `${ciclo.frecuencia} / ${ciclo.diaPago}`)
     setCicloGuardado(true)
     setTimeout(() => setCicloGuardado(false), 2500)
   }
@@ -1306,6 +1362,7 @@ function TabFiscal() {
       setError(configWriteError(e, 'No se pudieron guardar los datos fiscales.'))
       return
     }
+    intentarRegistrarBitacora('Datos fiscales actualizados', 'Configuración', `RFC: ${form.rfc || 'Sin RFC'}`)
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
   }
@@ -1385,24 +1442,23 @@ function TabSeguridad() {
   const guardar = async () => {
     setGuardando(true)
     const sb = await getSb()
-    await sb.from('configuracion').upsert({ clave: 'seguridad', valor: JSON.stringify(config) }, { onConflict: 'clave' })
+    const { error: e } = await sb.from('configuracion').upsert({ clave: 'seguridad', valor: JSON.stringify(config) }, { onConflict: 'clave' })
     setGuardando(false)
+    if (!e) intentarRegistrarBitacora('Configuración de seguridad actualizada', 'Configuración', 'Se actualizaron parámetros de seguridad')
   }
 
   const ejecutarBackup = async () => {
     setEjecutandoBackup(true)
     setBackupMsg('')
     setBackupError('')
-    const sb = await getSb()
-    const { error: e } = await sb.from('bitacora').insert({
-      accion: 'Backup manual ejecutado', modulo: 'Configuración',
-      detalle: 'Respaldo manual solicitado desde Seguridad', ip: null,
-    })
-    setEjecutandoBackup(false)
-    if (e) {
-      setBackupError(configWriteError(e, 'No se pudo registrar la solicitud de backup.'))
+    try {
+      await registrarBitacora('Backup manual ejecutado', 'Configuración', 'Respaldo manual solicitado desde Seguridad')
+    } catch (e) {
+      setEjecutandoBackup(false)
+      setBackupError(configWriteError(e as { code?: string; message?: string }, 'No se pudo registrar la solicitud de backup.'))
       return
     }
+    setEjecutandoBackup(false)
     setBackupMsg('Solicitud de backup registrada correctamente.')
   }
 
@@ -1489,11 +1545,17 @@ function TabBitacora() {
       setCargando(false)
       return
     }
-    if (data) setRegistros(data.map((r: Record<string,unknown>) => ({
-      id: String(r.id), usuario: 'Sistema', accion: String(r.accion ?? ''),
-      modulo: String(r.modulo ?? 'Sistema'), detalle: String(r.detalle ?? ''), ip: String(r.ip ?? '—'),
-      fecha: String((r.created_at as string)?.slice(0,16).replace('T',' ') ?? '—'),
-    })))
+    if (data) setRegistros(data.map((r: Record<string,unknown>) => {
+      const detalleCompleto = String(r.detalle ?? '')
+      const usuarioMatch = detalleCompleto.match(/\s\|\sUsuario:\s(.+)$/)
+      const usuario = usuarioMatch?.[1] ?? 'Sistema'
+      const detalle = usuarioMatch ? detalleCompleto.replace(/\s\|\sUsuario:\s.+$/, '') : detalleCompleto
+      return {
+        id: String(r.id), usuario, accion: String(r.accion ?? ''),
+        modulo: String(r.modulo ?? 'Sistema'), detalle, ip: String(r.ip ?? '—'),
+        fecha: String((r.created_at as string)?.slice(0,16).replace('T',' ') ?? '—'),
+      }
+    }))
     setCargando(false)
   }, [])
 
