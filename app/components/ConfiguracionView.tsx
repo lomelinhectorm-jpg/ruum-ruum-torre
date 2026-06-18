@@ -92,6 +92,7 @@ function TabRoles() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ nombre: '', descripcion: '', color: 'blue', permisos: [] as string[] })
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -122,8 +123,14 @@ function TabRoles() {
   const handleCrear = async () => {
     if (!form.nombre) return
     setGuardando(true)
+    setError('')
     const sb = await getSb()
-    await sb.from('roles').insert({ nombre: form.nombre.toUpperCase(), descripcion: form.descripcion, color: form.color, permisos: form.permisos, activo: true })
+    const { error: e } = await sb.from('roles').insert({ nombre: form.nombre.toUpperCase(), descripcion: form.descripcion, color: form.color, permisos: form.permisos, activo: true })
+    if (e) {
+      setError(e.message)
+      setGuardando(false)
+      return
+    }
     setForm({ nombre: '', descripcion: '', color: 'blue', permisos: [] })
     setShowForm(false)
     setGuardando(false)
@@ -168,6 +175,7 @@ function TabRoles() {
               <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
               <button onClick={handleCrear} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
           </div>
         )}
         {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
@@ -221,28 +229,32 @@ function TabRoles() {
 
 // ─── 2. USUARIOS INTERNOS ─────────────────────────────────────────────────────
 function TabUsuariosInternos() {
-  const [usuarios, setUsuarios] = useState<{id:string;nombre:string;apellido:string;email:string;rol:string;ultimo:string;activo:boolean}[]>([])
-  const [rolesDisponibles, setRolesDisponibles] = useState<string[]>([])
+  const [usuarios, setUsuarios] = useState<{id:string;nombre:string;apellido:string;email:string;rolId:string;rolNombre:string;ultimo:string;activo:boolean}[]>([])
+  const [rolesDisponibles, setRolesDisponibles] = useState<{id:string;nombre:string}[]>([])
   const [cargando, setCargando] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', rol: '' })
+  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', rolId: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const cargar = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
     const [usrRes, rolRes] = await Promise.all([
-      sb.from('usuarios_internos').select('id, nombre, apellido, email, rol, ultimo_acceso, activo').order('created_at', { ascending: false }),
-      sb.from('roles').select('nombre').eq('activo', true).order('nombre'),
+      sb.from('usuarios_internos').select('id, nombre, apellido, email, rol_id, roles(nombre), ultimo_acceso, activo').order('created_at', { ascending: false }),
+      sb.from('roles').select('id, nombre').eq('activo', true).order('nombre'),
     ])
-    if (usrRes.data) setUsuarios(usrRes.data.map((u: Record<string,unknown>) => ({
-      id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''),
-      email: String(u.email ?? ''), rol: String(u.rol ?? ''),
-      ultimo: String((u.ultimo_acceso as string)?.slice(0,16).replace('T',' ') ?? '—'),
-      activo: Boolean(u.activo),
-    })))
-    if (rolRes.data) setRolesDisponibles(rolRes.data.map((r: Record<string,unknown>) => String(r.nombre ?? '')))
+    if (usrRes.data) setUsuarios(usrRes.data.map((u: Record<string,unknown>) => {
+      const rol = u.roles as { nombre?: string } | null
+      return {
+        id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''),
+        email: String(u.email ?? ''), rolId: u.rol_id ? String(u.rol_id) : '', rolNombre: rol?.nombre ?? '—',
+        ultimo: String((u.ultimo_acceso as string)?.slice(0,16).replace('T',' ') ?? '—'),
+        activo: Boolean(u.activo),
+      }
+    }))
+    if (rolRes.data) setRolesDisponibles(rolRes.data.map((r: Record<string,unknown>) => ({ id: String(r.id), nombre: String(r.nombre ?? '') })))
     setCargando(false)
   }, [])
 
@@ -250,32 +262,39 @@ function TabUsuariosInternos() {
 
   const abrirNuevo = () => {
     setEditId(null)
-    setForm({ nombre: '', apellido: '', email: '', rol: '' })
+    setForm({ nombre: '', apellido: '', email: '', rolId: '' })
+    setError('')
     setShowForm(true)
   }
 
   const abrirEditar = (u: typeof usuarios[number]) => {
     setEditId(u.id)
-    setForm({ nombre: u.nombre, apellido: u.apellido, email: u.email, rol: u.rol })
+    setForm({ nombre: u.nombre, apellido: u.apellido, email: u.email, rolId: u.rolId })
+    setError('')
     setShowForm(true)
   }
 
   const handleGuardar = async () => {
-    if (!form.nombre || !form.email || !form.rol) return
+    setError('')
+    if (!form.nombre || !form.email || !form.rolId) {
+      setError('Nombre, correo y rol son obligatorios.' + (rolesDisponibles.length === 0 ? ' No hay roles activos disponibles: crea uno primero en la pestaña "Roles y permisos".' : ''))
+      return
+    }
     setGuardando(true)
     const sb = getSupabaseBrowserClient()
-    if (editId) {
-      await sb.from('usuarios_internos').update({
-        nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
-        email: form.email.toLowerCase(), rol: form.rol,
-      }).eq('id', editId)
-    } else {
-      await sb.from('usuarios_internos').insert({
-        nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
-        email: form.email.toLowerCase(), rol: form.rol, activo: true,
-      })
+    const payload = {
+      nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(),
+      email: form.email.toLowerCase(), rol_id: form.rolId,
     }
-    setForm({ nombre: '', apellido: '', email: '', rol: '' })
+    const { error: e } = editId
+      ? await sb.from('usuarios_internos').update(payload).eq('id', editId)
+      : await sb.from('usuarios_internos').insert({ ...payload, activo: true })
+    if (e) {
+      setError(e.message)
+      setGuardando(false)
+      return
+    }
+    setForm({ nombre: '', apellido: '', email: '', rolId: '' })
     setEditId(null)
     setShowForm(false)
     setGuardando(false)
@@ -308,9 +327,9 @@ function TabUsuariosInternos() {
             <div><label className="text-xs text-slate-500 mb-1 block">Apellido(s)</label><input type="text" value={form.apellido} onChange={e => setForm(f => ({...f, apellido: e.target.value.toUpperCase()}))} className={iCls2} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Correo*</label><input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={iCls2} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Rol*</label>
-              <select value={form.rol} onChange={e => setForm(f => ({...f, rol: e.target.value}))} className={iCls2}>
+              <select value={form.rolId} onChange={e => setForm(f => ({...f, rolId: e.target.value}))} className={iCls2}>
                 <option value="">{rolesDisponibles.length === 0 ? 'Sin roles activos...' : 'Seleccionar...'}</option>
-                {rolesDisponibles.map(r => <option key={r}>{r}</option>)}
+                {rolesDisponibles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             </div>
           </div>
@@ -318,6 +337,7 @@ function TabUsuariosInternos() {
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
             <button onClick={handleGuardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
+          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
       )}
       <div className="overflow-x-auto">
@@ -341,7 +361,7 @@ function TabUsuariosInternos() {
               <tr key={u.id} className={`hover:bg-slate-50 ${!u.activo ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 font-medium text-slate-800">{u.nombre} {u.apellido}</td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{u.email}</td>
-                <td className="px-4 py-3"><Badge text={u.rol} color="blue" /></td>
+                <td className="px-4 py-3"><Badge text={u.rolNombre} color="blue" /></td>
                 <td className="px-4 py-3 text-xs text-slate-400">{u.ultimo}</td>
                 <td className="px-4 py-3 text-center"><Toggle value={u.activo} onChange={() => toggleActivo(u.id, u.activo)} /></td>
                 <td className="px-4 py-3 text-right">
@@ -475,6 +495,7 @@ function TabServicios() {
   const [form, setForm] = useState({ nombre: '', descripcion: '', icono: '🚘', requiereEvidencia: true, requiereFirma: true })
   const [guardando, setGuardando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -492,18 +513,22 @@ function TabServicios() {
     setServicios(prev => prev.map(s => s.id === id ? { ...s, [field === 'requiere_evidencia' ? 'requiereEvidencia' : field === 'requiere_firma' ? 'requiereFirma' : 'activo']: !val } : s))
   }
 
-  const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚘', requiereEvidencia: true, requiereFirma: true }); setShowForm(true) }
-  const abrirEditar = (s: typeof servicios[number]) => { setEditId(s.id); setForm({ nombre: s.nombre, descripcion: s.descripcion, icono: s.icono || '🚘', requiereEvidencia: s.requiereEvidencia, requiereFirma: s.requiereFirma }); setShowForm(true) }
+  const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚘', requiereEvidencia: true, requiereFirma: true }); setError(''); setShowForm(true) }
+  const abrirEditar = (s: typeof servicios[number]) => { setEditId(s.id); setForm({ nombre: s.nombre, descripcion: s.descripcion, icono: s.icono || '🚘', requiereEvidencia: s.requiereEvidencia, requiereFirma: s.requiereFirma }); setError(''); setShowForm(true) }
 
   const guardar = async () => {
-    if (!form.nombre) return
+    if (!form.nombre) { setError('El nombre es obligatorio.'); return }
     setGuardando(true)
+    setError('')
     const sb = await getSb()
     const payload = { nombre: form.nombre, descripcion: form.descripcion, icono: form.icono, requiere_evidencia: form.requiereEvidencia, requiere_firma: form.requiereFirma }
-    if (editId) {
-      await sb.from('tipos_servicio').update(payload).eq('id', editId)
-    } else {
-      await sb.from('tipos_servicio').insert({ ...payload, activo: true })
+    const { error: e } = editId
+      ? await sb.from('tipos_servicio').update(payload).eq('id', editId)
+      : await sb.from('tipos_servicio').insert({ ...payload, activo: true })
+    if (e) {
+      setError(e.message)
+      setGuardando(false)
+      return
     }
     setShowForm(false); setEditId(null); setGuardando(false)
     cargar()
@@ -534,6 +559,7 @@ function TabServicios() {
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
             <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
+          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
       )}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-slate-100 animate-pulse rounded-lg" />)}</div> : (
@@ -691,6 +717,8 @@ function TabEvidencia() {
   })
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const [guardado, setGuardado] = useState(false)
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -705,9 +733,14 @@ function TabEvidencia() {
 
   const guardar = async () => {
     setGuardando(true)
+    setError('')
+    setGuardado(false)
     const sb = await getSb()
-    await sb.from('configuracion').upsert({ clave: 'reglas_evidencia', valor: JSON.stringify(reglas) }, { onConflict: 'clave' })
+    const { error: e } = await sb.from('configuracion').upsert({ clave: 'reglas_evidencia', valor: JSON.stringify(reglas) }, { onConflict: 'clave' })
     setGuardando(false)
+    if (e) { setError(e.message); return }
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2500)
   }
 
   const fotos = [
@@ -770,7 +803,9 @@ function TabEvidencia() {
             </select>
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end items-center gap-3">
+          {guardado && <span className="text-xs text-green-600 font-medium">✓ Reglas guardadas</span>}
+          {error && <span className="text-xs text-red-600">{error}</span>}
           <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar reglas'}
           </button>
@@ -872,6 +907,7 @@ function TabNotificaciones() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({ evento: '', destinatario: '', canal: [] as string[] })
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
 
   const CANALES = ['Email', 'App', 'SMS', 'WhatsApp']
 
@@ -891,18 +927,22 @@ function TabNotificaciones() {
     setPlantillas(prev => prev.map(p => p.id === id ? { ...p, activa: !activa } : p))
   }
 
-  const abrirNueva = () => { setEditId(null); setForm({ evento: '', destinatario: '', canal: [] }); setShowForm(true) }
-  const abrirEditar = (p: typeof plantillas[number]) => { setEditId(p.id); setForm({ evento: p.evento, destinatario: p.destinatario, canal: p.canal }); setShowForm(true) }
+  const abrirNueva = () => { setEditId(null); setForm({ evento: '', destinatario: '', canal: [] }); setError(''); setShowForm(true) }
+  const abrirEditar = (p: typeof plantillas[number]) => { setEditId(p.id); setForm({ evento: p.evento, destinatario: p.destinatario, canal: p.canal }); setError(''); setShowForm(true) }
 
   const guardar = async () => {
-    if (!form.evento) return
+    if (!form.evento) { setError('El evento es obligatorio.'); return }
     setGuardando(true)
+    setError('')
     const sb = await getSb()
     const payload = { evento: form.evento, destinatario: form.destinatario, canal: form.canal }
-    if (editId) {
-      await sb.from('plantillas_notificacion').update(payload).eq('id', editId)
-    } else {
-      await sb.from('plantillas_notificacion').insert({ ...payload, activa: true })
+    const { error: e } = editId
+      ? await sb.from('plantillas_notificacion').update(payload).eq('id', editId)
+      : await sb.from('plantillas_notificacion').insert({ ...payload, activa: true })
+    if (e) {
+      setError(e.message)
+      setGuardando(false)
+      return
     }
     setShowForm(false); setEditId(null); setGuardando(false)
     cargar()
@@ -938,6 +978,7 @@ function TabNotificaciones() {
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
             <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
+          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
       )}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
@@ -975,6 +1016,9 @@ function TabPagos() {
   const [form, setForm] = useState({ nombre: '', descripcion: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [errorCiclo, setErrorCiclo] = useState('')
+  const [cicloGuardado, setCicloGuardado] = useState(false)
 
   const getSb = async () => getSupabaseBrowserClient()
 
@@ -995,17 +1039,21 @@ function TabPagos() {
     setMetodos(prev => prev.map(m => m.id === id ? { ...m, activo: !activo } : m))
   }
 
-  const abrirNuevoMetodo = () => { setEditId(null); setForm({ nombre: '', descripcion: '' }); setShowForm(true) }
-  const abrirEditarMetodo = (m: typeof metodos[number]) => { setEditId(m.id); setForm({ nombre: m.nombre, descripcion: m.descripcion }); setShowForm(true) }
+  const abrirNuevoMetodo = () => { setEditId(null); setForm({ nombre: '', descripcion: '' }); setError(''); setShowForm(true) }
+  const abrirEditarMetodo = (m: typeof metodos[number]) => { setEditId(m.id); setForm({ nombre: m.nombre, descripcion: m.descripcion }); setError(''); setShowForm(true) }
 
   const guardarMetodo = async () => {
-    if (!form.nombre) return
+    if (!form.nombre) { setError('El nombre es obligatorio.'); return }
     setGuardando(true)
+    setError('')
     const sb = await getSb()
-    if (editId) {
-      await sb.from('metodos_pago').update({ nombre: form.nombre, descripcion: form.descripcion }).eq('id', editId)
-    } else {
-      await sb.from('metodos_pago').insert({ nombre: form.nombre, descripcion: form.descripcion, activo: true })
+    const { error: e } = editId
+      ? await sb.from('metodos_pago').update({ nombre: form.nombre, descripcion: form.descripcion }).eq('id', editId)
+      : await sb.from('metodos_pago').insert({ nombre: form.nombre, descripcion: form.descripcion, activo: true })
+    if (e) {
+      setError(e.message)
+      setGuardando(false)
+      return
     }
     setForm({ nombre: '', descripcion: '' }); setEditId(null); setShowForm(false); setGuardando(false)
     cargar()
@@ -1019,9 +1067,14 @@ function TabPagos() {
 
   const guardarCiclo = async () => {
     setGuardandoCiclo(true)
+    setErrorCiclo('')
+    setCicloGuardado(false)
     const sb = await getSb()
-    await sb.from('configuracion').upsert({ clave: 'ciclo_pago', valor: JSON.stringify(ciclo) }, { onConflict: 'clave' })
+    const { error: e } = await sb.from('configuracion').upsert({ clave: 'ciclo_pago', valor: JSON.stringify(ciclo) }, { onConflict: 'clave' })
     setGuardandoCiclo(false)
+    if (e) { setErrorCiclo(e.message); return }
+    setCicloGuardado(true)
+    setTimeout(() => setCicloGuardado(false), 2500)
   }
 
   return (
@@ -1039,6 +1092,7 @@ function TabPagos() {
               <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
               <button onClick={guardarMetodo} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
             </div>
+            {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
           </div>
         )}
         {cargando ? <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
@@ -1083,7 +1137,9 @@ function TabPagos() {
             <input type="number" min="0" max="100" step="0.1" value={ciclo.comision} onChange={e => setCiclo(c => ({ ...c, comision: +e.target.value }))} className={iCls()} />
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end items-center gap-3">
+          {cicloGuardado && <span className="text-xs text-green-600 font-medium">✓ Ciclo guardado</span>}
+          {errorCiclo && <span className="text-xs text-red-600">{errorCiclo}</span>}
           <button onClick={guardarCiclo} disabled={guardandoCiclo} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardandoCiclo ? 'Guardando...' : 'Guardar ciclo'}
           </button>
