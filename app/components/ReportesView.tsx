@@ -13,6 +13,24 @@ import { getSupabaseBrowserClient } from '@/lib/supabase'
 type MainTab = 'operativos' | 'financieros' | 'conductores' | 'usuarios'
 type Periodo = 'hoy' | 'semana' | 'mes' | 'trimestre'
 
+// ─── EXPORTAR CSV ───────────────────────────────────────────────────────────
+function descargarCSV(filename: string, headers: string[], rows: (string | number)[][]) {
+  const esc = (v: string | number) => {
+    const s = String(v ?? '')
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 // ─── MINI CHART ───────────────────────────────────────────────────────────────
 function BarChart({ data, color = '#3b82f6', height = 80 }: {
   data: { label: string; value: number }[]; color?: string; height?: number
@@ -120,7 +138,7 @@ function periodoFecha(periodo: Periodo): string {
 }
 
 // ─── REPORTE OPERATIVO ────────────────────────────────────────────────────────
-function ReporteOperativo({ periodo }: { periodo: Periodo }) {
+function ReporteOperativo({ periodo, onExportable }: { periodo: Periodo; onExportable: (fn: () => void) => void }) {
   const [data, setData] = useState<{
     total: number; cancelados: number; porStatus: Record<string,number>
     porTipo: { tipo: string; count: number }[]
@@ -171,6 +189,20 @@ function ReporteOperativo({ periodo }: { periodo: Periodo }) {
     cargar()
   }, [periodo])
 
+  useEffect(() => {
+    if (!data) return
+    onExportable(() => {
+      descargarCSV(`reporte_operativo_${periodo}.csv`,
+        ['Sección', 'Etiqueta', 'Valor', 'Adicional'],
+        [
+          ...data.barData.map(d => ['Viajes por período', d.label, d.value, '']),
+          ...Object.entries(data.porStatus).map(([s, c]) => ['Viajes por estatus', s, c, '']),
+          ...data.incidencias.map(i => ['Incidencias por tipo', i.tipo, i.count, `${i.resueltas} resueltas`]),
+        ]
+      )
+    })
+  }, [data, periodo, onExportable])
+
   if (!data) return <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
 
   const tasaCancelacion = data.total ? ((data.cancelados / data.total) * 100).toFixed(1) : '0'
@@ -184,12 +216,12 @@ function ReporteOperativo({ periodo }: { periodo: Periodo }) {
         <KpiCard label="Incidencias" value={data.incidencias.reduce((s, i) => s + i.count, 0)} sub="registradas en el período" sparkline={[0, data.incidencias.length]} color="amber" />
       </div>
 
-      <SCard title="📊 Viajes por Período" subtitle="Distribución temporal de traslados" onDownload={() => {}}>
+      <SCard title="📊 Viajes por Período" subtitle="Distribución temporal de traslados" onDownload={() => descargarCSV(`viajes_por_periodo_${periodo}.csv`, ['Período', 'Viajes'], data.barData.map(d => [d.label, d.value]))}>
         <BarChart data={data.barData} color="#3b82f6" height={120} />
       </SCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <SCard title="🚗 Viajes por Estatus" onDownload={() => {}}>
+        <SCard title="🚗 Viajes por Estatus" onDownload={() => descargarCSV(`viajes_por_estatus_${periodo}.csv`, ['Estatus', 'Cantidad', '% del total'], Object.entries(data.porStatus).map(([status, count]) => [status, count, data.total ? `${((count/data.total)*100).toFixed(0)}%` : '0%']))}>
           <div className="space-y-3">
             {Object.entries(data.porStatus).map(([status, count], i) => (
               <div key={i}>
@@ -206,7 +238,7 @@ function ReporteOperativo({ periodo }: { periodo: Periodo }) {
           </div>
         </SCard>
 
-        <SCard title="⚠️ Incidencias por Tipo" subtitle="Registradas en el período" onDownload={() => {}}>
+        <SCard title="⚠️ Incidencias por Tipo" subtitle="Registradas en el período" onDownload={() => descargarCSV(`incidencias_por_tipo_${periodo}.csv`, ['Tipo', 'Total', 'Resueltas', 'Abiertas'], data.incidencias.map(i => [i.tipo, i.count, i.resueltas, i.count - i.resueltas]))}>
           <ReportTable
             headers={['Tipo', 'Total', 'Resueltas', 'Abiertas']}
             rows={data.incidencias.map(i => [i.tipo, i.count, i.resueltas, i.count - i.resueltas])}
@@ -218,7 +250,7 @@ function ReporteOperativo({ periodo }: { periodo: Periodo }) {
 }
 
 // ─── REPORTE FINANCIERO ───────────────────────────────────────────────────────
-function ReporteFinanciero({ periodo }: { periodo: Periodo }) {
+function ReporteFinanciero({ periodo, onExportable }: { periodo: Periodo; onExportable: (fn: () => void) => void }) {
   const [data, setData] = useState<{
     totalIng: number; totalPagado: number; totalGastos: number
     pendienteCobro: number; pendienteConductores: number
@@ -273,6 +305,20 @@ function ReporteFinanciero({ periodo }: { periodo: Periodo }) {
     cargar()
   }, [periodo])
 
+  useEffect(() => {
+    if (!data) return
+    onExportable(() => {
+      descargarCSV(`reporte_financiero_${periodo}.csv`,
+        ['Sección', 'Etiqueta', 'Valor', 'Adicional'],
+        [
+          ...data.barData.map(d => ['Ingresos por período', d.label, d.value, '']),
+          ...data.viajes.map(v => ['Pagos pendientes de cobro', v.folio, v.tarifa, `${v.empresa} · ${v.status}`]),
+          ...data.conductores.map(c => ['Pagos pendientes a conductores', c.nombre, c.deposito, `${c.viajes} viajes · ${c.status}`]),
+        ]
+      )
+    })
+  }, [data, periodo, onExportable])
+
   if (!data) return <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">{[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}</div>
 
   const margen = data.totalIng - data.totalPagado - data.totalGastos
@@ -294,18 +340,18 @@ function ReporteFinanciero({ periodo }: { periodo: Periodo }) {
         <KpiCard label="Margen estimado" value={`$${margen.toLocaleString()}`} sub={`${margenPct}% del ingreso`} sparkline={[0, margen]} color="purple" />
       </div>
 
-      <SCard title="💰 Ingresos por Período" subtitle="Facturación total al cliente" onDownload={() => {}}>
+      <SCard title="💰 Ingresos por Período" subtitle="Facturación total al cliente" onDownload={() => descargarCSV(`ingresos_por_periodo_${periodo}.csv`, ['Período', 'Ingresos'], data.barData.map(d => [d.label, d.value]))}>
         <BarChart data={data.barData} color="#10b981" height={120} />
       </SCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <SCard title="📋 Pagos Pendientes de Cobro" onDownload={() => {}}>
+        <SCard title="📋 Pagos Pendientes de Cobro" onDownload={() => descargarCSV(`pagos_pendientes_cobro_${periodo}.csv`, ['Viaje', 'Cliente', 'Monto', 'Estatus'], data.viajes.map(v => [v.folio, v.empresa, v.tarifa, v.status]))}>
           <ReportTable
             headers={['Viaje', 'Cliente', 'Monto', 'Estatus']}
             rows={data.viajes.map(v => [v.folio, v.empresa, `$${v.tarifa.toLocaleString()}`, estatusBadge(v.status)])}
           />
         </SCard>
-        <SCard title="💸 Pagos Pendientes a Conductores" onDownload={() => {}}>
+        <SCard title="💸 Pagos Pendientes a Conductores" onDownload={() => descargarCSV(`pagos_pendientes_conductores_${periodo}.csv`, ['Conductor', 'Viajes', 'Depósito', 'Estatus'], data.conductores.map(c => [c.nombre, c.viajes, c.deposito, c.status]))}>
           <ReportTable
             headers={['Conductor', 'Viajes', 'Depósito', 'Estatus']}
             rows={data.conductores.map(c => [c.nombre, c.viajes, `$${c.deposito.toLocaleString()}`, estatusBadge(c.status)])}
@@ -317,7 +363,7 @@ function ReporteFinanciero({ periodo }: { periodo: Periodo }) {
 }
 
 // ─── REPORTE CONDUCTORES ──────────────────────────────────────────────────────
-function ReporteConductores() {
+function ReporteConductores({ onExportable }: { onExportable: (fn: () => void) => void }) {
   const [conductores, setConductores] = useState<{
     id: string; nombre: string; viajes: number; calif: number
     incidencias: number; ganancias: number; estatus: string; docsAlert: number
@@ -355,6 +401,16 @@ function ReporteConductores() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  useEffect(() => {
+    if (cargando) return
+    onExportable(() => {
+      descargarCSV('reporte_conductores.csv',
+        ['Conductor', 'Viajes', 'Calificación', 'Incidencias', 'Ganancias', 'Documentos con alerta', 'Estatus'],
+        conductores.map(c => [c.nombre, c.viajes, c.calif, c.incidencias, c.ganancias, c.docsAlert, c.estatus])
+      )
+    })
+  }, [cargando, conductores, onExportable])
+
   function Stars({ v }: { v: number }) {
     if (!v) return <span className="text-xs text-slate-300">—</span>
     return <span className="text-xs font-semibold text-amber-500">{'★'.repeat(Math.round(v))} {v.toFixed(1)}</span>
@@ -376,7 +432,7 @@ function ReporteConductores() {
         <KpiCard label="Total conductores" value={conductores.length} sub="registrados en sistema" sparkline={[0, conductores.length]} color="blue" />
       </div>
 
-      <SCard title="👤 Desempeño por Conductor" subtitle="Comparativo general" onDownload={() => {}}>
+      <SCard title="👤 Desempeño por Conductor" subtitle="Comparativo general" onDownload={() => descargarCSV('desempeno_por_conductor.csv', ['Conductor', 'Viajes', 'Calificación', 'Incidencias', 'Ganancias', 'Documentos con alerta', 'Estatus'], conductores.map(c => [c.nombre, c.viajes, c.calif, c.incidencias, c.ganancias, c.docsAlert, c.estatus]))}>
         <ReportTable
           headers={['Conductor', 'Viajes', 'Calificación', 'Incidencias', 'Ganancias', 'Docs', 'Estatus']}
           rows={conductores.map(c => [
@@ -416,7 +472,7 @@ function ReporteConductores() {
 }
 
 // ─── REPORTE USUARIOS ─────────────────────────────────────────────────────────
-function ReporteUsuarios() {
+function ReporteUsuarios({ onExportable }: { onExportable: (fn: () => void) => void }) {
   const [empresas, setEmpresas] = useState<{
     id: string; nombre: string; tipo: string; viajes: number; facturado: number; incidencias: number
   }[]>([])
@@ -455,6 +511,16 @@ function ReporteUsuarios() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  useEffect(() => {
+    if (cargando) return
+    onExportable(() => {
+      descargarCSV('reporte_usuarios_empresas.csv',
+        ['#', 'Empresa', 'Tipo', 'Viajes', 'Facturado', 'Incidencias'],
+        empresas.map((e, i) => [i+1, e.nombre, e.tipo, e.viajes, e.facturado, e.incidencias])
+      )
+    })
+  }, [cargando, empresas, onExportable])
+
   const totalViajes = empresas.reduce((s, e) => s + e.viajes, 0)
   const totalFact = empresas.reduce((s, e) => s + e.facturado, 0)
   const maxFact = Math.max(...empresas.map(e => e.facturado), 1)
@@ -470,7 +536,7 @@ function ReporteUsuarios() {
         <KpiCard label="Total facturado" value={`$${totalFact.toLocaleString()}`} sub="ingresos cobrados" sparkline={[0, totalFact]} color="purple" />
       </div>
 
-      <SCard title="🏢 Ranking de Empresas" subtitle="Por volumen de viajes y facturación" onDownload={() => {}}>
+      <SCard title="🏢 Ranking de Empresas" subtitle="Por volumen de viajes y facturación" onDownload={() => descargarCSV('ranking_empresas.csv', ['#', 'Empresa', 'Tipo', 'Viajes', 'Facturado', 'Incidencias'], empresas.map((e, i) => [i+1, e.nombre, e.tipo, e.viajes, e.facturado, e.incidencias]))}>
         <ReportTable
           headers={['#', 'Empresa', 'Tipo', 'Viajes', 'Facturado', 'Incidencias']}
           rows={empresas.map((e, i) => [
@@ -510,6 +576,7 @@ function ReporteUsuarios() {
 export default function ReportesView() {
   const [tab, setTab]         = useState<MainTab>('operativos')
   const [periodo, setPeriodo] = useState<Periodo>('semana')
+  const [exportarActivo, setExportarActivo] = useState<(() => void) | null>(null)
 
   const mainTabs: { id: MainTab; label: string; icon: React.ReactNode }[] = [
     { id: 'operativos',   label: 'Operativos',          icon: <TruckIcon className="w-4 h-4" /> },
@@ -543,7 +610,7 @@ export default function ReportesView() {
                 ))}
               </div>
             )}
-            <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
+            <button onClick={() => exportarActivo?.()} disabled={!exportarActivo} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-lg transition-colors">
               <ArrowDownTrayIcon className="w-4 h-4" />Exportar
             </button>
           </div>
@@ -558,10 +625,10 @@ export default function ReportesView() {
         </div>
       </div>
 
-      {tab === 'operativos'  && <ReporteOperativo  periodo={periodo} />}
-      {tab === 'financieros' && <ReporteFinanciero periodo={periodo} />}
-      {tab === 'conductores' && <ReporteConductores />}
-      {tab === 'usuarios'    && <ReporteUsuarios />}
+      {tab === 'operativos'  && <ReporteOperativo  periodo={periodo} onExportable={setExportarActivo} />}
+      {tab === 'financieros' && <ReporteFinanciero periodo={periodo} onExportable={setExportarActivo} />}
+      {tab === 'conductores' && <ReporteConductores onExportable={setExportarActivo} />}
+      {tab === 'usuarios'    && <ReporteUsuarios onExportable={setExportarActivo} />}
     </div>
   )
 }

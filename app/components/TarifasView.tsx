@@ -275,6 +275,7 @@ export default function TarifasView() {
   const [editId, setEditId]     = useState<string | null>(null)
   const [editData, setEditData] = useState<Record<string, unknown>>({})
   const [guardando, setGuardando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const [tarifasBase, setTarifasBase]         = useState<TarifaBase[]>([])
   const [recargos, setRecargos]               = useState<Recargo[]>([])
@@ -401,6 +402,34 @@ export default function TarifasView() {
     if (section === 'rutas') setRutasFrecuentes(prev => toggle(prev) as RutaFrecuente[])
   }
 
+  const DEFAULTS: Record<MainTab, Record<string, unknown>> = {
+    bases: { nombre: 'Nueva tarifa', tipo_vehiculo: 'Todos', tipo_servicio: 'Traslado local', tarifa_base: 0, por_km: 0, tarifa_minima: 0, tiempo_estimado: 0, activa: true },
+    recargos: { nombre: 'Nuevo recargo', tipo: 'porcentaje', valor: 0, aplica: '', activo: true },
+    conductores: { tipo_servicio: 'Traslado local', tipo_vehiculo: 'Todos', pago_base: 0, por_km: 0, gastos_autorizados: 0, viaticos: 0, activo: true },
+    empresariales: { empresa: 'Nueva empresa', descuento: 0, tarifa_fija: null, vigencia_desde: new Date().toISOString().slice(0,10), vigencia_hasta: '', servicios_incluidos: [], activa: true },
+    rutas: { nombre: 'Nueva ruta', origen: '', destino: '', distancia_km: 0, tarifa_fija: 0, pago_conductor: 0, tiempo_est: 0, tipo_vehiculo: 'Todos', activa: true },
+  }
+
+  const addNuevo = async (section: MainTab) => {
+    setGuardando(true)
+    const sb = await getSb()
+    const { data } = await sb.from(TABLA[section]).insert(DEFAULTS[section]).select().single()
+    if (data) await cargar()
+    setGuardando(false)
+  }
+
+  const eliminar = async (section: MainTab, id: string) => {
+    setGuardando(true)
+    const sb = await getSb()
+    await sb.from(TABLA[section]).delete().eq('id', id)
+    if (section === 'bases') setTarifasBase(prev => prev.filter(r => r.id !== id))
+    if (section === 'recargos') setRecargos(prev => prev.filter(r => r.id !== id))
+    if (section === 'conductores') setPagosConductor(prev => prev.filter(r => r.id !== id))
+    if (section === 'empresariales') setTarifasEmp(prev => prev.filter(r => r.id !== id))
+    if (section === 'rutas') setRutasFrecuentes(prev => prev.filter(r => r.id !== id))
+    setGuardando(false)
+  }
+
   const E = (id: string) => editId === id
   const set = (k: string, v: unknown) => setEditData(d => ({ ...d, [k]: v }))
   const str = (v: unknown) => String(v ?? '')
@@ -467,7 +496,7 @@ export default function TarifasView() {
         {tab === 'bases' && (
           <div className="overflow-x-auto">
             <div className="p-4 flex justify-end border-b border-slate-100">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
+              <button onClick={() => addNuevo('bases')} disabled={guardando} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors">
                 <PlusIcon className="w-3.5 h-3.5" />Nueva tarifa base
               </button>
             </div>
@@ -522,10 +551,20 @@ export default function TarifasView() {
                           <button onClick={() => saveEdit('bases')} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><CheckIcon className="w-4 h-4" /></button>
                           <button onClick={cancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><XMarkIcon className="w-4 h-4" /></button>
                         </div>
+                      ) : confirmDelete === t.id ? (
+                        <span className="inline-flex items-center gap-1.5 justify-end">
+                          <button onClick={() => { eliminar('bases', t.id); setConfirmDelete(null) }} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                          <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                        </span>
                       ) : (
-                        <button onClick={() => startEdit(t.id, t)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                          <PencilSquareIcon className="w-4 h-4" />
-                        </button>
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => startEdit(t.id, t)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <PencilSquareIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setConfirmDelete(t.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -538,8 +577,11 @@ export default function TarifasView() {
         {/* ── TAB: RECARGOS ── */}
         {tab === 'recargos' && (
           <div className="overflow-x-auto">
-            <div className="p-4 border-b border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <p className="text-xs text-slate-500">Los recargos se aplican sobre la tarifa base según las condiciones del viaje.</p>
+              <button onClick={() => addNuevo('recargos')} disabled={guardando} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors flex-shrink-0">
+                <PlusIcon className="w-3.5 h-3.5" />Nuevo recargo
+              </button>
             </div>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
@@ -577,10 +619,20 @@ export default function TarifasView() {
                           <button onClick={() => saveEdit('recargos')} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><CheckIcon className="w-4 h-4" /></button>
                           <button onClick={cancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><XMarkIcon className="w-4 h-4" /></button>
                         </div>
+                      ) : confirmDelete === r.id ? (
+                        <span className="inline-flex items-center gap-1.5 justify-end">
+                          <button onClick={() => { eliminar('recargos', r.id); setConfirmDelete(null) }} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                          <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                        </span>
                       ) : (
-                        <button onClick={() => startEdit(r.id, r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                          <PencilSquareIcon className="w-4 h-4" />
-                        </button>
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => startEdit(r.id, r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <PencilSquareIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -593,8 +645,11 @@ export default function TarifasView() {
         {/* ── TAB: PAGO CONDUCTOR ── */}
         {tab === 'conductores' && (
           <div className="overflow-x-auto">
-            <div className="p-4 border-b border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <p className="text-xs text-slate-500">Configura el pago base, por kilómetro, gastos autorizados y viáticos por tipo de servicio y vehículo.</p>
+              <button onClick={() => addNuevo('conductores')} disabled={guardando} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors flex-shrink-0">
+                <PlusIcon className="w-3.5 h-3.5" />Nueva regla
+              </button>
             </div>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
@@ -661,10 +716,20 @@ export default function TarifasView() {
                             <button onClick={() => saveEdit('conductores')} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><CheckIcon className="w-4 h-4" /></button>
                             <button onClick={cancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><XMarkIcon className="w-4 h-4" /></button>
                           </div>
+                        ) : confirmDelete === p.id ? (
+                          <span className="inline-flex items-center gap-1.5 justify-end">
+                            <button onClick={() => { eliminar('conductores', p.id); setConfirmDelete(null) }} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                            <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                          </span>
                         ) : (
-                          <button onClick={() => startEdit(p.id, p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                            <PencilSquareIcon className="w-4 h-4" />
-                          </button>
+                          <div className="flex gap-1 justify-end">
+                            <button onClick={() => startEdit(p.id, p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                              <PencilSquareIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setConfirmDelete(p.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -679,7 +744,7 @@ export default function TarifasView() {
         {tab === 'empresariales' && (
           <div className="overflow-x-auto">
             <div className="p-4 flex justify-end border-b border-slate-100">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
+              <button onClick={() => addNuevo('empresariales')} disabled={guardando} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors">
                 <PlusIcon className="w-3.5 h-3.5" />Nuevo convenio
               </button>
             </div>
@@ -720,10 +785,15 @@ export default function TarifasView() {
                           <button onClick={() => saveEdit('empresariales')} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><CheckIcon className="w-4 h-4" /></button>
                           <button onClick={cancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><XMarkIcon className="w-4 h-4" /></button>
                         </div>
+                      ) : confirmDelete === t.id ? (
+                        <span className="inline-flex items-center gap-1.5 justify-end">
+                          <button onClick={() => { eliminar('empresariales', t.id); setConfirmDelete(null) }} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                          <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                        </span>
                       ) : (
                         <div className="flex gap-1 justify-end">
                           <button onClick={() => startEdit(t.id, t)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><PencilSquareIcon className="w-4 h-4" /></button>
-                          <button className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
+                          <button onClick={() => setConfirmDelete(t.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
                         </div>
                       )}
                     </td>
@@ -738,7 +808,7 @@ export default function TarifasView() {
         {tab === 'rutas' && (
           <div className="overflow-x-auto">
             <div className="p-4 flex justify-end border-b border-slate-100">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
+              <button onClick={() => addNuevo('rutas')} disabled={guardando} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors">
                 <PlusIcon className="w-3.5 h-3.5" />Nueva ruta
               </button>
             </div>
@@ -794,10 +864,15 @@ export default function TarifasView() {
                             <button onClick={() => saveEdit('rutas')} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><CheckIcon className="w-4 h-4" /></button>
                             <button onClick={cancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><XMarkIcon className="w-4 h-4" /></button>
                           </div>
+                        ) : confirmDelete === r.id ? (
+                          <span className="inline-flex items-center gap-1.5 justify-end">
+                            <button onClick={() => { eliminar('rutas', r.id); setConfirmDelete(null) }} className="text-xs text-red-600 font-medium hover:underline">Sí</button>
+                            <button onClick={() => setConfirmDelete(null)} className="text-xs text-slate-400 hover:underline">No</button>
+                          </span>
                         ) : (
                           <div className="flex gap-1 justify-end">
                             <button onClick={() => startEdit(r.id, r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><PencilSquareIcon className="w-4 h-4" /></button>
-                            <button className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
+                            <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
                           </div>
                         )}
                       </td>

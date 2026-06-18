@@ -115,11 +115,12 @@ function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: (
   const [revisadoPor, setRevisadoPor] = useState(doc.revisadoPor)
   const [guardando, setGuardando] = useState(false)
 
-  async function guardar() {
+  async function guardar(forzarEstatus?: EstatusDoc) {
     setGuardando(true)
+    const estatusFinal = forzarEstatus ?? estatus
     const sb = await getSB()
     await sb.from('documentos').update({
-      estatus, notas, revisado_por: revisadoPor, updated_at: new Date().toISOString()
+      estatus: estatusFinal, notas, revisado_por: revisadoPor, updated_at: new Date().toISOString()
     }).eq('id', doc._id)
     setGuardando(false)
     onSave()
@@ -194,11 +195,11 @@ function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: (
 
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-            <button onClick={() => { setEstatus('Rechazado'); }}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-medium transition-colors">
+            <button onClick={() => guardar('Rechazado')} disabled={guardando}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-60 rounded-lg font-medium transition-colors">
               <XCircleIcon className="w-4 h-4" />Rechazar
             </button>
-            <button onClick={guardar} disabled={guardando}
+            <button onClick={() => guardar()} disabled={guardando}
               className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Aprobar / Guardar'}
             </button>

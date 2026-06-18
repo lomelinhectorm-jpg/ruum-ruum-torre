@@ -88,24 +88,106 @@ const pagoEstatusStyle: Record<string, string> = {
 // ─── PANEL DETALLE ────────────────────────────────────────────────────────────
 type DetailTab = 'perfil' | 'viajes' | 'vehiculos' | 'pagos' | 'notas'
 
-function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
+function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onClose: () => void; onUpdate: () => void }) {
   const [tab, setTab] = useState<DetailTab>('perfil')
   const [editMode, setEditMode] = useState(false)
-  const [notas, setNotas] = useState(usuario.notas)
+  const [notas, setNotas] = useState<NotaInterna[]>([])
   const [nuevaNota, setNuevaNota] = useState('')
   const [estatus, setEstatus] = useState<Estatus>(usuario.estatus)
+  const [form, setForm] = useState({
+    nombre: usuario.nombre, apellido: usuario.apellido, curp: usuario.curp,
+    email: usuario.email, telefono: usuario.telefono, tipo: usuario.tipo,
+    razonSocial: usuario.razonSocial, rfc: usuario.rfc, regimenFiscal: usuario.regimenFiscal,
+    domicilioFiscal: usuario.domicilioFiscal, cfdi: usuario.cfdi,
+  })
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false)
+  const [viajes, setViajes] = useState<Viaje[]>([])
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
+  const [pagos, setPagos] = useState<Pago[]>([])
+  const [cargandoRelacionados, setCargandoRelacionados] = useState(true)
+  const nombreCompleto = `${usuario.nombre} ${usuario.apellido}`.trim()
 
-  const addNota = () => {
+  useEffect(() => {
+    const cargarRelacionados = async () => {
+      const sb = getSupabaseBrowserClient()
+      const [viajesRes, vehRes, pagosRes, notasRes] = await Promise.all([
+        sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, status').eq('usuario_id', usuario.id).order('created_at', { ascending: false }),
+        sb.from('vehiculos').select('marca, modelo, placas, anio').eq('usuario_id', usuario.id),
+        sb.from('pagos_usuarios').select('fecha_pago, tarifa, estatus, viaje_folio').eq('usuario_nombre', nombreCompleto).order('created_at', { ascending: false }),
+        sb.from('notas_internas').select('id, nota, autor, created_at').eq('entidad_tipo', 'usuario').eq('entidad_id', usuario.id).order('created_at', { ascending: false }),
+      ])
+
+      if (viajesRes.data) {
+        setViajes(viajesRes.data.map((v: Record<string, unknown>) => ({
+          id: String(v.folio ?? String(v.id).slice(0,8)),
+          fecha: String(v.fecha_programada ?? '—'),
+          origen: String(v.origen_calle ?? '—'),
+          destino: String(v.destino_calle ?? '—'),
+          estatus: String(v.status ?? '—'),
+        })))
+      }
+      if (vehRes.data) {
+        setVehiculos(vehRes.data.map((v: Record<string, unknown>) => ({
+          modelo: `${v.marca ?? ''} ${v.modelo ?? ''}`.trim() || '—',
+          placas: String(v.placas ?? '—'),
+          anio: String(v.anio ?? '—'),
+        })))
+      }
+      if (pagosRes.data) {
+        setPagos(pagosRes.data.map((p: Record<string, unknown>) => ({
+          fecha: String(p.fecha_pago ?? '—'),
+          monto: Number(p.tarifa ?? 0),
+          concepto: p.viaje_folio ? `Viaje ${p.viaje_folio}` : 'Viaje',
+          estatus: String(p.estatus ?? '—'),
+        })))
+      }
+      if (notasRes.data) {
+        setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
+          autor: String(n.autor ?? 'Admin'),
+          texto: String(n.nota ?? ''),
+          hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
+        })))
+      }
+      setCargandoRelacionados(false)
+    }
+    cargarRelacionados()
+  }, [usuario.id, nombreCompleto])
+
+  const cambiarEstatus = async (nuevo: Estatus) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('usuarios').update({ estatus: nuevo }).eq('id', usuario.id)
+    setEstatus(nuevo)
+    onUpdate()
+  }
+
+  const guardarPerfil = async () => {
+    setGuardandoPerfil(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('usuarios').update({
+      nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(), curp: form.curp.toUpperCase(),
+      email: form.email.toLowerCase(), telefono: form.telefono, tipo: form.tipo,
+      razon_social: form.razonSocial.toUpperCase(), rfc: form.rfc.toUpperCase(), regimen_fiscal: form.regimenFiscal,
+      domicilio_fiscal: form.domicilioFiscal.toUpperCase(), cfdi: form.cfdi,
+    }).eq('id', usuario.id)
+    setGuardandoPerfil(false)
+    setEditMode(false)
+    onUpdate()
+  }
+
+  const addNota = async () => {
     if (!nuevaNota.trim()) return
-    setNotas(n => [...n, { autor: 'Admin', texto: nuevaNota.trim(), hora: 'Ahora' }])
+    const sb = getSupabaseBrowserClient()
+    const texto = nuevaNota.trim()
+    await sb.from('notas_internas').insert({ entidad_tipo: 'usuario', entidad_id: usuario.id, nota: texto, autor: 'Admin' })
+    setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')
   }
 
   const tabs: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
     { id: 'perfil',    label: 'Perfil',    icon: <UserCircleIcon className="w-4 h-4" /> },
-    { id: 'viajes',    label: `Viajes (${usuario.viajes.length})`,     icon: <TruckIcon className="w-4 h-4" /> },
-    { id: 'vehiculos', label: `Vehículos (${usuario.vehiculos.length})`, icon: <BuildingOfficeIcon className="w-4 h-4" /> },
-    { id: 'pagos',     label: `Pagos (${usuario.pagos.length})`,       icon: <BanknotesIcon className="w-4 h-4" /> },
+    { id: 'viajes',    label: `Viajes (${viajes.length})`,     icon: <TruckIcon className="w-4 h-4" /> },
+    { id: 'vehiculos', label: `Vehículos (${vehiculos.length})`, icon: <BuildingOfficeIcon className="w-4 h-4" /> },
+    { id: 'pagos',     label: `Pagos (${pagos.length})`,       icon: <BanknotesIcon className="w-4 h-4" /> },
     { id: 'notas',     label: `Notas (${notas.length})`,               icon: <PencilSquareIcon className="w-4 h-4" /> },
   ]
 
@@ -135,14 +217,14 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
           <div className="flex items-center gap-2">
             {/* Acciones rápidas estatus */}
             {estatus === 'Activo' && (
-              <button onClick={() => setEstatus('Suspendido')}
+              <button onClick={() => cambiarEstatus('Suspendido')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
                 <ExclamationTriangleIcon className="w-3.5 h-3.5" />
                 Suspender
               </button>
             )}
             {estatus === 'Suspendido' && (
-              <button onClick={() => setEstatus('Activo')}
+              <button onClick={() => cambiarEstatus('Activo')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 transition-colors">
                 <CheckCircleIcon className="w-3.5 h-3.5" />
                 Reactivar
@@ -151,7 +233,7 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
             <button onClick={() => setEditMode(e => !e)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${editMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               <PencilSquareIcon className="w-3.5 h-3.5" />
-              {editMode ? 'Guardando...' : 'Editar datos'}
+              {editMode ? 'Editando...' : 'Editar datos'}
             </button>
             <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
           </div>
@@ -177,15 +259,15 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
               {/* Información principal */}
               <Section title="Información Principal" icon="👤">
                 <Grid2>
-                  <Field label="Nombre" editable={editMode} value={usuario.nombre} />
-                  <Field label="Apellido" editable={editMode} value={usuario.apellido} />
-                  <Field label="CURP" editable={editMode} value={usuario.curp} mono />
-                  <Field label="Correo electrónico" editable={editMode} value={usuario.email} />
-                  <Field label="Teléfono" editable={editMode} value={usuario.telefono} />
+                  <Field label="Nombre" editable={editMode} value={form.nombre} onChange={v => setForm(f => ({ ...f, nombre: v }))} />
+                  <Field label="Apellido" editable={editMode} value={form.apellido} onChange={v => setForm(f => ({ ...f, apellido: v }))} />
+                  <Field label="CURP" editable={editMode} value={form.curp} mono onChange={v => setForm(f => ({ ...f, curp: v }))} />
+                  <Field label="Correo electrónico" editable={editMode} value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} />
+                  <Field label="Teléfono" editable={editMode} value={form.telefono} onChange={v => setForm(f => ({ ...f, telefono: v }))} />
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Tipo de usuario</p>
                     {editMode ? (
-                      <select defaultValue={usuario.tipo} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoUsuario }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                         {TIPOS.map(t => <option key={t}>{t}</option>)}
                       </select>
                     ) : (
@@ -200,9 +282,9 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
                 </Grid2>
                 <div className="grid grid-cols-3 gap-3 mt-2">
                   {[
-                    { label: 'Viajes solicitados', value: usuario.viajesSolicitados, color: 'text-blue-600' },
-                    { label: 'Vehículos', value: usuario.vehiculos.length, color: 'text-indigo-600' },
-                    { label: 'Pagos registrados', value: usuario.pagos.length, color: 'text-emerald-600' },
+                    { label: 'Viajes solicitados', value: viajes.length, color: 'text-blue-600' },
+                    { label: 'Vehículos', value: vehiculos.length, color: 'text-indigo-600' },
+                    { label: 'Pagos registrados', value: pagos.length, color: 'text-emerald-600' },
                   ].map((s, i) => (
                     <div key={i} className="bg-slate-50 rounded-xl border border-slate-100 p-3 text-center">
                       <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -215,18 +297,18 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
               {/* Información fiscal */}
               <Section title="Información Fiscal" icon="🧾">
                 <Grid2>
-                  <Field label="Razón Social" editable={editMode} value={usuario.razonSocial} />
-                  <Field label="RFC" editable={editMode} value={usuario.rfc} mono />
-                  <Field label="Régimen Fiscal" editable={editMode} value={usuario.regimenFiscal} />
-                  <Field label="CFDI" editable={editMode} value={usuario.cfdi} />
+                  <Field label="Razón Social" editable={editMode} value={form.razonSocial} onChange={v => setForm(f => ({ ...f, razonSocial: v }))} />
+                  <Field label="RFC" editable={editMode} value={form.rfc} mono onChange={v => setForm(f => ({ ...f, rfc: v }))} />
+                  <Field label="Régimen Fiscal" editable={editMode} value={form.regimenFiscal} onChange={v => setForm(f => ({ ...f, regimenFiscal: v }))} />
+                  <Field label="CFDI" editable={editMode} value={form.cfdi} onChange={v => setForm(f => ({ ...f, cfdi: v }))} />
                 </Grid2>
-                <Field label="Domicilio Fiscal" editable={editMode} value={usuario.domicilioFiscal} />
+                <Field label="Domicilio Fiscal" editable={editMode} value={form.domicilioFiscal} onChange={v => setForm(f => ({ ...f, domicilioFiscal: v }))} />
               </Section>
 
               {editMode && (
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setEditMode(false)} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
-                  <button onClick={() => setEditMode(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">Guardar cambios</button>
+                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}</button>
                 </div>
               )}
             </div>
@@ -236,7 +318,9 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
           {tab === 'viajes' && (
             <div className="bg-white rounded-xl border border-slate-200">
               <div className="p-4 border-b border-slate-100 text-sm font-semibold text-slate-700">Historial de viajes</div>
-              {usuario.viajes.length === 0
+              {cargandoRelacionados
+                ? <div className="p-4 space-y-2">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
+                : viajes.length === 0
                 ? <p className="text-sm text-slate-400 italic p-6 text-center">Sin viajes registrados.</p>
                 : <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -248,7 +332,7 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {usuario.viajes.map((v, i) => (
+                    {viajes.map((v, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-semibold text-blue-600">{v.id}</td>
                         <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{v.fecha}</td>
@@ -267,9 +351,11 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
           {/* ── VEHÍCULOS ── */}
           {tab === 'vehiculos' && (
             <div className="space-y-3">
-              {usuario.vehiculos.length === 0
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : vehiculos.length === 0
                 ? <p className="text-sm text-slate-400 italic text-center py-8">Sin vehículos registrados.</p>
-                : usuario.vehiculos.map((v, i) => (
+                : vehiculos.map((v, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-50 rounded-lg">
@@ -280,7 +366,6 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
                         <p className="text-xs text-slate-400">Placas: <span className="font-mono">{v.placas}</span> · {v.anio}</p>
                       </div>
                     </div>
-                    <button className="text-xs text-blue-600 hover:underline">Ver viajes</button>
                   </div>
                 ))
               }
@@ -291,7 +376,9 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
           {tab === 'pagos' && (
             <div className="bg-white rounded-xl border border-slate-200">
               <div className="p-4 border-b border-slate-100 text-sm font-semibold text-slate-700">Historial de pagos</div>
-              {usuario.pagos.length === 0
+              {cargandoRelacionados
+                ? <div className="p-4 space-y-2">{[1,2].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
+                : pagos.length === 0
                 ? <p className="text-sm text-slate-400 italic p-6 text-center">Sin pagos registrados.</p>
                 : <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -303,7 +390,7 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {usuario.pagos.map((p, i) => (
+                    {pagos.map((p, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{p.fecha}</td>
                         <td className="px-4 py-3 text-slate-700">{p.concepto}</td>
@@ -323,7 +410,9 @@ function UsuarioDetalle({ usuario, onClose }: { usuario: Usuario; onClose: () =>
           {tab === 'notas' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-400 italic">Visibles únicamente para el equipo de operaciones.</p>
-              {notas.length === 0 && <p className="text-sm text-slate-400 italic text-center py-6">Sin notas aún.</p>}
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : notas.length === 0 && <p className="text-sm text-slate-400 italic text-center py-6">Sin notas aún.</p>}
               {notas.map((n, i) => (
                 <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                   <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
@@ -408,12 +497,12 @@ function Grid2({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">{children}</div>
 }
 
-function Field({ label, value, editable, mono }: { label: string; value: string | React.ReactNode; editable?: boolean; mono?: boolean }) {
+function Field({ label, value, editable, mono, onChange }: { label: string; value: string | React.ReactNode; editable?: boolean; mono?: boolean; onChange?: (v: string) => void }) {
   return (
     <div>
       <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">{label}</p>
       {editable && typeof value === 'string'
-        ? <input type="text" defaultValue={value} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        ? <input type="text" value={value} onChange={e => onChange?.(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         : <div className={`text-sm text-slate-700 ${mono ? 'font-mono' : ''}`}>{value}</div>
       }
     </div>
@@ -815,7 +904,7 @@ export default function UsuariosView() {
   return (
     <div className="space-y-6 animate-fade-in">
       {showForm && <NuevoUsuarioForm onClose={() => setShowForm(false)} onSave={cargarUsuarios} />}
-      {detailUser && <UsuarioDetalle usuario={detailUser.usuario} onClose={() => setDetailUser(null)} />}
+      {detailUser && <UsuarioDetalle usuario={detailUser.usuario} onClose={() => setDetailUser(null)} onUpdate={cargarUsuarios} />}
       {actionUser && (
         <AccionesMenu
           usuario={actionUser}

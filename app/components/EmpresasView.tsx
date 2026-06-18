@@ -115,28 +115,115 @@ const gradients = [
 // ─── DETALLE EMPRESA ──────────────────────────────────────────────────────────
 type DetailTab = 'info' | 'usuarios' | 'vehiculos' | 'viajes' | 'comercial' | 'notas'
 
-function EmpresaDetalle({ empresa, idx, onClose }: {
-  empresa: Empresa; idx: number; onClose: () => void
+function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
+  empresa: Empresa; idx: number; onClose: () => void; onUpdate: () => void
 }) {
   const [tab, setTab]           = useState<DetailTab>('info')
   const [editMode, setEditMode] = useState(false)
   const [estatus, setEstatus]   = useState<EstatusEmpresa>(empresa.estatus)
-  const [notas, setNotas]       = useState(empresa.notas)
+  const [notas, setNotas]       = useState<NotaInterna[]>([])
   const [nuevaNota, setNuevaNota] = useState('')
+  const [form, setForm] = useState({
+    razonSocial: empresa.razonSocial, nombreComercial: empresa.nombreComercial, tipo: empresa.tipo,
+    contactoPrincipal: empresa.contactoPrincipal, telefono: empresa.telefono, correo: empresa.correo, direccion: empresa.direccion,
+    regimenFiscal: empresa.regimenFiscal, cfdi: empresa.cfdi, domicilioFiscal: empresa.domicilioFiscal,
+    descuento: empresa.descuento, creditoDias: empresa.creditoDias, limiteCredito: empresa.limiteCredito,
+  })
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false)
+  const [usuariosVinculados, setUsuariosVinculados] = useState<UsuarioVinculado[]>([])
+  const [vehiculosFrecuentes, setVehiculosFrecuentes] = useState<VehiculoFrecuente[]>([])
+  const [historialViajes, setHistorialViajes] = useState<ViajeResumen[]>([])
+  const [cargandoRelacionados, setCargandoRelacionados] = useState(true)
   const grad = gradients[idx % gradients.length]
 
-  const addNota = () => {
+  useEffect(() => {
+    const cargarRelacionados = async () => {
+      const sb = getSupabaseBrowserClient()
+      const [viajesRes, vehRes, notasRes] = await Promise.all([
+        sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, tarifa_cliente, status, usuarios(nombre, apellido, email)').eq('empresa_id', empresa.id).order('created_at', { ascending: false }),
+        sb.from('vehiculos').select('marca, modelo, placas, anio').eq('empresa_id', empresa.id),
+        sb.from('notas_internas').select('id, nota, autor, created_at').eq('entidad_tipo', 'empresa').eq('entidad_id', empresa.id).order('created_at', { ascending: false }),
+      ])
+
+      if (viajesRes.data) {
+        const viajesData = viajesRes.data as Record<string, unknown>[]
+        setHistorialViajes(viajesData.map(v => ({
+          id: String(v.folio ?? String(v.id).slice(0,8)),
+          fecha: String(v.fecha_programada ?? '—'),
+          ruta: `${v.origen_calle ?? '—'} → ${v.destino_calle ?? '—'}`,
+          monto: Number(v.tarifa_cliente ?? 0),
+          estatus: String(v.status ?? '—'),
+        })))
+        // Usuarios vinculados: derivados de quienes solicitaron viajes con esta empresa
+        const vistos = new Set<string>()
+        const usuarios: UsuarioVinculado[] = []
+        for (const v of viajesData) {
+          const u = v.usuarios as { nombre?: string; apellido?: string; email?: string } | null
+          if (u?.email && !vistos.has(u.email)) {
+            vistos.add(u.email)
+            usuarios.push({ nombre: `${u.nombre ?? ''} ${u.apellido ?? ''}`.trim(), rol: 'Solicitante', email: u.email })
+          }
+        }
+        setUsuariosVinculados(usuarios)
+      }
+      if (vehRes.data) {
+        setVehiculosFrecuentes(vehRes.data.map((v: Record<string, unknown>) => ({
+          modelo: `${v.marca ?? ''} ${v.modelo ?? ''}`.trim() || '—',
+          placas: String(v.placas ?? '—'),
+          anio: String(v.anio ?? '—'),
+        })))
+      }
+      if (notasRes.data) {
+        setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
+          autor: String(n.autor ?? 'Admin'),
+          texto: String(n.nota ?? ''),
+          hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
+        })))
+      }
+      setCargandoRelacionados(false)
+    }
+    cargarRelacionados()
+  }, [empresa.id])
+
+  const totalFacturado = historialViajes.reduce((s, v) => s + v.monto, 0)
+  const viajesTotal = historialViajes.length
+
+  const cambiarEstatus = async (nuevo: EstatusEmpresa) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('empresas').update({ estatus: nuevo }).eq('id', empresa.id)
+    setEstatus(nuevo)
+    onUpdate()
+  }
+
+  const guardarPerfil = async () => {
+    setGuardandoPerfil(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('empresas').update({
+      razon_social: form.razonSocial.toUpperCase(), nombre_comercial: form.nombreComercial.toUpperCase(), tipo: form.tipo,
+      contacto_principal: form.contactoPrincipal.toUpperCase(), telefono: form.telefono, correo: form.correo.toLowerCase(), direccion: form.direccion.toUpperCase(),
+      regimen_fiscal: form.regimenFiscal, cfdi: form.cfdi, domicilio_fiscal: form.domicilioFiscal.toUpperCase(),
+      descuento: form.descuento, credito_dias: form.creditoDias, limite_credito: form.limiteCredito,
+    }).eq('id', empresa.id)
+    setGuardandoPerfil(false)
+    setEditMode(false)
+    onUpdate()
+  }
+
+  const addNota = async () => {
     if (!nuevaNota.trim()) return
-    setNotas(n => [...n, { autor: 'Admin', texto: nuevaNota.trim(), hora: 'Ahora' }])
+    const sb = getSupabaseBrowserClient()
+    const texto = nuevaNota.trim()
+    await sb.from('notas_internas').insert({ entidad_tipo: 'empresa', entidad_id: empresa.id, nota: texto, autor: 'Admin' })
+    setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')
   }
 
   const tabs: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
     { id: 'info',      label: 'Información',      icon: <BuildingOfficeIcon className="w-3.5 h-3.5" /> },
     { id: 'comercial', label: 'Condiciones comerciales', icon: <BanknotesIcon className="w-3.5 h-3.5" /> },
-    { id: 'usuarios',  label: `Usuarios (${empresa.usuariosVinculados.length})`, icon: <UsersIcon className="w-3.5 h-3.5" /> },
-    { id: 'vehiculos', label: `Vehículos (${empresa.vehiculosFrecuentes.length})`, icon: <TruckIcon className="w-3.5 h-3.5" /> },
-    { id: 'viajes',    label: `Viajes (${empresa.historialViajes.length})`,    icon: <DocumentTextIcon className="w-3.5 h-3.5" /> },
+    { id: 'usuarios',  label: `Usuarios (${usuariosVinculados.length})`, icon: <UsersIcon className="w-3.5 h-3.5" /> },
+    { id: 'vehiculos', label: `Vehículos (${vehiculosFrecuentes.length})`, icon: <TruckIcon className="w-3.5 h-3.5" /> },
+    { id: 'viajes',    label: `Viajes (${historialViajes.length})`,    icon: <DocumentTextIcon className="w-3.5 h-3.5" /> },
     { id: 'notas',     label: `Notas (${notas.length})`,                       icon: <PencilSquareIcon className="w-3.5 h-3.5" /> },
   ]
 
@@ -165,20 +252,20 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {estatus === 'Activa' && (
-                <button onClick={() => setEstatus('Suspendida')}
+                <button onClick={() => cambiarEstatus('Suspendida')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                   <ExclamationTriangleIcon className="w-3.5 h-3.5" />Suspender
                 </button>
               )}
               {(estatus === 'Suspendida' || estatus === 'Inactiva') && (
-                <button onClick={() => setEstatus('Activa')}
+                <button onClick={() => cambiarEstatus('Activa')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                   <CheckCircleIcon className="w-3.5 h-3.5" />Reactivar
                 </button>
               )}
               <button onClick={() => setEditMode(e => !e)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${editMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                <PencilSquareIcon className="w-3.5 h-3.5" />{editMode ? 'Guardando...' : 'Editar'}
+                <PencilSquareIcon className="w-3.5 h-3.5" />{editMode ? 'Editando...' : 'Editar'}
               </button>
               <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
             </div>
@@ -187,9 +274,9 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
           {/* Quick KPIs */}
           <div className="grid grid-cols-3 gap-3 mt-4 pb-1">
             {[
-              { label: 'Total facturado', value: `$${empresa.totalFacturado.toLocaleString()}`, color: 'text-emerald-600' },
-              { label: 'Viajes totales',  value: empresa.viajesTotal,  color: 'text-blue-600' },
-              { label: 'Usuarios vinculados', value: empresa.usuariosVinculados.length, color: 'text-indigo-600' },
+              { label: 'Total facturado', value: `$${totalFacturado.toLocaleString()}`, color: 'text-emerald-600' },
+              { label: 'Viajes totales',  value: viajesTotal,  color: 'text-blue-600' },
+              { label: 'Usuarios vinculados', value: usuariosVinculados.length, color: 'text-indigo-600' },
             ].map((k, i) => (
               <div key={i} className="bg-slate-50 rounded-xl border border-slate-100 p-3 text-center">
                 <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
@@ -218,12 +305,12 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
             <div className="space-y-4">
               <SCard title="🏢 Datos de la Empresa">
                 <G2>
-                  <F label="Razón social" value={empresa.razonSocial} editable={editMode} />
-                  <F label="Nombre comercial" value={empresa.nombreComercial} editable={editMode} />
+                  <F label="Razón social" value={form.razonSocial} editable={editMode} onChange={v => setForm(f => ({ ...f, razonSocial: v }))} />
+                  <F label="Nombre comercial" value={form.nombreComercial} editable={editMode} onChange={v => setForm(f => ({ ...f, nombreComercial: v }))} />
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Tipo de empresa</p>
                     {editMode ? (
-                      <select defaultValue={empresa.tipo} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
+                      <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoEmpresa }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
                         {TIPOS_EMPRESA.map(t => <option key={t}>{t}</option>)}
                       </select>
                     ) : <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${tipoColor[empresa.tipo]}`}>{tipoIcon[empresa.tipo]} {empresa.tipo}</span>}
@@ -234,26 +321,26 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
 
               <SCard title="📞 Contacto">
                 <G2>
-                  <F label="Contacto principal" value={empresa.contactoPrincipal} editable={editMode} />
-                  <F label="Teléfono" value={empresa.telefono} editable={editMode} />
-                  <F label="Correo electrónico" value={empresa.correo} editable={editMode} />
-                  <F label="Dirección" value={empresa.direccion} editable={editMode} />
+                  <F label="Contacto principal" value={form.contactoPrincipal} editable={editMode} onChange={v => setForm(f => ({ ...f, contactoPrincipal: v }))} />
+                  <F label="Teléfono" value={form.telefono} editable={editMode} onChange={v => setForm(f => ({ ...f, telefono: v }))} />
+                  <F label="Correo electrónico" value={form.correo} editable={editMode} onChange={v => setForm(f => ({ ...f, correo: v }))} />
+                  <F label="Dirección" value={form.direccion} editable={editMode} onChange={v => setForm(f => ({ ...f, direccion: v }))} />
                 </G2>
               </SCard>
 
               <SCard title="🧾 Datos de Facturación">
                 <G2>
                   <F label="RFC" value={<span className="font-mono text-xs">{empresa.rfc}</span>} />
-                  <F label="Régimen fiscal" value={empresa.regimenFiscal} editable={editMode} />
-                  <F label="CFDI" value={empresa.cfdi} editable={editMode} />
-                  <F label="Domicilio fiscal" value={empresa.domicilioFiscal} editable={editMode} />
+                  <F label="Régimen fiscal" value={form.regimenFiscal} editable={editMode} onChange={v => setForm(f => ({ ...f, regimenFiscal: v }))} />
+                  <F label="CFDI" value={form.cfdi} editable={editMode} onChange={v => setForm(f => ({ ...f, cfdi: v }))} />
+                  <F label="Domicilio fiscal" value={form.domicilioFiscal} editable={editMode} onChange={v => setForm(f => ({ ...f, domicilioFiscal: v }))} />
                 </G2>
               </SCard>
 
               {editMode && (
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setEditMode(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={() => setEditMode(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">Guardar cambios</button>
+                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}</button>
                 </div>
               )}
             </div>
@@ -267,19 +354,19 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Descuento aplicado</p>
                     {editMode
-                      ? <input type="number" defaultValue={empresa.descuento} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                      ? <input type="number" value={form.descuento} onChange={e => setForm(f => ({ ...f, descuento: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
                       : <span className="text-xl font-bold text-green-600">{empresa.descuento}%</span>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Crédito (días)</p>
                     {editMode
-                      ? <input type="number" defaultValue={empresa.creditoDias} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                      ? <input type="number" value={form.creditoDias} onChange={e => setForm(f => ({ ...f, creditoDias: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
                       : <span className="text-xl font-bold text-blue-600">{empresa.creditoDias} días</span>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Límite de crédito</p>
                     {editMode
-                      ? <input type="number" defaultValue={empresa.limiteCredito} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                      ? <input type="number" value={form.limiteCredito} onChange={e => setForm(f => ({ ...f, limiteCredito: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
                       : <span className="text-xl font-bold text-slate-800">${empresa.limiteCredito.toLocaleString()} MXN</span>}
                   </div>
                   <F label="Convenio" value={<span className="font-mono text-xs text-blue-600">{empresa.convenio}</span>} />
@@ -292,15 +379,15 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
                     <p className="text-xs text-emerald-600 font-medium mb-1">Total facturado</p>
-                    <p className="text-2xl font-bold text-emerald-700">${empresa.totalFacturado.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-emerald-700">${totalFacturado.toLocaleString()}</p>
                     <p className="text-xs text-emerald-500 mt-0.5">MXN acumulado</p>
                   </div>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
                     <p className="text-xs text-blue-600 font-medium mb-1">Promedio por viaje</p>
                     <p className="text-2xl font-bold text-blue-700">
-                      ${empresa.viajesTotal > 0 ? Math.round(empresa.totalFacturado / empresa.viajesTotal).toLocaleString() : '—'}
+                      ${viajesTotal > 0 ? Math.round(totalFacturado / viajesTotal).toLocaleString() : '—'}
                     </p>
-                    <p className="text-xs text-blue-500 mt-0.5">en {empresa.viajesTotal} viajes</p>
+                    <p className="text-xs text-blue-500 mt-0.5">en {viajesTotal} viajes</p>
                   </div>
                 </div>
               </SCard>
@@ -308,7 +395,7 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
               {editMode && (
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setEditMode(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={() => setEditMode(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">Guardar</button>
+                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar'}</button>
                 </div>
               )}
             </div>
@@ -318,14 +405,13 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
           {tab === 'usuarios' && (
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <p className="text-sm font-semibold text-slate-700">Usuarios con acceso a esta cuenta</p>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
-                  <PlusIcon className="w-3.5 h-3.5" />Vincular usuario
-                </button>
+                <p className="text-sm font-semibold text-slate-700">Usuarios que han solicitado viajes con esta cuenta</p>
               </div>
-              {empresa.usuariosVinculados.length === 0
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : usuariosVinculados.length === 0
                 ? <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-400 italic">Sin usuarios vinculados.</div>
-                : empresa.usuariosVinculados.map((u, i) => (
+                : usuariosVinculados.map((u, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-xs font-bold`}>
@@ -348,13 +434,12 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-semibold text-slate-700">Vehículos asociados a esta empresa</p>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
-                  <PlusIcon className="w-3.5 h-3.5" />Agregar vehículo
-                </button>
               </div>
-              {empresa.vehiculosFrecuentes.length === 0
-                ? <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-400 italic">Sin vehículos frecuentes registrados.</div>
-                : empresa.vehiculosFrecuentes.map((v, i) => (
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : vehiculosFrecuentes.length === 0
+                ? <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-400 italic">Sin vehículos registrados para esta empresa.</div>
+                : vehiculosFrecuentes.map((v, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-50 rounded-lg"><TruckIcon className="w-5 h-5 text-blue-500" /></div>
@@ -363,7 +448,6 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
                         <p className="text-xs text-slate-400">Placas: <span className="font-mono">{v.placas}</span> · {v.anio}</p>
                       </div>
                     </div>
-                    <button className="text-xs text-blue-600 hover:underline">Ver viajes</button>
                   </div>
                 ))
               }
@@ -374,7 +458,9 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
           {tab === 'viajes' && (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="p-4 border-b border-slate-100 text-sm font-semibold text-slate-700">Historial de viajes de esta empresa</div>
-              {empresa.historialViajes.length === 0
+              {cargandoRelacionados
+                ? <div className="p-4 space-y-2">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
+                : historialViajes.length === 0
                 ? <p className="p-8 text-center text-sm text-slate-400 italic">Sin viajes registrados.</p>
                 : <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -387,7 +473,7 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {empresa.historialViajes.map((v, i) => (
+                    {historialViajes.map((v, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-semibold text-blue-600">{v.id}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{v.fecha}</td>
@@ -406,7 +492,9 @@ function EmpresaDetalle({ empresa, idx, onClose }: {
           {tab === 'notas' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-400 italic">Visibles únicamente para el equipo de operaciones.</p>
-              {notas.length === 0 && <p className="text-sm text-slate-400 italic text-center py-6">Sin notas aún.</p>}
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : notas.length === 0 && <p className="text-sm text-slate-400 italic text-center py-6">Sin notas aún.</p>}
               {notas.map((n, i) => (
                 <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                   <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
@@ -563,12 +651,12 @@ function SCard({ title, children }: { title: string; children: React.ReactNode }
 function G2({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">{children}</div>
 }
-function F({ label, value, editable }: { label: string; value: React.ReactNode; editable?: boolean }) {
+function F({ label, value, editable, onChange }: { label: string; value: React.ReactNode; editable?: boolean; onChange?: (v: string) => void }) {
   return (
     <div>
       <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">{label}</p>
       {editable && typeof value === 'string'
-        ? <input type="text" defaultValue={value} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        ? <input type="text" value={value} onChange={e => onChange?.(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         : <div className="text-sm text-slate-700">{value}</div>}
     </div>
   )
@@ -586,12 +674,26 @@ export default function EmpresasView() {
 
   const cargarEmpresas = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
-    const { data, error } = await sb
-      .from('empresas')
-      .select('id, razon_social, nombre_comercial, tipo, rfc, regimen_fiscal, domicilio_fiscal, cfdi, contacto_principal, telefono, correo, direccion, estatus, descuento, credito_dias, limite_credito, convenio, vigencia_convenio, created_at')
-      .order('created_at', { ascending: false })
+    const [empRes, viajesRes] = await Promise.all([
+      sb.from('empresas').select('id, razon_social, nombre_comercial, tipo, rfc, regimen_fiscal, domicilio_fiscal, cfdi, contacto_principal, telefono, correo, direccion, estatus, descuento, credito_dias, limite_credito, convenio, vigencia_convenio, created_at').order('created_at', { ascending: false }),
+      sb.from('viajes').select('empresa_id, usuario_id, tarifa_cliente').not('empresa_id', 'is', null),
+    ])
+    const { data, error } = empRes
+    const resumenPorEmpresa = new Map<string, { viajesTotal: number; totalFacturado: number; usuarios: Set<string> }>()
+    if (viajesRes.data) {
+      for (const v of viajesRes.data as Record<string, unknown>[]) {
+        const eid = String(v.empresa_id)
+        const prev = resumenPorEmpresa.get(eid) ?? { viajesTotal: 0, totalFacturado: 0, usuarios: new Set<string>() }
+        prev.viajesTotal += 1
+        prev.totalFacturado += Number(v.tarifa_cliente ?? 0)
+        if (v.usuario_id) prev.usuarios.add(String(v.usuario_id))
+        resumenPorEmpresa.set(eid, prev)
+      }
+    }
     if (!error && data) {
-      setEmpresas(data.map((e: Record<string, unknown>) => ({
+      setEmpresas(data.map((e: Record<string, unknown>) => {
+        const resumen = resumenPorEmpresa.get(String(e.id)) ?? { viajesTotal: 0, totalFacturado: 0, usuarios: new Set<string>() }
+        return {
         id:               String(e.id ?? ''),
         razonSocial:      String(e.razon_social ?? ''),
         nombreComercial:  String(e.nombre_comercial ?? e.razon_social ?? ''),
@@ -611,9 +713,11 @@ export default function EmpresasView() {
         limiteCredito:    Number(e.limite_credito ?? 0),
         convenio:         String(e.convenio ?? ''),
         vigenciaConvenio: String(e.vigencia_convenio ?? ''),
-        usuariosVinculados: [], vehiculosFrecuentes: [], historialViajes: [], notas: [],
-        totalFacturado: 0, viajesTotal: 0,
-      })))
+        usuariosVinculados: Array.from({ length: resumen.usuarios.size }, () => ({ nombre: '', rol: '', email: '' })),
+        vehiculosFrecuentes: [], historialViajes: [], notas: [],
+        totalFacturado: resumen.totalFacturado, viajesTotal: resumen.viajesTotal,
+        }
+      }))
     }
     setCargando(false)
   }, [])
@@ -638,7 +742,7 @@ export default function EmpresasView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {detalle  && <EmpresaDetalle empresa={detalle.empresa} idx={detalle.idx} onClose={() => setDetalle(null)} />}
+      {detalle  && <EmpresaDetalle empresa={detalle.empresa} idx={detalle.idx} onClose={() => setDetalle(null)} onUpdate={cargarEmpresas} />}
       {showForm && <NuevaEmpresaForm onClose={() => setShowForm(false)} onSave={cargarEmpresas} />}
 
       {/* KPIs */}

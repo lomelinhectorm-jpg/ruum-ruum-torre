@@ -26,6 +26,7 @@ interface KPIs {
   conductoresEnViaje: number
   docsRevision: number
   incidenciasAbiertas: number
+  ingresosHoy: number
 }
 
 interface ViajeReciente {
@@ -131,7 +132,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
   const [kpis, setKpis] = useState<KPIs>({
     viajesActivos: 0, finalizadosHoy: 0, programadosHoy: 0,
     pendientesAsignacion: 0, conductoresDisponibles: 0,
-    conductoresEnViaje: 0, docsRevision: 0, incidenciasAbiertas: 0,
+    conductoresEnViaje: 0, docsRevision: 0, incidenciasAbiertas: 0, ingresosHoy: 0,
   })
   const [viajesRecientes, setViajesRecientes] = useState<ViajeReciente[]>([])
   const [alertas, setAlertas] = useState<Alerta[]>([])
@@ -154,6 +155,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
       { data: recientes },
       { data: sinConductor },
       { data: evIncompleta },
+      { data: tarifasHoy },
     ] = await Promise.all([
       sb.from('viajes').select('*', { count: 'exact', head: true })
         .in('status', ['Conductor en camino','Recolección en proceso','Traslado en curso','Entrega en proceso']),
@@ -181,7 +183,10 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
         .eq('status', 'Pendiente de asignación').limit(3),
       sb.from('evidencias').select('id, viaje_id')
         .eq('estatus', 'Incompleta').limit(3),
+      sb.from('viajes').select('tarifa_cliente').eq('fecha_programada', hoy),
     ])
+
+    const ingresosHoy = (tarifasHoy ?? []).reduce((s: number, v: { tarifa_cliente: number | null }) => s + Number(v.tarifa_cliente ?? 0), 0)
 
     setKpis({
       viajesActivos: activos ?? 0,
@@ -192,6 +197,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
       conductoresEnViaje: enViaje ?? 0,
       docsRevision: docs ?? 0,
       incidenciasAbiertas: incidencias ?? 0,
+      ingresosHoy,
     })
 
     setViajesRecientes((recientes as unknown as ViajeReciente[]) ?? [])
@@ -253,7 +259,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
     { title: 'Conductores disponibles',   value: kpis.conductoresDisponibles, icon: UserGroupIcon,      color: 'emerald', trend: 'Listos para asignar' },
     { title: 'Docs. en revisión',         value: kpis.docsRevision,           icon: DocumentTextIcon,   color: 'amber',   trend: 'Pendientes de validar' },
     { title: 'Incidencias abiertas',      value: kpis.incidenciasAbiertas,    icon: ExclamationTriangleIcon, color: 'red', trend: 'Requieren atención' },
-    { title: 'Ingresos estimados hoy',    value: `$${(kpis.programadosHoy * 850).toLocaleString()}`, icon: CurrencyDollarIcon, color: 'emerald', trend: 'Basado en viajes del día' },
+    { title: 'Ingresos estimados hoy',    value: `$${kpis.ingresosHoy.toLocaleString()}`, icon: CurrencyDollarIcon, color: 'emerald', trend: 'Basado en viajes del día' },
   ]
 
   return (

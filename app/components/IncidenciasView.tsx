@@ -10,7 +10,6 @@ import {
   PaperAirplaneIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  UserPlusIcon,
   BellAlertIcon,
   ArrowUpCircleIcon,
   DocumentArrowUpIcon,
@@ -49,6 +48,7 @@ interface NotaIncidencia { autor: string; texto: string; hora: string }
 interface EventoTimeline { evento: string; hora: string; actor: string; tipo: 'sistema' | 'admin' | 'conductor' | 'usuario' }
 
 interface Incidencia {
+  _id: string
   id: string
   viajeId: string
   usuario: string
@@ -131,25 +131,44 @@ const TODOS_ESTATUS: (EstatusIncidencia | 'Todos')[] = [
 ]
 
 // ─── MODAL DETALLE ────────────────────────────────────────────────────────────
-function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => void }) {
-  const [estatus, setEstatus]       = useState<EstatusIncidencia>(inc.estatus)
-  const [responsable, setResponsable] = useState(inc.responsable)
-  const [resolucion, setResolucion] = useState(inc.resolucion)
+function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClose: () => void; onUpdate: () => void }) {
+  const [estatus, setEstatusLocal]       = useState<EstatusIncidencia>(inc.estatus)
+  const [responsable, setResponsableLocal] = useState(inc.responsable)
+  const [resolucion, setResolucionLocal] = useState(inc.resolucion)
   const [editRes, setEditRes]       = useState(false)
-  const [notas, setNotas]           = useState(inc.notas)
+  const [notas, setNotas]           = useState<NotaIncidencia[]>([])
   const [nuevaNota, setNuevaNota]   = useState('')
+  const [cargandoNotas, setCargandoNotas] = useState(true)
   const [docs, setDocs]             = useState(inc.documentos)
   const [nuevoDoc, setNuevoDoc]     = useState('')
   const [timeline, setTimeline]     = useState(inc.timeline)
   const [showNotif, setShowNotif]   = useState<'usuario' | 'conductor' | null>(null)
   const [notifMsg, setNotifMsg]     = useState('')
+  const [guardando, setGuardando]   = useState(false)
+
+  useEffect(() => {
+    const cargarNotas = async () => {
+      const sb = getSupabaseBrowserClient()
+      const { data } = await sb.from('notas_internas').select('autor, nota, created_at').eq('entidad_tipo', 'incidencia').eq('entidad_id', inc._id).order('created_at', { ascending: false })
+      if (data) setNotas(data.map((n: Record<string, unknown>) => ({
+        autor: String(n.autor ?? 'Admin'),
+        texto: String(n.nota ?? ''),
+        hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
+      })))
+      setCargandoNotas(false)
+    }
+    cargarNotas()
+  }, [inc._id])
 
   const addTimeline = (evento: string, tipo: 'admin' | 'sistema' = 'admin') =>
     setTimeline(t => [...t, { evento, hora: 'Ahora', actor: 'Admin', tipo }])
 
-  const addNota = () => {
+  const addNota = async () => {
     if (!nuevaNota.trim()) return
-    setNotas(n => [...n, { autor: 'Admin', texto: nuevaNota.trim(), hora: 'Ahora' }])
+    const sb = getSupabaseBrowserClient()
+    const texto = nuevaNota.trim()
+    await sb.from('notas_internas').insert({ entidad_tipo: 'incidencia', entidad_id: inc._id, nota: texto, autor: 'Admin' })
+    setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     addTimeline('Nota interna agregada')
     setNuevaNota('')
   }
@@ -161,9 +180,35 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
     setNuevoDoc('')
   }
 
-  const cambiarEstatus = (e: EstatusIncidencia) => {
-    setEstatus(e)
+  const cambiarEstatus = async (e: EstatusIncidencia) => {
+    setGuardando(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('incidencias').update({ estatus: e }).eq('id', inc._id)
+    setEstatusLocal(e)
     addTimeline(`Estatus cambiado a: ${e}`)
+    setGuardando(false)
+    onUpdate()
+  }
+
+  const cambiarResponsable = async (r: string) => {
+    setGuardando(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('incidencias').update({ responsable: r }).eq('id', inc._id)
+    setResponsableLocal(r)
+    addTimeline(`Responsable cambiado a ${r}`)
+    setGuardando(false)
+    onUpdate()
+  }
+
+  const guardarResolucion = async () => {
+    setGuardando(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('incidencias').update({ resolucion, estatus: 'Resuelta' }).eq('id', inc._id)
+    setEstatusLocal('Resuelta')
+    setEditRes(false)
+    addTimeline('Resolución registrada')
+    setGuardando(false)
+    onUpdate()
   }
 
   const enviarNotif = (dest: 'usuario' | 'conductor') => {
@@ -207,9 +252,6 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
 
           {/* Acciones rápidas */}
           <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-            <button onClick={() => { }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
-              <UserPlusIcon className="w-3.5 h-3.5" />Asignar responsable
-            </button>
             <button onClick={() => setEditRes(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
               <CheckCircleIcon className="w-3.5 h-3.5" />Registrar resolución
             </button>
@@ -219,7 +261,7 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
             <button onClick={() => setShowNotif('conductor')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
               <BellAlertIcon className="w-3.5 h-3.5" />Notificar conductor
             </button>
-            <button onClick={() => cambiarEstatus('Escalada')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+            <button onClick={() => cambiarEstatus('Escalada')} disabled={guardando} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-60 rounded-lg transition-colors">
               <ArrowUpCircleIcon className="w-3.5 h-3.5" />Escalar
             </button>
           </div>
@@ -261,7 +303,7 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
                 : <span className="text-slate-300">Sin evidencia</span>} />
               <div>
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Responsable interno</p>
-                <select value={responsable} onChange={e => { setResponsable(e.target.value); addTimeline(`Responsable cambiado a ${e.target.value}`) }}
+                <select value={responsable} onChange={e => cambiarResponsable(e.target.value)} disabled={guardando}
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
                   {RESPONSABLES.map(r => <option key={r}>{r}</option>)}
                 </select>
@@ -283,7 +325,7 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
             </h3>
             <div className="flex flex-wrap gap-2">
               {(['Nueva','En revisión','Requiere información','En seguimiento','Resuelta','Cerrada','Escalada'] as EstatusIncidencia[]).map(e => (
-                <button key={e} onClick={() => cambiarEstatus(e)}
+                <button key={e} onClick={() => cambiarEstatus(e)} disabled={guardando}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     estatus === e
                       ? estatusStyle[e] + ' border-current shadow-sm'
@@ -304,17 +346,13 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
             </h3>
             {editRes ? (
               <div className="space-y-3">
-                <textarea rows={3} value={resolucion} onChange={e => setResolucion(e.target.value)}
+                <textarea rows={3} value={resolucion} onChange={e => setResolucionLocal(e.target.value)}
                   placeholder="Describe cómo se resolvió la incidencia..."
                   className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditRes(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={() => {
-                    setEditRes(false)
-                    cambiarEstatus('Resuelta')
-                    addTimeline('Resolución registrada')
-                  }} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
-                    <CheckCircleIcon className="w-3.5 h-3.5" />Guardar resolución
+                  <button onClick={guardarResolucion} disabled={guardando} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
+                    <CheckCircleIcon className="w-3.5 h-3.5" />{guardando ? 'Guardando...' : 'Guardar resolución'}
                   </button>
                 </div>
               </div>
@@ -333,13 +371,19 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
               Notas Internas
             </h3>
             <div className="space-y-2 mb-4">
-              {notas.length === 0 && <p className="text-xs text-slate-400 italic">Sin notas aún.</p>}
-              {notas.map((n, i) => (
-                <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
-                  <p className="text-sm text-slate-700 mt-0.5">{n.texto}</p>
-                </div>
-              ))}
+              {cargandoNotas ? (
+                <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-12 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+              ) : (
+                <>
+                  {notas.length === 0 && <p className="text-xs text-slate-400 italic">Sin notas aún.</p>}
+                  {notas.map((n, i) => (
+                    <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>
+                      <p className="text-sm text-slate-700 mt-0.5">{n.texto}</p>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
             <div className="flex gap-2">
               <input type="text" value={nuevaNota} onChange={e => setNuevaNota(e.target.value)}
@@ -415,12 +459,14 @@ function IncidenciaDetalle({ inc, onClose }: { inc: Incidencia; onClose: () => v
 }
 
 // ─── NUEVA INCIDENCIA FORM ────────────────────────────────────────────────────
-function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
+function NuevaIncidenciaForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
   const [form, setForm] = useState({
     viajeId: '', usuario: '', conductor: '', tipo: '' as TipoIncidencia | '',
     fecha: '', hora: '', descripcion: '', evidencia: '', responsable: '', prioridad: '' as Prioridad | '',
   })
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
+  const [guardando, setGuardando] = useState(false)
+  const [errorGeneral, setErrorGeneral] = useState('')
   const set = (k: keyof typeof form, v: string) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
   const validate = () => {
@@ -432,6 +478,37 @@ function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
     if (!form.prioridad)   e.prioridad   = 'Requerido'
     setErrors(e)
     return Object.keys(e).length === 0
+  }
+
+  const guardar = async () => {
+    if (!validate()) return
+    setErrorGeneral('')
+    setGuardando(true)
+    const sb = getSupabaseBrowserClient()
+    // Resolver el viaje por folio para obtener IDs reales relacionados
+    const { data: viaje } = await sb.from('viajes').select('id, usuario_id, conductor_id').eq('folio', form.viajeId).maybeSingle()
+    if (!viaje) {
+      setErrorGeneral(`No se encontró ningún viaje con folio "${form.viajeId}". Verifica el folio e intenta de nuevo.`)
+      setGuardando(false)
+      return
+    }
+    const { error } = await sb.from('incidencias').insert({
+      viaje_id: viaje.id,
+      usuario_id: viaje.usuario_id,
+      conductor_id: viaje.conductor_id,
+      tipo: form.tipo,
+      descripcion: form.descripcion,
+      estatus: 'Nueva',
+      prioridad: form.prioridad,
+      responsable: form.responsable || '—',
+    })
+    setGuardando(false)
+    if (error) {
+      setErrorGeneral(error.message)
+      return
+    }
+    onSave()
+    onClose()
   }
 
   const I = (k: keyof typeof form) =>
@@ -510,13 +587,14 @@ function NuevaIncidenciaForm({ onClose }: { onClose: () => void }) {
               className={I('descripcion')} />
             <E k="descripcion" />
           </div>
+          {errorGeneral && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{errorGeneral}</p>}
         </div>
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-          <button onClick={() => { if (validate()) onClose() }}
-            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+          <button onClick={guardar} disabled={guardando}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <ExclamationTriangleIcon className="w-4 h-4" />
-            Registrar incidencia
+            {guardando ? 'Registrando...' : 'Registrar incidencia'}
           </button>
         </div>
       </div>
@@ -562,6 +640,7 @@ export default function IncidenciasView() {
         const u = i.usuarios as Record<string,string>|null
         const c = i.conductores as Record<string,string>|null
         return {
+          _id:              String(i.id ?? ''),
           id:               String(i.id ?? '').slice(0,8).toUpperCase(),
           viajeId:          v?.folio ?? '—',
           usuario:          u ? `${u.nombre} ${u.apellido}` : '—',
@@ -601,8 +680,8 @@ export default function IncidenciasView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {showForm && <NuevaIncidenciaForm onClose={() => setShowForm(false)} />}
-      {detalle && <IncidenciaDetalle inc={detalle} onClose={() => setDetalle(null)} />}
+      {showForm && <NuevaIncidenciaForm onClose={() => setShowForm(false)} onSave={cargarIncidencias} />}
+      {detalle && <IncidenciaDetalle inc={detalle} onClose={() => setDetalle(null)} onUpdate={cargarIncidencias} />}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">

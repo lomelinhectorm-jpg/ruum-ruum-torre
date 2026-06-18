@@ -86,190 +86,6 @@ interface Conductor {
   notas: NotaInterna[]
 }
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const CONDUCTORES: Conductor[] = [
-  {
-    id: 'CON-001',
-    nombre: 'Carlos',
-    apellido: 'Méndez Ruiz',
-    curp: 'MERC870415HDFNZRA3',
-    telefono: '+52 55 1111 2222',
-    email: 'carlos.m@email.com',
-    municipio: 'Gustavo A. Madero',
-    estado: 'Ciudad de México',
-    foto: 'CM',
-    disponibilidad: 'En viaje',
-    certificacion: 'Activo',
-    calificacion: 4.9,
-    viajesRealizados: 142,
-    gananciasTotal: 49700,
-    cuentaBanco: 'BBVA',
-    cuentaClabe: '012345678901234567',
-    cuentaTitular: 'Carlos Méndez Ruiz',
-    documentos: [
-      { tipo: 'Licencia de conducir', numero: 'LIC-2021-CX9842', vencimiento: '15 Ene 2026', estado: 'Vigente' },
-      { tipo: 'INE / IFE', numero: 'OCRD000000000', vencimiento: '10 Jun 2029', estado: 'Vigente' },
-      { tipo: 'Constancia Fiscal (CSF)', numero: 'MERC870415XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
-      { tipo: 'Antecedentes no penales', numero: 'AP-2024-001', vencimiento: '05 Mar 2025', estado: 'Por vencer' },
-    ],
-    viajes: [
-      { id: '#TR-8848', fecha: '14 Jun 2025', origen: 'Av. Reforma 222', destino: 'Taller Norte', tarifa: 700, estatus: 'Traslado en curso' },
-      { id: '#TR-8830', fecha: '10 Jun 2025', origen: 'Taller Sur', destino: 'Agencia Norte', tarifa: 560, estatus: 'Finalizado' },
-      { id: '#TR-8815', fecha: '07 Jun 2025', origen: 'Distribuidora Bajío', destino: 'CDMX Centro', tarifa: 1300, estatus: 'Finalizado' },
-    ],
-    incidencias: [],
-    ganancias: [
-      { periodo: '1-14 Jun 2025', viajes: 8, monto: 4200, estatus: 'Pendiente' },
-      { periodo: '15-31 May 2025', viajes: 18, monto: 9100, estatus: 'Pagado' },
-    ],
-    notas: [
-      { autor: 'Ops. Central', texto: 'Conductor estrella. Prioridad en asignaciones largas.', hora: '01 Ene 2025' },
-    ],
-  },
-  {
-    id: 'CON-002',
-    nombre: 'Ana',
-    apellido: 'Rodríguez López',
-    curp: 'ROLA920821MDFDRNA8',
-    telefono: '+52 55 3333 4444',
-    email: 'ana.r@email.com',
-    municipio: 'Benito Juárez',
-    estado: 'Ciudad de México',
-    foto: 'AR',
-    disponibilidad: 'Disponible',
-    certificacion: 'Activo',
-    calificacion: 4.7,
-    viajesRealizados: 87,
-    gananciasTotal: 30450,
-    cuentaBanco: 'Santander',
-    cuentaClabe: '014580123456789012',
-    cuentaTitular: 'Ana Rodríguez López',
-    documentos: [
-      { tipo: 'Licencia de conducir', numero: 'LIC-2022-AR5531', vencimiento: '20 Mar 2027', estado: 'Vigente' },
-      { tipo: 'INE / IFE', numero: 'OCRD000000001', vencimiento: '01 Feb 2028', estado: 'Vigente' },
-      { tipo: 'Constancia Fiscal (CSF)', numero: 'ROLA920821XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
-      { tipo: 'Antecedentes no penales', numero: 'AP-2024-002', vencimiento: '15 Ago 2025', estado: 'Vigente' },
-    ],
-    viajes: [
-      { id: '#TR-8841', fecha: '13 Jun 2025', origen: 'Taller Oriente', destino: 'Roma Norte', tarifa: 380, estatus: 'Finalizado' },
-      { id: '#TR-8820', fecha: '08 Jun 2025', origen: 'Agencia Sur', destino: 'Satélite', tarifa: 500, estatus: 'Finalizado' },
-    ],
-    incidencias: [
-      { id: '#INC-001', tipo: 'Daño vehicular', fecha: '13 Jun 2025', estatus: 'Cerrada' },
-    ],
-    ganancias: [
-      { periodo: '1-14 Jun 2025', viajes: 6, monto: 2280, estatus: 'Pendiente' },
-      { periodo: '15-31 May 2025', viajes: 14, monto: 5600, estatus: 'Pagado' },
-    ],
-    notas: [],
-  },
-  {
-    id: 'CON-003',
-    nombre: 'Mario',
-    apellido: 'García Vega',
-    curp: 'GAVM910305HDFRCRA6',
-    telefono: '+52 55 5555 6666',
-    email: 'mario.g@email.com',
-    municipio: 'Tlalnepantla',
-    estado: 'Estado de México',
-    foto: 'MG',
-    disponibilidad: 'Disponible',
-    certificacion: 'Activo',
-    calificacion: 4.5,
-    viajesRealizados: 63,
-    gananciasTotal: 22050,
-    cuentaBanco: 'Banamex',
-    cuentaClabe: '002670700000000000',
-    cuentaTitular: 'Mario García Vega',
-    documentos: [
-      { tipo: 'Licencia de conducir', numero: 'LIC-2020-MG3310', vencimiento: '19 Jun 2025', estado: 'Por vencer' },
-      { tipo: 'INE / IFE', numero: 'OCRD000000002', vencimiento: '15 May 2027', estado: 'Vigente' },
-      { tipo: 'Constancia Fiscal (CSF)', numero: 'GAVM910305XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
-      { tipo: 'Antecedentes no penales', numero: 'AP-2023-003', vencimiento: '10 Ene 2024', estado: 'Vencido' },
-    ],
-    viajes: [
-      { id: '#TR-8847', fecha: '15 Jun 2025', origen: 'Distribuidora Bajío', destino: 'CDMX', tarifa: 1300, estatus: 'Conductor asignado' },
-    ],
-    incidencias: [],
-    ganancias: [
-      { periodo: '1-14 Jun 2025', viajes: 2, monto: 1300, estatus: 'Pendiente' },
-      { periodo: '15-31 May 2025', viajes: 11, monto: 4950, estatus: 'Pagado' },
-    ],
-    notas: [
-      { autor: 'Admin', texto: 'Antecedentes penales vencidos. Solicitar renovación antes de asignar viajes.', hora: '12 Jun 2025' },
-    ],
-  },
-  {
-    id: 'CON-004',
-    nombre: 'Sandra',
-    apellido: 'Pérez Castillo',
-    curp: 'PECS850930MDFRCNA2',
-    telefono: '+52 55 7777 8888',
-    email: 'sandra.p@email.com',
-    municipio: 'Naucalpan',
-    estado: 'Estado de México',
-    foto: 'SP',
-    disponibilidad: 'No disponible',
-    certificacion: 'Pendiente de validación',
-    calificacion: 0,
-    viajesRealizados: 0,
-    gananciasTotal: 0,
-    cuentaBanco: 'HSBC',
-    cuentaClabe: '021690040000000001',
-    cuentaTitular: 'Sandra Pérez Castillo',
-    documentos: [
-      { tipo: 'Licencia de conducir', numero: 'LIC-2023-SP8821', vencimiento: '30 Nov 2028', estado: 'Vigente' },
-      { tipo: 'INE / IFE', numero: 'OCRD000000003', vencimiento: '20 Apr 2029', estado: 'Vigente' },
-      { tipo: 'Constancia Fiscal (CSF)', numero: '—', vencimiento: '—', estado: 'Pendiente' },
-      { tipo: 'Antecedentes no penales', numero: '—', vencimiento: '—', estado: 'Pendiente' },
-    ],
-    viajes: [],
-    incidencias: [],
-    ganancias: [],
-    notas: [
-      { autor: 'Admin', texto: 'Conductor nuevo. Pendiente CSF y antecedentes para activar.', hora: '10 Jun 2025' },
-    ],
-  },
-  {
-    id: 'CON-005',
-    nombre: 'Pedro',
-    apellido: 'Castillo Mora',
-    curp: 'CAMP930711HDFSTDA4',
-    telefono: '+52 55 9999 0000',
-    email: 'pedro.c@email.com',
-    municipio: 'Iztapalapa',
-    estado: 'Ciudad de México',
-    foto: 'PC',
-    disponibilidad: 'No disponible',
-    certificacion: 'Suspendido',
-    calificacion: 3.8,
-    viajesRealizados: 31,
-    gananciasTotal: 10850,
-    cuentaBanco: 'Banorte',
-    cuentaClabe: '072580000000000001',
-    cuentaTitular: 'Pedro Castillo Mora',
-    documentos: [
-      { tipo: 'Licencia de conducir', numero: 'LIC-2019-PC2241', vencimiento: '05 Ago 2024', estado: 'Vencido' },
-      { tipo: 'INE / IFE', numero: 'OCRD000000004', vencimiento: '10 Mar 2026', estado: 'Vigente' },
-      { tipo: 'Constancia Fiscal (CSF)', numero: 'CAMP930711XXX', vencimiento: '31 Dic 2025', estado: 'Vigente' },
-      { tipo: 'Antecedentes no penales', numero: 'AP-2022-005', vencimiento: '20 Feb 2023', estado: 'Vencido' },
-    ],
-    viajes: [
-      { id: '#TR-8844', fecha: '14 Jun 2025', origen: 'Taller Sur', destino: 'Agencia Norte', tarifa: 560, estatus: 'En revisión por incidencia' },
-    ],
-    incidencias: [
-      { id: '#INC-005', tipo: 'Daño vehicular', fecha: '14 Jun 2025', estatus: 'Abierta' },
-      { id: '#INC-006', tipo: 'Retraso', fecha: '14 Jun 2025', estatus: 'En seguimiento' },
-    ],
-    ganancias: [
-      { periodo: '1-14 Jun 2025', viajes: 1, monto: 560, estatus: 'En revisión' },
-    ],
-    notas: [
-      { autor: 'Coordinador', texto: 'Suspendido por 2 incidencias en el mismo viaje. Revisar antes de reactivar.', hora: '14 Jun 2025' },
-    ],
-  },
-]
-
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const avatarColors = [
   'from-blue-500 to-indigo-600',
@@ -353,22 +169,108 @@ function ConductorDetalle({
   const [tab, setTab] = useState<DetailTab>('perfil')
   const [cert, setCert] = useState<EstatusCertificacion>(conductor.certificacion)
   const [disp, setDisp] = useState<EstatusDisponibilidad>(conductor.disponibilidad)
-  const [notas, setNotas] = useState(conductor.notas)
+  const [notas, setNotas] = useState<NotaInterna[]>([])
   const [nuevaNota, setNuevaNota] = useState('')
+  const [docs, setDocs] = useState<Documento[]>([])
+  const [viajes, setViajes] = useState<ViajeResumen[]>([])
+  const [incidencias, setIncidencias] = useState<Incidencia[]>([])
+  const [ganancias, setGanancias] = useState<Ganancia[]>([])
+  const [viajesRealizados, setViajesRealizados] = useState(0)
+  const [gananciasTotal, setGananciasTotal] = useState(0)
+  const [cargandoRelacionados, setCargandoRelacionados] = useState(true)
   const color = avatarColors[idx % avatarColors.length]
+  const nombreCompleto = `${conductor.nombre} ${conductor.apellido}`.trim()
 
-  const addNota = () => {
+  useEffect(() => {
+    const cargarRelacionados = async () => {
+      const sb = getSupabaseBrowserClient()
+      const [viajesRes, incRes, docsRes, pagosRes, notasRes] = await Promise.all([
+        sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, tarifa_cliente, status').eq('conductor_id', conductor.id).order('created_at', { ascending: false }),
+        sb.from('incidencias').select('id, tipo, estatus, created_at').eq('conductor_id', conductor.id).order('created_at', { ascending: false }),
+        sb.from('documentos').select('tipo, folio, vigencia, estatus').eq('entidad', 'Conductor').eq('entidad_nombre', nombreCompleto),
+        sb.from('pagos_conductores').select('semana, viajes_revisados, ganancias, estatus').eq('conductor_nombre', nombreCompleto).order('created_at', { ascending: false }),
+        sb.from('notas_internas').select('id, nota, autor, created_at').eq('entidad_tipo', 'conductor').eq('entidad_id', conductor.id).order('created_at', { ascending: false }),
+      ])
+
+      if (viajesRes.data) {
+        setViajes(viajesRes.data.map((v: Record<string, unknown>) => ({
+          id: String(v.folio ?? String(v.id).slice(0,8)),
+          fecha: String(v.fecha_programada ?? '—'),
+          origen: String(v.origen_calle ?? '—'),
+          destino: String(v.destino_calle ?? '—'),
+          tarifa: Number(v.tarifa_cliente ?? 0),
+          estatus: String(v.status ?? '—'),
+        })))
+        setViajesRealizados(viajesRes.data.filter((v: Record<string, unknown>) => v.status === 'Finalizado').length)
+      }
+      if (incRes.data) {
+        setIncidencias(incRes.data.map((i: Record<string, unknown>) => ({
+          id: String(i.id).slice(0,8).toUpperCase(),
+          tipo: String(i.tipo ?? '—'),
+          fecha: String((i.created_at as string)?.slice(0,10) ?? '—'),
+          estatus: String(i.estatus ?? '—'),
+        })))
+      }
+      if (docsRes.data) {
+        setDocs(docsRes.data.map((d: Record<string, unknown>) => ({
+          tipo: String(d.tipo ?? '—'),
+          numero: String(d.folio ?? '—'),
+          vencimiento: String(d.vigencia ?? '—'),
+          estado: (d.estatus as Documento['estado']) ?? 'Pendiente',
+        })))
+      }
+      if (pagosRes.data) {
+        setGanancias(pagosRes.data.map((g: Record<string, unknown>) => ({
+          periodo: String(g.semana ?? '—'),
+          viajes: Number(g.viajes_revisados ?? 0),
+          monto: Number(g.ganancias ?? 0),
+          estatus: String(g.estatus ?? '—'),
+        })))
+        setGananciasTotal(pagosRes.data.reduce((s: number, g: Record<string, unknown>) => s + Number(g.ganancias ?? 0), 0))
+      }
+      if (notasRes.data) {
+        setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
+          autor: String(n.autor ?? 'Admin'),
+          texto: String(n.nota ?? ''),
+          hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
+        })))
+      }
+      setCargandoRelacionados(false)
+    }
+    cargarRelacionados()
+  }, [conductor.id, nombreCompleto])
+
+  const cambiarCert = async (nuevo: EstatusCertificacion) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('conductores').update({ certificacion: nuevo }).eq('id', conductor.id)
+    setCert(nuevo)
+    onUpdate({ ...conductor, certificacion: nuevo })
+  }
+
+  const cambiarDisp = async (nuevo: EstatusDisponibilidad) => {
+    const sb = getSupabaseBrowserClient()
+    await sb.from('conductores').update({ disponibilidad: nuevo }).eq('id', conductor.id)
+    setDisp(nuevo)
+    onUpdate({ ...conductor, disponibilidad: nuevo })
+  }
+
+  const addNota = async () => {
     if (!nuevaNota.trim()) return
-    setNotas(n => [...n, { autor: 'Admin', texto: nuevaNota.trim(), hora: 'Ahora' }])
+    const sb = getSupabaseBrowserClient()
+    const texto = nuevaNota.trim()
+    await sb.from('notas_internas').insert({
+      entidad_tipo: 'conductor', entidad_id: conductor.id, nota: texto, autor: 'Admin',
+    })
+    setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')
   }
 
   const tabs: { id: DetailTab; label: string }[] = [
     { id: 'perfil',      label: 'Perfil' },
-    { id: 'documentos',  label: `Documentos (${conductor.documentos.length})` },
-    { id: 'viajes',      label: `Viajes (${conductor.viajes.length})` },
-    { id: 'ganancias',   label: `Ganancias (${conductor.ganancias.length})` },
-    { id: 'incidencias', label: `Incidencias (${conductor.incidencias.length})` },
+    { id: 'documentos',  label: `Documentos (${docs.length})` },
+    { id: 'viajes',      label: `Viajes (${viajes.length})` },
+    { id: 'ganancias',   label: `Ganancias (${ganancias.length})` },
+    { id: 'incidencias', label: `Incidencias (${incidencias.length})` },
     { id: 'notas',       label: `Notas (${notas.length})` },
   ]
 
@@ -400,19 +302,19 @@ function ConductorDetalle({
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {cert === 'Pendiente de validación' && (
-                <button onClick={() => setCert('Activo')}
+                <button onClick={() => cambiarCert('Activo')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                   <CheckCircleIcon className="w-3.5 h-3.5" />Validar
                 </button>
               )}
               {cert === 'Activo' && (
-                <button onClick={() => setCert('Suspendido')}
+                <button onClick={() => cambiarCert('Suspendido')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                   <ExclamationTriangleIcon className="w-3.5 h-3.5" />Suspender
                 </button>
               )}
               {(cert === 'Suspendido' || cert === 'Bloqueado') && (
-                <button onClick={() => setCert('Activo')}
+                <button onClick={() => cambiarCert('Activo')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                   <CheckCircleIcon className="w-3.5 h-3.5" />Reactivar
                 </button>
@@ -440,9 +342,9 @@ function ConductorDetalle({
               {/* Quick stats */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Viajes realizados', value: conductor.viajesRealizados, color: 'text-blue-600' },
-                  { label: 'Ganancias totales', value: `$${conductor.gananciasTotal.toLocaleString()}`, color: 'text-emerald-600' },
-                  { label: 'Incidencias', value: conductor.incidencias.length, color: conductor.incidencias.length > 0 ? 'text-red-600' : 'text-slate-500' },
+                  { label: 'Viajes realizados', value: viajesRealizados, color: 'text-blue-600' },
+                  { label: 'Ganancias totales', value: `$${gananciasTotal.toLocaleString()}`, color: 'text-emerald-600' },
+                  { label: 'Incidencias', value: incidencias.length, color: incidencias.length > 0 ? 'text-red-600' : 'text-slate-500' },
                 ].map((s, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
                     <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -462,7 +364,7 @@ function ConductorDetalle({
                   <Field label="Estado" value={conductor.estado} />
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Disponibilidad</p>
-                    <select value={disp} onChange={e => setDisp(e.target.value as EstatusDisponibilidad)}
+                    <select value={disp} onChange={e => cambiarDisp(e.target.value as EstatusDisponibilidad)}
                       className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                       {(['Disponible','No disponible','En viaje'] as EstatusDisponibilidad[]).map(d => <option key={d}>{d}</option>)}
                     </select>
@@ -500,7 +402,11 @@ function ConductorDetalle({
                   </button>
                 </div>
               </div>
-              {conductor.documentos.map((doc, i) => (
+              {cargandoRelacionados ? (
+                <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+              ) : docs.length === 0 ? (
+                <p className="p-8 text-center text-sm text-slate-400 italic bg-white rounded-xl border border-slate-200">Sin documentos registrados para este conductor.</p>
+              ) : docs.map((doc, i) => (
                 <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${doc.estado === 'Vigente' ? 'bg-green-50' : doc.estado === 'Vencido' ? 'bg-red-50' : doc.estado === 'Por vencer' ? 'bg-amber-50' : 'bg-slate-100'}`}>
@@ -524,7 +430,9 @@ function ConductorDetalle({
           {tab === 'viajes' && (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="p-4 border-b border-slate-100 text-sm font-semibold text-slate-700">Historial de viajes realizados</div>
-              {conductor.viajes.length === 0
+              {cargandoRelacionados
+                ? <div className="p-4 space-y-2">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
+                : viajes.length === 0
                 ? <p className="p-8 text-center text-sm text-slate-400 italic">Sin viajes registrados.</p>
                 : <table className="w-full text-sm text-left">
                   <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -537,7 +445,7 @@ function ConductorDetalle({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {conductor.viajes.map((v, i) => (
+                    {viajes.map((v, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-semibold text-blue-600">{v.id}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{v.fecha}</td>
@@ -558,15 +466,17 @@ function ConductorDetalle({
               <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                 <div>
                   <p className="text-xs text-slate-400 font-medium uppercase">Total acumulado</p>
-                  <p className="text-2xl font-bold text-emerald-600">${conductor.gananciasTotal.toLocaleString()} MXN</p>
+                  <p className="text-2xl font-bold text-emerald-600">${gananciasTotal.toLocaleString()} MXN</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 font-medium uppercase">Viajes totales</p>
-                  <p className="text-2xl font-bold text-slate-800">{conductor.viajesRealizados}</p>
+                  <p className="text-2xl font-bold text-slate-800">{viajesRealizados}</p>
                 </div>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                {conductor.ganancias.length === 0
+                {cargandoRelacionados
+                  ? <div className="p-4 space-y-2">{[1,2].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
+                  : ganancias.length === 0
                   ? <p className="p-8 text-center text-sm text-slate-400 italic">Sin registros de ganancias.</p>
                   : <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -578,7 +488,7 @@ function ConductorDetalle({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {conductor.ganancias.map((g, i) => (
+                      {ganancias.map((g, i) => (
                         <tr key={i} className="hover:bg-slate-50">
                           <td className="px-4 py-3 text-slate-700">{g.periodo}</td>
                           <td className="px-4 py-3 text-center font-semibold">{g.viajes}</td>
@@ -596,12 +506,14 @@ function ConductorDetalle({
           {/* ── INCIDENCIAS ── */}
           {tab === 'incidencias' && (
             <div className="space-y-3">
-              {conductor.incidencias.length === 0
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : incidencias.length === 0
                 ? <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
                     <ShieldCheckIcon className="w-10 h-10 text-green-300 mx-auto mb-2" />
                     <p className="text-sm text-slate-400 italic">Sin incidencias registradas.</p>
                   </div>
-                : conductor.incidencias.map((inc, i) => (
+                : incidencias.map((inc, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-red-50 rounded-lg">
@@ -627,7 +539,9 @@ function ConductorDetalle({
           {tab === 'notas' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-400 italic">Visibles únicamente para el equipo de operaciones.</p>
-              {notas.length === 0 && <p className="text-center text-sm text-slate-400 italic py-6">Sin notas aún.</p>}
+              {cargandoRelacionados
+                ? <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div>
+                : notas.length === 0 && <p className="text-center text-sm text-slate-400 italic py-6">Sin notas aún.</p>}
               {notas.map((n, i) => (
                 <div key={i} className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                   <p className="text-xs font-semibold text-amber-700">{n.autor} · {n.hora}</p>

@@ -33,6 +33,7 @@ interface FotoItem {
 }
 
 interface EvidenciaViaje {
+  _id: string
   id: string
   viajeId: string
   conductor: string
@@ -149,26 +150,47 @@ function FotosCompletitudBadge({ fotos }: { fotos: FotoItem[] }) {
 
 // ─── MODAL DETALLE ────────────────────────────────────────────────────────────
 function EvidenciaDetalle({
-  ev, onClose,
+  ev, onClose, onUpdate,
 }: {
   ev: EvidenciaViaje
   onClose: () => void
+  onUpdate: () => void
 }) {
-  const [estatus, setEstatus] = useState<EstatusEvidencia>(ev.estatus)
+  const [estatus, setEstatusLocal] = useState<EstatusEvidencia>(ev.estatus)
   const [aclaracion, setAclaracion] = useState(ev.notaAclaracion)
   const [editAcl, setEditAcl] = useState(false)
   const [incVinc, setIncVinc] = useState(ev.incidenciaVinculada)
   const [editInc, setEditInc] = useState(false)
   const [historial, setHistorial] = useState(ev.historial)
   const [vista, setVista] = useState<'comparar' | 'inicial' | 'final'>('comparar')
+  const [guardando, setGuardando] = useState(false)
 
   const addHistorial = (evento: string) =>
     setHistorial(h => [...h, { evento, hora: 'Ahora', actor: 'Admin' }])
 
-  const aprobar = () => { setEstatus('Aprobada'); addHistorial('Evidencia aprobada') }
-  const rechazar = () => { setEstatus('Rechazada'); addHistorial('Evidencia rechazada') }
-  const marcarIncompleta = () => { setEstatus('Incompleta'); addHistorial('Marcada como incompleta') }
-  const enviarRevision = () => { setEstatus('En revisión'); addHistorial('Enviada a revisión') }
+  const guardarEstatus = async (nuevo: EstatusEvidencia, evento: string) => {
+    setGuardando(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('evidencias').update({ estatus: nuevo, updated_at: new Date().toISOString() }).eq('id', ev._id)
+    setEstatusLocal(nuevo)
+    addHistorial(evento)
+    setGuardando(false)
+    onUpdate()
+  }
+
+  const guardarAclaracion = async () => {
+    setGuardando(true)
+    const sb = getSupabaseBrowserClient()
+    await sb.from('evidencias').update({ nota_aclaracion: aclaracion, updated_at: new Date().toISOString() }).eq('id', ev._id)
+    setEditAcl(false)
+    addHistorial('Aclaración enviada al conductor')
+    setGuardando(false)
+    onUpdate()
+  }
+
+  const aprobar = () => guardarEstatus('Aprobada', 'Evidencia aprobada')
+  const rechazar = () => guardarEstatus('Rechazada', 'Evidencia rechazada')
+  const marcarIncompleta = () => guardarEstatus('Incompleta', 'Marcada como incompleta')
 
   const kmRecorrido = ev.kmInicial && ev.kmFinal ? ev.kmFinal - ev.kmInicial : null
 
@@ -201,16 +223,16 @@ function EvidenciaDetalle({
 
             {/* Acciones rápidas */}
             <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={aprobar}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+              <button onClick={aprobar} disabled={guardando}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 disabled:opacity-60 rounded-lg transition-colors">
                 <CheckCircleIcon className="w-3.5 h-3.5" />Aprobar
               </button>
-              <button onClick={marcarIncompleta}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
+              <button onClick={marcarIncompleta} disabled={guardando}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 disabled:opacity-60 rounded-lg transition-colors">
                 <ExclamationTriangleIcon className="w-3.5 h-3.5" />Incompleta
               </button>
-              <button onClick={rechazar}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+              <button onClick={rechazar} disabled={guardando}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-60 rounded-lg transition-colors">
                 <XCircleIcon className="w-3.5 h-3.5" />Rechazar
               </button>
               <button onClick={() => { setEditAcl(true) }}
@@ -400,9 +422,9 @@ function EvidenciaDetalle({
                     className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setEditAcl(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                    <button onClick={() => { setEditAcl(false); addHistorial('Aclaración enviada al conductor') }}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 text-xs rounded-lg font-medium flex items-center gap-1.5 transition-colors">
-                      <ChatBubbleLeftEllipsisIcon className="w-3.5 h-3.5" />Enviar
+                    <button onClick={guardarAclaracion} disabled={guardando}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-4 py-1.5 text-xs rounded-lg font-medium flex items-center gap-1.5 transition-colors">
+                      <ChatBubbleLeftEllipsisIcon className="w-3.5 h-3.5" />{guardando ? 'Enviando...' : 'Enviar'}
                     </button>
                   </div>
                 </div>
@@ -422,7 +444,7 @@ function EvidenciaDetalle({
                   <input type="text" value={incVinc} onChange={e => setIncVinc(e.target.value)}
                     placeholder="Ej. #INC-005"
                     className="flex-1 border border-rose-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-                  <button onClick={() => { setEditInc(false); if (incVinc) { setEstatus('Relacionada con incidencia'); addHistorial(`Vinculada a ${incVinc}`) } }}
+                  <button onClick={() => { setEditInc(false); if (incVinc) guardarEstatus('Relacionada con incidencia', `Vinculada a ${incVinc}`) }} disabled={guardando}
                     className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs rounded-lg font-medium flex items-center gap-1.5 transition-colors">
                     <LinkIcon className="w-3.5 h-3.5" />Vincular
                   </button>
@@ -447,8 +469,8 @@ function EvidenciaDetalle({
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-2">Cambiar estatus manualmente</p>
               <div className="flex flex-wrap gap-2">
                 {(['Pendiente','Completa','Incompleta','En revisión','Aprobada','Rechazada','Relacionada con incidencia'] as EstatusEvidencia[]).map(e => (
-                  <button key={e} onClick={() => { setEstatus(e); addHistorial(`Estatus cambiado a: ${e}`) }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border ${estatus === e ? estatusStyle[e] + ' border-current' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                  <button key={e} onClick={() => guardarEstatus(e, `Estatus cambiado a: ${e}`)} disabled={guardando}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border disabled:opacity-60 ${estatus === e ? estatusStyle[e] + ' border-current' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                     {e}
                   </button>
                 ))}
@@ -462,6 +484,9 @@ function EvidenciaDetalle({
               <ClockIcon className="w-4 h-4 text-slate-400" />
               Historial de Evidencia
             </h3>
+            {historial.length === 0 ? (
+              <p className="text-sm text-slate-400 italic text-center py-4">Sin eventos registrados en esta sesión todavía.</p>
+            ) : (
             <ol className="relative border-l-2 border-slate-200 space-y-3 ml-3">
               {historial.map((h, i) => (
                 <li key={i} className="ml-5">
@@ -473,6 +498,7 @@ function EvidenciaDetalle({
                 </li>
               ))}
             </ol>
+            )}
           </div>
 
         </div>
@@ -505,6 +531,7 @@ export default function EvidenciaView() {
         const c = e.conductores as Record<string,string>|null
         const vh = e.vehiculos as Record<string,string>|null
         return {
+          _id: String(e.id??''),
           id: String(e.id??'').slice(0,8).toUpperCase(),
           viajeId: v?.folio??'—',
           conductor: c?`${c.nombre} ${c.apellido}`:'—',
@@ -545,7 +572,7 @@ export default function EvidenciaView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {detalle && <EvidenciaDetalle ev={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && <EvidenciaDetalle ev={detalle} onClose={() => setDetalle(null)} onUpdate={cargarEvidencias} />}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
