@@ -53,10 +53,10 @@ export default function LoginPage() {
             </span>
           </div>
           <h1 className="text-white text-2xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-            Ruum Ruum Admin
+            Ruum Ruum Torre de Control
           </h1>
           <p className="text-sm mt-1" style={{ color: '#5F6368' }}>
-            by MoviliaX · Panel operativo
+            by MoviliaX · Torre de Control
           </p>
         </div>
 

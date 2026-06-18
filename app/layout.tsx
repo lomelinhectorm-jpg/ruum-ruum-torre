@@ -8,7 +8,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Ruum Ruum Admin | By MoviliaX',
+  title: 'Ruum Ruum Torre de Control | By MoviliaX',
   description: 'Plataforma administrativa para gestión de viajes, conductores y evidencias',
 }
 

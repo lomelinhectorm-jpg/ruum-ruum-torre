@@ -78,8 +78,7 @@ export default function Home() {
       />
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <TopBar title={titles[activeView] || 'Ruum Ruum Admin'} onMenuClick={toggle} />
-        
+        <TopBar title={titles[activeView] || 'Ruum Ruum Torre de Control'} onMenuClick={toggle} />
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
           {renderView()}
         </main>
