@@ -71,6 +71,13 @@ function iCls(err?: boolean) {
   return `w-full border ${err ? 'border-red-400' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
 }
 
+function configWriteError(error: { code?: string; message?: string }, fallback: string) {
+  if (error.code === '42501') {
+    return 'Supabase bloqueó el guardado por RLS. Aplica docs/sql/configuracion_admin_settings.sql para permitir esta operación a administradores.'
+  }
+  return error.message || fallback
+}
+
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete?: () => void }) {
   return (
     <div className="flex items-center gap-1">
@@ -714,7 +721,12 @@ function TabVehiculos() {
       { clave: 'tipos_vehiculo', valor: JSON.stringify(next) },
       { onConflict: 'clave' }
     )
-    if (e) throw e
+    if (e) {
+      const message = e.code === '42501'
+        ? 'Supabase bloqueó el guardado por RLS. Aplica docs/sql/configuracion_admin_settings.sql para permitir esta operación a administradores.'
+        : e.message
+      throw new Error(message)
+    }
     setTipos(next)
   }
 
@@ -1051,7 +1063,7 @@ function TabNotificaciones() {
       ? await sb.from('plantillas_notificacion').update(payload).eq('id', editId)
       : await sb.from('plantillas_notificacion').insert({ ...payload, activa: true })
     if (e) {
-      setError(e.message)
+      setError(configWriteError(e, 'No se pudo guardar la plantilla.'))
       setGuardando(false)
       return
     }
@@ -1162,7 +1174,7 @@ function TabPagos() {
       ? await sb.from('metodos_pago').update({ nombre: form.nombre, descripcion: form.descripcion }).eq('id', editId)
       : await sb.from('metodos_pago').insert({ nombre: form.nombre, descripcion: form.descripcion, activo: true })
     if (e) {
-      setError(e.message)
+      setError(configWriteError(e, 'No se pudo guardar el método de pago.'))
       setGuardando(false)
       return
     }
@@ -1183,7 +1195,7 @@ function TabPagos() {
     const sb = await getSb()
     const { error: e } = await sb.from('configuracion').upsert({ clave: 'ciclo_pago', valor: JSON.stringify(ciclo) }, { onConflict: 'clave' })
     setGuardandoCiclo(false)
-    if (e) { setErrorCiclo(e.message); return }
+    if (e) { setErrorCiclo(configWriteError(e, 'No se pudo guardar el ciclo de pago.')); return }
     setCicloGuardado(true)
     setTimeout(() => setCicloGuardado(false), 2500)
   }
@@ -1268,6 +1280,8 @@ function TabFiscal() {
   })
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const [guardado, setGuardado] = useState(false)
   const set = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const getSb = async () => getSupabaseBrowserClient()
@@ -1283,9 +1297,17 @@ function TabFiscal() {
 
   const guardar = async () => {
     setGuardando(true)
+    setError('')
+    setGuardado(false)
     const sb = await getSb()
-    await sb.from('configuracion').upsert({ clave: 'datos_fiscales', valor: JSON.stringify(form) }, { onConflict: 'clave' })
+    const { error: e } = await sb.from('configuracion').upsert({ clave: 'datos_fiscales', valor: JSON.stringify(form) }, { onConflict: 'clave' })
     setGuardando(false)
+    if (e) {
+      setError(configWriteError(e, 'No se pudieron guardar los datos fiscales.'))
+      return
+    }
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2500)
   }
 
   if (cargando) return <div className="space-y-3">{[1,2].map(i => <div key={i} className="h-32 bg-slate-100 animate-pulse rounded-xl" />)}</div>
@@ -1318,7 +1340,9 @@ function TabFiscal() {
           <label className="block text-xs text-slate-500 font-medium mb-1">Vencimiento del CSD</label>
           <input type="text" placeholder="31 Mar 2026" value={form.venceCSD} onChange={e => set('venceCSD', e.target.value)} className={`${iCls()} max-w-xs`} />
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end items-center gap-3">
+          {guardado && <span className="text-xs text-green-600 font-medium">✓ Datos fiscales guardados</span>}
+          {error && <span className="text-xs text-red-600">{error}</span>}
           <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar datos fiscales'}
           </button>
@@ -1344,6 +1368,7 @@ function TabSeguridad() {
   const [guardando, setGuardando] = useState(false)
   const [ejecutandoBackup, setEjecutandoBackup] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
+  const [backupError, setBackupError] = useState('')
   const set = (k: keyof typeof config, v: string | number | boolean) => setConfig(c => ({ ...c, [k]: v }))
 
   const getSb = async () => getSupabaseBrowserClient()
@@ -1367,12 +1392,17 @@ function TabSeguridad() {
   const ejecutarBackup = async () => {
     setEjecutandoBackup(true)
     setBackupMsg('')
+    setBackupError('')
     const sb = await getSb()
-    await sb.from('bitacora').insert({
-      usuario: 'Admin', accion: 'Backup manual ejecutado', modulo: 'Configuración',
+    const { error: e } = await sb.from('bitacora').insert({
+      accion: 'Backup manual ejecutado', modulo: 'Configuración',
       detalle: 'Respaldo manual solicitado desde Seguridad', ip: null,
     })
     setEjecutandoBackup(false)
+    if (e) {
+      setBackupError(configWriteError(e, 'No se pudo registrar la solicitud de backup.'))
+      return
+    }
     setBackupMsg('Solicitud de backup registrada correctamente.')
   }
 
@@ -1437,6 +1467,7 @@ function TabSeguridad() {
           </div>
         </div>
         {backupMsg && <p className="text-xs text-green-600 mt-3">{backupMsg}</p>}
+        {backupError && <p className="text-xs text-red-600 mt-3">{backupError}</p>}
       </SCard>
     </div>
   )
@@ -1447,12 +1478,19 @@ function TabBitacora() {
   const [registros, setRegistros] = useState<{id:string;usuario:string;accion:string;modulo:string;detalle:string;ip:string;fecha:string}[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtroModulo, setFiltroModulo] = useState('Todos')
+  const [error, setError] = useState('')
 
   const cargar = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
-    const { data } = await sb.from('bitacora').select('id,usuario,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(200)
+    setError('')
+    const { data, error: e } = await sb.from('bitacora').select('id,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(200)
+    if (e) {
+      setError(e.message)
+      setCargando(false)
+      return
+    }
     if (data) setRegistros(data.map((r: Record<string,unknown>) => ({
-      id: String(r.id), usuario: String(r.usuario ?? 'Sistema'), accion: String(r.accion ?? ''),
+      id: String(r.id), usuario: 'Sistema', accion: String(r.accion ?? ''),
       modulo: String(r.modulo ?? 'Sistema'), detalle: String(r.detalle ?? ''), ip: String(r.ip ?? '—'),
       fecha: String((r.created_at as string)?.slice(0,16).replace('T',' ') ?? '—'),
     })))
@@ -1492,6 +1530,7 @@ function TabBitacora() {
           </button>
         ))}
       </div>
+      {error && <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
       {cargando ? <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div> : (
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm text-left">
