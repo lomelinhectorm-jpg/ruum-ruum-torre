@@ -187,9 +187,9 @@ function ConductorDetalle({
       const [viajesRes, incRes, docsRes, pagosRes, notasRes] = await Promise.all([
         sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, tarifa_cliente, status').eq('conductor_id', conductor.id).order('created_at', { ascending: false }),
         sb.from('incidencias').select('id, tipo, estatus, created_at').eq('conductor_id', conductor.id).order('created_at', { ascending: false }),
-        sb.from('documentos').select('tipo, folio, vigencia, estatus').eq('entidad', 'Conductor').eq('entidad_nombre', nombreCompleto),
-        sb.from('pagos_conductores').select('semana, viajes_revisados, ganancias, estatus').eq('conductor_nombre', nombreCompleto).order('created_at', { ascending: false }),
-        sb.from('notas_internas').select('id, nota, autor, created_at').eq('entidad_tipo', 'conductor').eq('entidad_id', conductor.id).order('created_at', { ascending: false }),
+        sb.from('documentos').select('tipo_doc, folio, fecha_vencimiento, estatus').eq('entidad_tipo', 'Conductor').eq('entidad_id', conductor.id),
+        sb.from('pagos_conductores').select('periodo, viajes_revisados, ganancias, estatus').eq('conductor_id', conductor.id).order('created_at', { ascending: false }),
+        sb.from('notas_internas').select('id, texto, autor_nombre, created_at').eq('entidad_tipo', 'conductor').eq('entidad_id', conductor.id).order('created_at', { ascending: false }),
       ])
 
       if (viajesRes.data) {
@@ -213,15 +213,15 @@ function ConductorDetalle({
       }
       if (docsRes.data) {
         setDocs(docsRes.data.map((d: Record<string, unknown>) => ({
-          tipo: String(d.tipo ?? '—'),
+          tipo: String(d.tipo_doc ?? '—'),
           numero: String(d.folio ?? '—'),
-          vencimiento: String(d.vigencia ?? '—'),
+          vencimiento: String(d.fecha_vencimiento ?? '—'),
           estado: (d.estatus as Documento['estado']) ?? 'Pendiente',
         })))
       }
       if (pagosRes.data) {
         setGanancias(pagosRes.data.map((g: Record<string, unknown>) => ({
-          periodo: String(g.semana ?? '—'),
+          periodo: String(g.periodo ?? '—'),
           viajes: Number(g.viajes_revisados ?? 0),
           monto: Number(g.ganancias ?? 0),
           estatus: String(g.estatus ?? '—'),
@@ -230,8 +230,8 @@ function ConductorDetalle({
       }
       if (notasRes.data) {
         setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
-          autor: String(n.autor ?? 'Admin'),
-          texto: String(n.nota ?? ''),
+          autor: String(n.autor_nombre ?? 'Admin'),
+          texto: String(n.texto ?? ''),
           hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
         })))
       }
@@ -259,7 +259,7 @@ function ConductorDetalle({
     const sb = getSupabaseBrowserClient()
     const texto = nuevaNota.trim()
     await sb.from('notas_internas').insert({
-      entidad_tipo: 'conductor', entidad_id: conductor.id, nota: texto, autor: 'Admin',
+      entidad_tipo: 'conductor', entidad_id: conductor.id, texto, autor_nombre: 'Admin',
     })
     setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')

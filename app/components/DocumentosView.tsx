@@ -23,6 +23,9 @@ import {
 type EstatusDoc = 'Pendiente' | 'En revisión' | 'Vigente' | 'Rechazado' | 'Vencido' | 'Suspendido'
 type TipoDoc = 'Licencia' | 'INE / Pasaporte' | 'Comprobante domicilio' | 'Alta SAT / CIF' | 'Tarjeta circulación' | 'Verificación' | 'Seguro vehicular' | 'Contrato' | 'Otro'
 type TipoEntidad = 'Conductor' | 'Usuario' | 'Empresa' | 'Vehículo'
+type PersonaLookup = { id: string; nombre?: string | null; apellido?: string | null; email?: string | null }
+type EmpresaLookup = { id: string; nombre_comercial?: string | null; razon_social?: string | null; rfc?: string | null }
+type VehiculoLookup = { id: string; placas?: string | null; vin?: string | null; alias?: string | null }
 
 interface Documento {
   _id: string
@@ -108,6 +111,55 @@ function isVencido(vigencia: string) {
   catch { return false }
 }
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+
+async function resolverEntidadId(sb: Awaited<ReturnType<typeof getSB>>, tipo: TipoEntidad, referencia: string) {
+  const ref = referencia.trim()
+  if (!ref) return null
+  if (isUuid(ref)) return ref
+
+  const buscado = ref.toLowerCase()
+  if (tipo === 'Conductor') {
+    const { data, error } = await sb.from('conductores').select('id,nombre,apellido').limit(100)
+    if (error) throw error
+    const match = ((data ?? []) as PersonaLookup[]).find(c =>
+      `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim().toLowerCase() === buscado ||
+      String(c.nombre ?? '').trim().toLowerCase() === buscado
+    )
+    return match?.id ?? null
+  }
+  if (tipo === 'Usuario') {
+    const { data, error } = await sb.from('usuarios').select('id,nombre,apellido,email').limit(100)
+    if (error) throw error
+    const match = ((data ?? []) as PersonaLookup[]).find(u =>
+      `${u.nombre ?? ''} ${u.apellido ?? ''}`.trim().toLowerCase() === buscado ||
+      String(u.nombre ?? '').trim().toLowerCase() === buscado ||
+      String(u.email ?? '').trim().toLowerCase() === buscado
+    )
+    return match?.id ?? null
+  }
+  if (tipo === 'Empresa') {
+    const { data, error } = await sb.from('empresas').select('id,nombre_comercial,razon_social,rfc').limit(100)
+    if (error) throw error
+    const match = ((data ?? []) as EmpresaLookup[]).find(e =>
+      String(e.nombre_comercial ?? '').trim().toLowerCase() === buscado ||
+      String(e.razon_social ?? '').trim().toLowerCase() === buscado ||
+      String(e.rfc ?? '').trim().toLowerCase() === buscado
+    )
+    return match?.id ?? null
+  }
+
+  const { data, error } = await sb.from('vehiculos').select('id,placas,vin,alias').limit(100)
+  if (error) throw error
+  const match = ((data ?? []) as VehiculoLookup[]).find(v =>
+    String(v.placas ?? '').trim().toLowerCase() === buscado ||
+    String(v.vin ?? '').trim().toLowerCase() === buscado ||
+    String(v.alias ?? '').trim().toLowerCase() === buscado
+  )
+  return match?.id ?? null
+}
+
 // ─── DETALLE DOCUMENTO ────────────────────────────────────────────────────────
 function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: () => void; onSave: () => void }) {
   const [estatus, setEstatus] = useState<EstatusDoc>(doc.estatus)
@@ -120,7 +172,7 @@ function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: (
     const estatusFinal = forzarEstatus ?? estatus
     const sb = await getSB()
     await sb.from('documentos').update({
-      estatus: estatusFinal, notas, revisado_por: revisadoPor, updated_at: new Date().toISOString()
+      estatus: estatusFinal, nota_rechazo: notas, revisado_por: revisadoPor
     }).eq('id', doc._id)
     setGuardando(false)
     onSave()
@@ -235,11 +287,13 @@ function NuevoDocumentoForm({ onClose, onSave }: { onClose: () => void; onSave: 
     setGuardando(true)
     try {
       const sb = await getSB()
+      const entidadId = await resolverEntidadId(sb, form.entidad, form.entidadNombre)
+      if (!entidadId) throw new Error(`No se encontró ${form.entidad.toLowerCase()} "${form.entidadNombre}".`)
       const { error: e } = await sb.from('documentos').insert({
-        tipo: form.tipo, entidad: form.entidad, entidad_nombre: form.entidadNombre,
-        folio: form.folio || null, vigencia: form.vigencia || null,
+        tipo_doc: form.tipo, entidad_tipo: form.entidad, entidad_id: entidadId,
+        folio: form.folio || null, fecha_vencimiento: form.vigencia || null,
         estatus: 'Pendiente', revisado_por: form.revisadoPor || '—',
-        notas: form.notas, url: form.url || null,
+        nota_rechazo: form.notas, archivo_url: form.url || null,
       })
       if (e) throw e
       onSave()
@@ -363,16 +417,16 @@ export default function DocumentosView() {
     setDocs((data ?? []).map((r: Record<string, unknown>, i: number) => ({
       _id: r.id as string,
       id: `DOC-${String(i+1).padStart(4, '0')}`,
-      tipo: (r.tipo as TipoDoc) || 'Otro',
-      entidad: (r.entidad as TipoEntidad) || 'Conductor',
-      entidadNombre: (r.entidad_nombre as string) || '—',
+      tipo: (r.tipo_doc as TipoDoc) || 'Otro',
+      entidad: (r.entidad_tipo as TipoEntidad) || 'Conductor',
+      entidadNombre: (r.entidad_id as string) || '—',
       folio: (r.folio as string) || '—',
-      vigencia: fmt(r.vigencia as string),
+      vigencia: fmt(r.fecha_vencimiento as string),
       estatus: (r.estatus as EstatusDoc) || 'Pendiente',
       fechaCarga: fmt(r.created_at as string),
       revisadoPor: (r.revisado_por as string) || '—',
-      notas: (r.notas as string) || '',
-      url: (r.url as string) || undefined,
+      notas: (r.nota_rechazo as string) || '',
+      url: (r.archivo_url as string) || undefined,
     })))
     setCargando(false)
   }, [])

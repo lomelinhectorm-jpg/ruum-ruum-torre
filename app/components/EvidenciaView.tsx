@@ -171,7 +171,7 @@ function EvidenciaDetalle({
   const guardarEstatus = async (nuevo: EstatusEvidencia, evento: string) => {
     setGuardando(true)
     const sb = getSupabaseBrowserClient()
-    await sb.from('evidencias').update({ estatus: nuevo, updated_at: new Date().toISOString() }).eq('id', ev._id)
+    await sb.from('evidencias').update({ estatus: nuevo }).eq('id', ev._id)
     setEstatusLocal(nuevo)
     addHistorial(evento)
     setGuardando(false)
@@ -181,7 +181,7 @@ function EvidenciaDetalle({
   const guardarAclaracion = async () => {
     setGuardando(true)
     const sb = getSupabaseBrowserClient()
-    await sb.from('evidencias').update({ nota_aclaracion: aclaracion, updated_at: new Date().toISOString() }).eq('id', ev._id)
+    await sb.from('evidencias').update({ nota_aclaracion: aclaracion }).eq('id', ev._id)
     setEditAcl(false)
     addHistorial('Aclaración enviada al conductor')
     setGuardando(false)

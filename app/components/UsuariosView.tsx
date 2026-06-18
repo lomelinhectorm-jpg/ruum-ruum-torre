@@ -113,8 +113,8 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
       const [viajesRes, vehRes, pagosRes, notasRes] = await Promise.all([
         sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, status').eq('usuario_id', usuario.id).order('created_at', { ascending: false }),
         sb.from('vehiculos').select('marca, modelo, placas, anio').eq('usuario_id', usuario.id),
-        sb.from('pagos_usuarios').select('fecha_pago, tarifa, estatus, viaje_folio').eq('usuario_nombre', nombreCompleto).order('created_at', { ascending: false }),
-        sb.from('notas_internas').select('id, nota, autor, created_at').eq('entidad_tipo', 'usuario').eq('entidad_id', usuario.id).order('created_at', { ascending: false }),
+        sb.from('pagos_usuarios').select('fecha_pago, tarifa, estatus, viajes(folio)').eq('usuario_id', usuario.id).order('created_at', { ascending: false }),
+        sb.from('notas_internas').select('id, texto, autor_nombre, created_at').eq('entidad_tipo', 'usuario').eq('entidad_id', usuario.id).order('created_at', { ascending: false }),
       ])
 
       if (viajesRes.data) {
@@ -137,14 +137,14 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
         setPagos(pagosRes.data.map((p: Record<string, unknown>) => ({
           fecha: String(p.fecha_pago ?? '—'),
           monto: Number(p.tarifa ?? 0),
-          concepto: p.viaje_folio ? `Viaje ${p.viaje_folio}` : 'Viaje',
+          concepto: (p.viajes as { folio?: string } | null)?.folio ? `Viaje ${(p.viajes as { folio?: string }).folio}` : 'Viaje',
           estatus: String(p.estatus ?? '—'),
         })))
       }
       if (notasRes.data) {
         setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
-          autor: String(n.autor ?? 'Admin'),
-          texto: String(n.nota ?? ''),
+          autor: String(n.autor_nombre ?? 'Admin'),
+          texto: String(n.texto ?? ''),
           hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
         })))
       }
@@ -178,7 +178,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
     if (!nuevaNota.trim()) return
     const sb = getSupabaseBrowserClient()
     const texto = nuevaNota.trim()
-    await sb.from('notas_internas').insert({ entidad_tipo: 'usuario', entidad_id: usuario.id, nota: texto, autor: 'Admin' })
+    await sb.from('notas_internas').insert({ entidad_tipo: 'usuario', entidad_id: usuario.id, texto, autor_nombre: 'Admin' })
     setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')
   }

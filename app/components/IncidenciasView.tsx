@@ -149,10 +149,10 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
   useEffect(() => {
     const cargarNotas = async () => {
       const sb = getSupabaseBrowserClient()
-      const { data } = await sb.from('notas_internas').select('autor, nota, created_at').eq('entidad_tipo', 'incidencia').eq('entidad_id', inc._id).order('created_at', { ascending: false })
+      const { data } = await sb.from('notas_internas').select('autor_nombre, texto, created_at').eq('entidad_tipo', 'incidencia').eq('entidad_id', inc._id).order('created_at', { ascending: false })
       if (data) setNotas(data.map((n: Record<string, unknown>) => ({
-        autor: String(n.autor ?? 'Admin'),
-        texto: String(n.nota ?? ''),
+        autor: String(n.autor_nombre ?? 'Admin'),
+        texto: String(n.texto ?? ''),
         hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
       })))
       setCargandoNotas(false)
@@ -167,7 +167,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
     if (!nuevaNota.trim()) return
     const sb = getSupabaseBrowserClient()
     const texto = nuevaNota.trim()
-    await sb.from('notas_internas').insert({ entidad_tipo: 'incidencia', entidad_id: inc._id, nota: texto, autor: 'Admin' })
+    await sb.from('notas_internas').insert({ entidad_tipo: 'incidencia', entidad_id: inc._id, texto, autor_nombre: 'Admin' })
     setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     addTimeline('Nota interna agregada')
     setNuevaNota('')
@@ -193,7 +193,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
   const cambiarResponsable = async (r: string) => {
     setGuardando(true)
     const sb = getSupabaseBrowserClient()
-    await sb.from('incidencias').update({ responsable: r }).eq('id', inc._id)
+    await sb.from('incidencias').update({ responsable_interno: r }).eq('id', inc._id)
     setResponsableLocal(r)
     addTimeline(`Responsable cambiado a ${r}`)
     setGuardando(false)
@@ -500,7 +500,7 @@ function NuevaIncidenciaForm({ onClose, onSave }: { onClose: () => void; onSave:
       descripcion: form.descripcion,
       estatus: 'Nueva',
       prioridad: form.prioridad,
-      responsable: form.responsable || '—',
+      responsable_interno: form.responsable || '—',
     })
     setGuardando(false)
     if (error) {
@@ -628,7 +628,7 @@ export default function IncidenciasView() {
     const { data, error } = await sb
       .from('incidencias')
       .select(`
-        id, tipo, descripcion, estatus, prioridad, responsable, resolucion, created_at,
+        id, tipo, descripcion, estatus, prioridad, responsable_interno, resolucion, created_at,
         viajes(folio),
         usuarios(nombre, apellido),
         conductores(nombre, apellido)
@@ -650,7 +650,7 @@ export default function IncidenciasView() {
           hora:             String((i.created_at as string)?.slice(11,16) ?? ''),
           descripcion:      String(i.descripcion ?? ''),
           evidenciaAsociada:'',
-          responsable:      String(i.responsable ?? ''),
+          responsable:      String(i.responsable_interno ?? ''),
           estatus:          (i.estatus as EstatusIncidencia) ?? 'Nueva',
           prioridad:        (i.prioridad as Prioridad) ?? 'Media',
           resolucion:       String(i.resolucion ?? ''),

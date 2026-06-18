@@ -296,7 +296,7 @@ export default function TarifasView() {
       sb.from('tarifas_base').select('*').order('created_at'),
       sb.from('recargos').select('*').order('created_at'),
       sb.from('tarifas_conductor').select('*').order('created_at'),
-      sb.from('tarifas_empresariales').select('*').order('created_at'),
+      sb.from('tarifas_empresariales').select('*, empresas(nombre_comercial)').order('created_at'),
       sb.from('rutas_frecuentes').select('*').order('created_at'),
     ])
 
@@ -306,7 +306,7 @@ export default function TarifasView() {
       tipoVehiculo: (r.tipo_vehiculo as TipoVehiculo) ?? 'Todos',
       tipoServicio: (r.tipo_servicio as TipoServicio) ?? 'Traslado local',
       tarifaBase: Number(r.tarifa_base ?? 0), porKm: Number(r.por_km ?? 0),
-      tarifaMinima: Number(r.tarifa_minima ?? 0), tiempoEstimado: Number(r.tiempo_estimado ?? 0),
+      tarifaMinima: Number(r.tarifa_minima ?? 0), tiempoEstimado: Number(r.tiempo_estimado_min ?? 0),
       activa: Boolean(r.activa),
     })))
     if (rc.data) setRecargos(rc.data.map((r: Record<string,unknown>) => ({
@@ -323,7 +323,7 @@ export default function TarifasView() {
       activo: Boolean(r.activo),
     })))
     if (te.data) setTarifasEmp(te.data.map((r: Record<string,unknown>) => ({
-      id: String(r.id), empresa: String(r.empresa ?? ''),
+      id: String(r.id), empresa: String((r.empresas as Record<string,string>|null)?.nombre_comercial ?? r.empresa_id ?? ''),
       descuento: Number(r.descuento ?? 0),
       tarifaFija: r.tarifa_fija != null ? Number(r.tarifa_fija) : null,
       vigenciaDesde: String(r.vigencia_desde ?? ''), vigenciaHasta: String(r.vigencia_hasta ?? ''),
@@ -333,7 +333,7 @@ export default function TarifasView() {
       id: String(r.id), nombre: String(r.nombre ?? ''),
       origen: String(r.origen ?? ''), destino: String(r.destino ?? ''),
       distanciaKm: Number(r.distancia_km ?? 0), tarifaFija: Number(r.tarifa_fija ?? 0),
-      pagoConductor: Number(r.pago_conductor ?? 0), tiempoEst: Number(r.tiempo_est ?? 0),
+      pagoConductor: Number(r.pago_conductor ?? 0), tiempoEst: Number(r.tiempo_est_min ?? 0),
       tipoVehiculo: (r.tipo_vehiculo as TipoVehiculo) ?? 'Todos', activa: Boolean(r.activa),
     })))
 
@@ -353,12 +353,12 @@ export default function TarifasView() {
 
   const COL_MAP: Record<string, string> = {
     tarifaBase: 'tarifa_base', porKm: 'por_km', tarifaMinima: 'tarifa_minima',
-    tiempoEstimado: 'tiempo_estimado', tipoVehiculo: 'tipo_vehiculo',
+    tiempoEstimado: 'tiempo_estimado_min', tipoVehiculo: 'tipo_vehiculo',
     tipoServicio: 'tipo_servicio', pagoBase: 'pago_base',
     gastosAutorizados: 'gastos_autorizados', tarifaFija: 'tarifa_fija',
     vigenciaDesde: 'vigencia_desde', vigenciaHasta: 'vigencia_hasta',
     serviciosIncluidos: 'servicios_incluidos', distanciaKm: 'distancia_km',
-    pagoConductor: 'pago_conductor', tiempoEst: 'tiempo_est',
+    pagoConductor: 'pago_conductor', tiempoEst: 'tiempo_est_min',
   }
 
   const saveEdit = async (section: MainTab) => {
@@ -403,17 +403,22 @@ export default function TarifasView() {
   }
 
   const DEFAULTS: Record<MainTab, Record<string, unknown>> = {
-    bases: { nombre: 'Nueva tarifa', tipo_vehiculo: 'Todos', tipo_servicio: 'Traslado local', tarifa_base: 0, por_km: 0, tarifa_minima: 0, tiempo_estimado: 0, activa: true },
+    bases: { nombre: 'Nueva tarifa', tipo_vehiculo: 'Todos', tipo_servicio: 'Traslado local', tarifa_base: 0, por_km: 0, tarifa_minima: 0, tiempo_estimado_min: 0, activa: true },
     recargos: { nombre: 'Nuevo recargo', tipo: 'porcentaje', valor: 0, aplica: '', activo: true },
     conductores: { tipo_servicio: 'Traslado local', tipo_vehiculo: 'Todos', pago_base: 0, por_km: 0, gastos_autorizados: 0, viaticos: 0, activo: true },
-    empresariales: { empresa: 'Nueva empresa', descuento: 0, tarifa_fija: null, vigencia_desde: new Date().toISOString().slice(0,10), vigencia_hasta: '', servicios_incluidos: [], activa: true },
-    rutas: { nombre: 'Nueva ruta', origen: '', destino: '', distancia_km: 0, tarifa_fija: 0, pago_conductor: 0, tiempo_est: 0, tipo_vehiculo: 'Todos', activa: true },
+    empresariales: { descuento: 0, tarifa_fija: null, vigencia_desde: new Date().toISOString().slice(0,10), vigencia_hasta: '', servicios_incluidos: [], activa: true },
+    rutas: { nombre: 'Nueva ruta', origen: '', destino: '', distancia_km: 0, tarifa_fija: 0, pago_conductor: 0, tiempo_est_min: 0, tipo_vehiculo: 'Todos', activa: true },
   }
 
   const addNuevo = async (section: MainTab) => {
     setGuardando(true)
     const sb = await getSb()
-    const { data } = await sb.from(TABLA[section]).insert(DEFAULTS[section]).select().single()
+    const payload = { ...DEFAULTS[section] }
+    if (section === 'empresariales') {
+      const { data: empresa } = await sb.from('empresas').select('id').limit(1).maybeSingle()
+      if (empresa?.id) payload.empresa_id = empresa.id
+    }
+    const { data } = await sb.from(TABLA[section]).insert(payload).select().single()
     if (data) await cargar()
     setGuardando(false)
   }

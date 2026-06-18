@@ -81,11 +81,27 @@ function configWriteError(error: { code?: string; message?: string }, fallback: 
 async function registrarBitacora(accion: string, modulo: string, detalle: string) {
   const sb = getSupabaseBrowserClient()
   const { data } = await sb.auth.getUser()
-  const usuario = data.user?.email ?? 'Admin'
+  const authId = data.user?.id ?? null
+  const email = data.user?.email ?? 'Admin'
+  let usuarioInternoId: string | null = null
+  let usuarioNombre = email
+  if (authId) {
+    const { data: interno } = await sb
+      .from('usuarios_internos')
+      .select('id,nombre,apellido,email')
+      .eq('auth_id', authId)
+      .maybeSingle()
+    if (interno) {
+      usuarioInternoId = String(interno.id)
+      usuarioNombre = `${interno.nombre ?? ''} ${interno.apellido ?? ''}`.trim() || String(interno.email ?? email)
+    }
+  }
   const { error } = await sb.from('bitacora').insert({
+    usuario_interno_id: usuarioInternoId,
+    usuario_nombre: usuarioNombre,
     accion,
     modulo,
-    detalle: `${detalle} | Usuario: ${usuario}`,
+    detalle,
     ip: null,
   })
   if (error) throw error
@@ -1539,20 +1555,16 @@ function TabBitacora() {
   const cargar = useCallback(async () => {
     const sb = getSupabaseBrowserClient()
     setError('')
-    const { data, error: e } = await sb.from('bitacora').select('id,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(200)
+    const { data, error: e } = await sb.from('bitacora').select('id,usuario_nombre,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(200)
     if (e) {
       setError(e.message)
       setCargando(false)
       return
     }
     if (data) setRegistros(data.map((r: Record<string,unknown>) => {
-      const detalleCompleto = String(r.detalle ?? '')
-      const usuarioMatch = detalleCompleto.match(/\s\|\sUsuario:\s(.+)$/)
-      const usuario = usuarioMatch?.[1] ?? 'Sistema'
-      const detalle = usuarioMatch ? detalleCompleto.replace(/\s\|\sUsuario:\s.+$/, '') : detalleCompleto
       return {
-        id: String(r.id), usuario, accion: String(r.accion ?? ''),
-        modulo: String(r.modulo ?? 'Sistema'), detalle, ip: String(r.ip ?? '—'),
+        id: String(r.id), usuario: String(r.usuario_nombre ?? 'Sistema'), accion: String(r.accion ?? ''),
+        modulo: String(r.modulo ?? 'Sistema'), detalle: String(r.detalle ?? ''), ip: String(r.ip ?? '—'),
         fecha: String((r.created_at as string)?.slice(0,16).replace('T',' ') ?? '—'),
       }
     }))

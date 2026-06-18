@@ -651,8 +651,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         await sb.from('notas_internas').insert({
           entidad_tipo: 'viaje',
           entidad_id: viaje.id,
-          nota: form.notaInterna,
-          autor: 'Admin',
+          texto: form.notaInterna,
+          autor_nombre: 'Admin',
         })
       }
 

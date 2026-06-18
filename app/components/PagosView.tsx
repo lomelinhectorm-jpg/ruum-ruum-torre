@@ -88,6 +88,50 @@ const estatusDot: Record<EstatusPago, string> = {
 const TODOS_ESTATUS: EstatusPago[] = ['Pendiente','En revisión','Aprobado','Rechazado','Pagado','Revocado','Ajustado']
 const METODOS = ['Transferencia','SPEI','Tarjeta crédito','Tarjeta débito','Efectivo','Cheque']
 
+type ViajeJoin = { folio?: string | null }
+type PersonaJoin = { nombre?: string | null; apellido?: string | null }
+type EmpresaJoin = { nombre_comercial?: string | null }
+type ConductorLookup = { id: string; nombre?: string | null; apellido?: string | null }
+type JoinedViaje = ViajeJoin | ViajeJoin[] | null
+type JoinedPersona = PersonaJoin | PersonaJoin[] | null
+type JoinedEmpresa = EmpresaJoin | EmpresaJoin[] | null
+
+const firstJoin = <T,>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+
+async function resolverViaje(
+  sb: Awaited<ReturnType<typeof getSB>>,
+  referencia: string,
+  campos = 'id'
+) {
+  const ref = referencia.trim()
+  if (!ref) return null
+  const query = sb.from('viajes').select(campos)
+  const { data, error } = isUuid(ref)
+    ? await query.eq('id', ref).maybeSingle()
+    : await query.eq('folio', ref).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+const nombreCompleto = (persona: JoinedPersona) => {
+  const p = firstJoin(persona)
+  return p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() || '—' : '—'
+}
+
+const nombreEmpresa = (empresa: JoinedEmpresa) => {
+  const e = firstJoin(empresa)
+  return e?.nombre_comercial || '—'
+}
+
+const folioViaje = (viaje: JoinedViaje) => {
+  const v = firstJoin(viaje)
+  return v?.folio || '—'
+}
+
 function EBadge({ e }: { e: EstatusPago }) {
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${estatusStyle[e]}`}>
@@ -134,7 +178,7 @@ function DetallePagoUsuario({ pago, onClose, onSave }: { pago: PagoUsuario; onCl
     if (!pago._id) return
     setGuardando(true)
     const sb = await getSB()
-    await sb.from('pagos_usuarios').update({ estatus, notas, updated_at: new Date().toISOString() }).eq('id', pago._id)
+    await sb.from('pagos_usuarios').update({ estatus, notas }).eq('id', pago._id)
     setGuardando(false)
     onSave()
     onClose()
@@ -215,7 +259,7 @@ function DetallePagoConductor({ pago, onClose, onSave }: { pago: PagoConductor; 
     if (!pago._id) return
     setGuardando(true)
     const sb = await getSB()
-    await sb.from('pagos_conductores').update({ estatus, notas, updated_at: new Date().toISOString() }).eq('id', pago._id)
+    await sb.from('pagos_conductores').update({ estatus, notas }).eq('id', pago._id)
     setGuardando(false)
     onSave()
     onClose()
@@ -293,7 +337,7 @@ function DetalleGasto({ gasto, onClose, onSave }: { gasto: Gasto; onClose: () =>
     setGuardando(true)
     const estatusFinal = forzarEstatus ?? estatus
     const sb = await getSB()
-    await sb.from('gastos').update({ estatus: estatusFinal, aprobado_por: aprobado, updated_at: new Date().toISOString() }).eq('id', gasto._id)
+    await sb.from('gastos').update({ estatus: estatusFinal, aprobado_por: aprobado }).eq('id', gasto._id)
     setGuardando(false)
     onSave()
     onClose()
@@ -383,27 +427,62 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
     try {
       const sb = await getSB()
       if (tipo === 'usuario') {
+        const viaje = await resolverViaje(sb, form.viaje, 'id, usuario_id, empresa_id')
+        if (!viaje) throw new Error(`No se encontró el viaje "${form.viaje}".`)
         const { error: e } = await sb.from('pagos_usuarios').insert({
-          viaje_folio: form.viaje, usuario_nombre: form.usuario, empresa_nombre: form.empresa,
+          viaje_id: viaje.id,
+          usuario_id: viaje.usuario_id,
+          empresa_id: viaje.empresa_id,
           tarifa: parseFloat(form.tarifa) || 0, metodo_pago: form.metodoPago,
           requiere_factura: form.factura === 'si', estatus: 'Pendiente',
           fecha_pago: form.fecha || null, notas: form.notas,
         })
         if (e) throw e
       } else if (tipo === 'conductor') {
+        const { data: conductores, error: conductorError } = await sb
+          .from('conductores')
+          .select('id, nombre, apellido')
+          .limit(50)
+        if (conductorError) throw conductorError
+        const buscado = form.conductor.trim().toLowerCase()
+        const conductor = ((conductores ?? []) as ConductorLookup[]).find(c =>
+          c.id === form.conductor ||
+          `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim().toLowerCase() === buscado ||
+          String(c.nombre ?? '').trim().toLowerCase() === buscado
+        )
+        if (!conductor) throw new Error(`No se encontró el conductor "${form.conductor}".`)
+        const ganancias = parseFloat(form.ganancias) || 0
+        const gastosAutorizados = parseFloat(form.gastosAut) || 0
+        const ajustes = parseFloat(form.ajustes) || 0
         const { error: e } = await sb.from('pagos_conductores').insert({
-          conductor_nombre: form.conductor, semana: form.semana,
+          conductor_id: conductor.id, periodo: form.semana,
           viajes_revisados: parseInt(form.viajesRevisados) || 0,
-          ganancias: parseFloat(form.ganancias) || 0,
-          gastos_autorizados: parseFloat(form.gastosAut) || 0,
-          ajustes: parseFloat(form.ajustes) || 0,
+          ganancias,
+          gastos_autorizados: gastosAutorizados,
+          ajustes,
+          deposito_esperado: ganancias + gastosAutorizados + ajustes,
           estatus: 'Pendiente', notas: form.notas,
         })
         if (e) throw e
       } else {
+        const viaje = form.viaje ? await resolverViaje(sb, form.viaje, 'id') : null
+        const { data: conductores, error: conductorError } = await sb
+          .from('conductores')
+          .select('id, nombre, apellido')
+          .limit(50)
+        if (conductorError) throw conductorError
+        const buscado = form.conductor.trim().toLowerCase()
+        const conductor = ((conductores ?? []) as ConductorLookup[]).find(c =>
+          c.id === form.conductor ||
+          `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim().toLowerCase() === buscado ||
+          String(c.nombre ?? '').trim().toLowerCase() === buscado
+        )
+        if (!conductor) throw new Error(`No se encontró el conductor "${form.conductor}".`)
         const { error: e } = await sb.from('gastos').insert({
-          concepto: form.concepto, viaje_folio: form.viaje,
-          conductor_nombre: form.conductor, comprobante: form.comprobante,
+          concepto: form.concepto,
+          viaje_id: viaje?.id ?? null,
+          conductor_id: conductor.id,
+          comprobante: form.comprobante,
           monto: parseFloat(form.monto) || 0, aprobado_por: form.aprobadoPor || '—',
           estatus: 'Pendiente', fecha: form.fecha, notas: form.notas,
         })
@@ -533,31 +612,31 @@ export default function PagosView() {
     const sb = await getSB()
 
     const [{ data: pu }, { data: pc }, { data: gs }] = await Promise.all([
-      sb.from('pagos_usuarios').select('*').order('created_at', { ascending: false }),
-      sb.from('pagos_conductores').select('*').order('created_at', { ascending: false }),
-      sb.from('gastos').select('*').order('created_at', { ascending: false }),
+      sb.from('pagos_usuarios').select('*, viajes(folio), usuarios(nombre,apellido), empresas(nombre_comercial)').order('created_at', { ascending: false }),
+      sb.from('pagos_conductores').select('*, conductores(nombre,apellido)').order('created_at', { ascending: false }),
+      sb.from('gastos').select('*, viajes(folio), conductores(nombre,apellido)').order('created_at', { ascending: false }),
     ])
 
     setPagosUsuarios((pu ?? []).map((r: Record<string, unknown>) => ({
       _id: r.id as string,
       id: `PU-${String(r.id as string).slice(-4).toUpperCase()}`,
-      viajeId: (r.viaje_folio as string) || '—',
-      usuario: (r.usuario_nombre as string) || '—',
-      empresa: (r.empresa_nombre as string) || '—',
+      viajeId: folioViaje(r.viajes as JoinedViaje),
+      usuario: nombreCompleto(r.usuarios as JoinedPersona),
+      empresa: nombreEmpresa(r.empresas as JoinedEmpresa),
       tarifa: (r.tarifa as number) || 0,
       metodoPago: (r.metodo_pago as string) || '—',
       estatus: (r.estatus as EstatusPago) || 'Pendiente',
       fechaPago: fmt(r.fecha_pago as string),
       requiereFactura: !!(r.requiere_factura),
-      folio: (r.folio_factura as string) || '—',
+      folio: (r.folio_cfdi as string) || '—',
       notas: (r.notas as string) || '',
     })))
 
     setPagosConductores((pc ?? []).map((r: Record<string, unknown>) => ({
       _id: r.id as string,
       id: `PC-${String(r.id as string).slice(-4).toUpperCase()}`,
-      conductor: (r.conductor_nombre as string) || '—',
-      semana: (r.semana as string) || '—',
+      conductor: nombreCompleto(r.conductores as JoinedPersona),
+      semana: (r.periodo as string) || '—',
       viajesRevisados: (r.viajes_revisados as number) || 0,
       ganancias: (r.ganancias as number) || 0,
       gastosReportados: (r.gastos_reportados as number) || 0,
@@ -573,8 +652,8 @@ export default function PagosView() {
       _id: r.id as string,
       id: `GS-${String(r.id as string).slice(-4).toUpperCase()}`,
       concepto: (r.concepto as string) || '—',
-      viajeId: (r.viaje_folio as string) || '—',
-      conductor: (r.conductor_nombre as string) || '—',
+      viajeId: folioViaje(r.viajes as JoinedViaje),
+      conductor: nombreCompleto(r.conductores as JoinedPersona),
       comprobante: (r.comprobante as string) || '—',
       monto: (r.monto as number) || 0,
       estatus: (r.estatus as EstatusPago) || 'Pendiente',

@@ -67,10 +67,10 @@ export async function getAlertasOperativas() {
       .eq('status', 'Pendiente de asignación').limit(5),
     supabase.from('evidencias').select('id, viaje_id, estatus')
       .eq('estatus', 'Incompleta').limit(5),
-    supabase.from('incidencias').select('id, folio, tipo, estatus')
+    supabase.from('incidencias').select('id, tipo, estatus')
       .in('estatus', ['Nueva', 'Escalada']).limit(5),
     supabase.from('documentos').select('id, tipo_doc, entidad_tipo, entidad_id')
-      .in('estatus', ['Vencido', 'Pendiente de actualización']).limit(5),
+      .in('estatus', ['Vencido', 'Pendiente', 'En revisión', 'Suspendido']).limit(5),
   ])
 
   return {

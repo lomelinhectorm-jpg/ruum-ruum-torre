@@ -265,7 +265,7 @@ function ReporteFinanciero({ periodo, onExportable }: { periodo: Periodo; onExpo
       const desde = periodoFecha(periodo)
 
       const [pvRes, pcRes, gsRes] = await Promise.all([
-        sb.from('pagos_usuarios').select('tarifa_cobrada, estatus, created_at, viajes(folio), empresas(nombre_comercial)').gte('created_at', desde),
+        sb.from('pagos_usuarios').select('tarifa, estatus, created_at, viajes(folio), empresas(nombre_comercial)').gte('created_at', desde),
         sb.from('pagos_conductores').select('deposito_esperado, estatus, viajes_revisados, conductores(nombre,apellido)').gte('created_at', desde),
         sb.from('gastos').select('monto, estatus').gte('created_at', desde),
       ])
@@ -274,8 +274,8 @@ function ReporteFinanciero({ periodo, onExportable }: { periodo: Periodo; onExpo
       const pc = pcRes.data ?? []
       const gs = gsRes.data ?? []
 
-      const totalIng = pu.filter((p: Record<string,unknown>) => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0)
-      const pendienteCobro = pu.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado','En revisión'].includes(p.estatus as string)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0)
+      const totalIng = pu.filter((p: Record<string,unknown>) => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa ?? 0), 0)
+      const pendienteCobro = pu.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado','En revisión'].includes(p.estatus as string)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa ?? 0), 0)
       const totalPagado = pc.filter((p: Record<string,unknown>) => p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.deposito_esperado ?? 0), 0)
       const pendienteConductores = pc.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado'].includes(p.estatus as string)).reduce((s: number, p: Record<string,unknown>) => s + Number(p.deposito_esperado ?? 0), 0)
       const totalGastos = gs.filter((g: Record<string,unknown>) => g.estatus === 'Aprobado').reduce((s: number, g: Record<string,unknown>) => s + Number(g.monto ?? 0), 0)
@@ -285,14 +285,14 @@ function ReporteFinanciero({ periodo, onExportable }: { periodo: Periodo; onExpo
       pu.forEach((p: Record<string,unknown>) => {
         const d = new Date(p.created_at as string)
         const key = periodo === 'hoy' ? `${d.getHours()}:00` : periodo === 'trimestre' ? d.toLocaleString('es', { month: 'short' }) : d.toLocaleString('es', { weekday: 'short' })
-        grupos[key] = (grupos[key] ?? 0) + Number(p.tarifa_cobrada ?? 0)
+        grupos[key] = (grupos[key] ?? 0) + Number(p.tarifa ?? 0)
       })
       const barData = Object.entries(grupos).map(([label, value]) => ({ label, value }))
 
       const viajes = pu.filter((p: Record<string,unknown>) => ['Pendiente','En revisión','Aprobado'].includes(p.estatus as string)).slice(0,5).map((p: Record<string,unknown>) => {
         const v = p.viajes as Record<string,string>|null
         const e = p.empresas as Record<string,string>|null
-        return { folio: v?.folio ?? '—', empresa: e?.nombre_comercial ?? '—', tarifa: Number(p.tarifa_cobrada ?? 0), status: String(p.estatus) }
+        return { folio: v?.folio ?? '—', empresa: e?.nombre_comercial ?? '—', tarifa: Number(p.tarifa ?? 0), status: String(p.estatus) }
       })
 
       const conductoresData = pc.filter((p: Record<string,unknown>) => ['Pendiente','Aprobado'].includes(p.estatus as string)).slice(0,5).map((p: Record<string,unknown>) => {
@@ -373,7 +373,7 @@ function ReporteConductores({ onExportable }: { onExportable: (fn: () => void) =
   const cargar = useCallback(async () => {
     const sb = await getSb()
     const { data: conds } = await sb.from('conductores')
-      .select('id, nombre, apellido, calificacion, viajes_realizados, ganancias_total, certificacion, estatus')
+      .select('id, nombre, apellido, calificacion, viajes_realizados, ganancias_total, certificacion')
       .order('ganancias_total', { ascending: false }) as unknown as { data: Record<string, unknown>[] | null }
 
     const { data: incs } = await sb.from('incidencias')
@@ -382,7 +382,7 @@ function ReporteConductores({ onExportable }: { onExportable: (fn: () => void) =
     const { data: docs } = await sb.from('documentos')
       .select('entidad_id, estatus')
       .eq('entidad_tipo', 'Conductor')
-      .in('estatus', ['Vencido', 'Pendiente de carga', 'Pendiente de actualización']) as unknown as { data: { entidad_id: string; estatus: string }[] | null }
+      .in('estatus', ['Vencido', 'Pendiente', 'En revisión', 'Suspendido']) as unknown as { data: { entidad_id: string; estatus: string }[] | null }
 
     if (conds) {
       setConductores(conds.map((c: Record<string,unknown>) => ({
@@ -484,7 +484,7 @@ function ReporteUsuarios({ onExportable }: { onExportable: (fn: () => void) => v
     const [empRes, vRes, puRes, incRes, usrRes] = await Promise.all([
       sb.from('empresas').select('id, nombre_comercial, tipo, estatus') as unknown as Promise<{ data: Record<string,unknown>[] | null }>,
       sb.from('viajes').select('empresa_id') as unknown as Promise<{ data: { empresa_id: string }[] | null }>,
-      sb.from('pagos_usuarios').select('empresa_id, tarifa_cobrada, estatus') as unknown as Promise<{ data: { empresa_id: string; tarifa_cobrada: number; estatus: string }[] | null }>,
+      sb.from('pagos_usuarios').select('empresa_id, tarifa, estatus') as unknown as Promise<{ data: { empresa_id: string; tarifa: number; estatus: string }[] | null }>,
       sb.from('incidencias').select('usuario_id') as unknown as Promise<{ data: { usuario_id: string }[] | null }>,
       sb.from('usuarios').select('id, estatus') as unknown as Promise<{ data: { id: string; estatus: string }[] | null }>,
     ])
@@ -502,7 +502,7 @@ function ReporteUsuarios({ onExportable }: { onExportable: (fn: () => void) => v
       nombre: String(e.nombre_comercial ?? ''),
       tipo: String(e.tipo ?? ''),
       viajes: viajes.filter(v => v.empresa_id === e.id).length,
-      facturado: pagos.filter(p => p.empresa_id === e.id && p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa_cobrada ?? 0), 0),
+      facturado: pagos.filter(p => p.empresa_id === e.id && p.estatus === 'Pagado').reduce((s: number, p: Record<string,unknown>) => s + Number(p.tarifa ?? 0), 0),
       incidencias: incs.filter(i => i.usuario_id === e.id).length,
     })).sort((a, b) => b.viajes - a.viajes))
 

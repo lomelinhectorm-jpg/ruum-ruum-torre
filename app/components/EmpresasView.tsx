@@ -140,7 +140,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
       const [viajesRes, vehRes, notasRes] = await Promise.all([
         sb.from('viajes').select('id, folio, fecha_programada, origen_calle, destino_calle, tarifa_cliente, status, usuarios(nombre, apellido, email)').eq('empresa_id', empresa.id).order('created_at', { ascending: false }),
         sb.from('vehiculos').select('marca, modelo, placas, anio').eq('empresa_id', empresa.id),
-        sb.from('notas_internas').select('id, texto, created_at').eq('entidad_tipo', 'empresa').eq('entidad_id', empresa.id).order('created_at', { ascending: false }),
+        sb.from('notas_internas').select('id, texto, autor_nombre, created_at').eq('entidad_tipo', 'empresa').eq('entidad_id', empresa.id).order('created_at', { ascending: false }),
       ])
 
       if (viajesRes.data) {
@@ -173,7 +173,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
       }
       if (notasRes.data) {
         setNotas(notasRes.data.map((n: Record<string, unknown>) => ({
-          autor: 'Admin',
+          autor: String(n.autor_nombre ?? 'Admin'),
           texto: String(n.texto ?? ''),
           hora: String((n.created_at as string)?.slice(0,16).replace('T',' ') ?? ''),
         })))
@@ -211,7 +211,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
     if (!nuevaNota.trim()) return
     const sb = getSupabaseBrowserClient()
     const texto = nuevaNota.trim()
-    await sb.from('notas_internas').insert({ entidad_tipo: 'empresa', entidad_id: empresa.id, texto })
+    await sb.from('notas_internas').insert({ entidad_tipo: 'empresa', entidad_id: empresa.id, texto, autor_nombre: 'Admin' })
     setNotas(n => [{ autor: 'Admin', texto, hora: 'Ahora' }, ...n])
     setNuevaNota('')
   }
