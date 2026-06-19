@@ -2027,6 +2027,12 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 // ─── TIPOS SUPABASE ───────────────────────────────────────────────────────────
+type JoinOne<T> = T | T[] | null
+
+function firstJoin<T>(value: JoinOne<T>): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
 interface ViajeDB {
   id: string
   folio: string | null
@@ -2060,19 +2066,19 @@ interface ViajeDB {
   ajustes: number | null
   observaciones_conductor: string | null
   revision_admin: string | null
-  conductores: { nombre: string; apellido: string }[] | null
-  usuarios: { nombre: string; apellido: string }[] | null
-  empresas: { nombre_comercial: string }[] | null
-  vehiculos: { marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; tipo_vehiculo: string | null; alias: string | null; observaciones: string | null }[] | null
-  tipos_servicio: { nombre: string }[] | null
+  conductores: JoinOne<{ nombre: string; apellido: string }>
+  usuarios: JoinOne<{ nombre: string; apellido: string }>
+  empresas: JoinOne<{ nombre_comercial: string }>
+  vehiculos: JoinOne<{ marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; tipo_vehiculo: string | null; alias: string | null; observaciones: string | null }>
+  tipos_servicio: JoinOne<{ nombre: string }>
 }
 
 function viajeDBaTrip(v: ViajeDB): Trip {
-  const conductor = v.conductores?.[0] ?? null
-  const usuario = v.usuarios?.[0] ?? null
-  const empresa = v.empresas?.[0] ?? null
-  const vehiculo = v.vehiculos?.[0] ?? null
-  const tipoServicio = v.tipos_servicio?.[0] ?? null
+  const conductor = firstJoin(v.conductores)
+  const usuario = firstJoin(v.usuarios)
+  const empresa = firstJoin(v.empresas)
+  const vehiculo = firstJoin(v.vehiculos)
+  const tipoServicio = firstJoin(v.tipos_servicio)
 
   return {
     id: v.folio ?? v.id.slice(0, 8).toUpperCase(),
