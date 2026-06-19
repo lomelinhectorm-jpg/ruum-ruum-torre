@@ -755,6 +755,14 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 // ─── NUEVO VIAJE FORM ─────────────────────────────────────────────────────────
 const TRANSMISIONES = ['Automática', 'Manual', 'CVT', 'Secuencial']
+const COMBUSTIBLES = ['Gasolina', 'Diésel', 'Eléctrico']
+
+const FOLIO_CHARS_VEHICULO = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // sin I/O para evitar confusión visual
+function generarFolioVehiculo() {
+  let folio = ''
+  for (let i = 0; i < 8; i++) folio += FOLIO_CHARS_VEHICULO[Math.floor(Math.random() * FOLIO_CHARS_VEHICULO.length)]
+  return folio
+}
 
 type Step = 1 | 2 | 3 | 4
 
@@ -777,6 +785,12 @@ interface FormData {
   placas: string
   vin: string
   transmision: string
+  tipoVehiculo: string
+  combustible: string
+  alias: string
+  verificacionVigente: boolean
+  tarjetaCirculacion: boolean
+  numLlaves: number
   obsVehiculo: string
   // Step 3 – Ruta y fecha
   fecha: string
@@ -811,7 +825,8 @@ interface FormData {
 
 const EMPTY_FORM: FormData = {
   tipoServicioId: '', clienteTipo: '', clienteId: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '',
-  vehiculoOrigen: 'manual', vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '', obsVehiculo: '',
+  vehiculoOrigen: 'manual', vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '',
+  tipoVehiculo: '', combustible: '', alias: '', verificacionVigente: false, tarjetaCirculacion: false, numLlaves: 1, obsVehiculo: '',
   fecha: '', hora: '',
   origenCalle: '', origenNumero: '', origenColonia: '', origenMunicipio: '', origenEstado: '', origenCp: '',
   origenContactoNombre: '', origenContactoTel: '',
@@ -831,18 +846,29 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   const [empresasLista, setEmpresasLista] = useState<{ id: string; nombre: string }[]>([])
   const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string; apellido: string; telefono: string | null; email: string }[]>([])
   const [conductoresLista, setConductoresLista] = useState<{ id: string; nombre: string; apellido: string }[]>([])
-  const [vehiculosLista, setVehiculosLista] = useState<{ id: string; marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; usuario_id: string | null; empresa_id: string | null }[]>([])
+  const [vehiculosLista, setVehiculosLista] = useState<{
+    id: string; marca: string; modelo: string; placas: string; anio: string | null; color: string | null
+    vin: string | null; transmision: string | null; tipoVehiculo: string | null; combustible: string | null
+    alias: string | null; verificacionVigente: boolean; tarjetaCirculacion: boolean; numLlaves: number
+    usuario_id: string | null; empresa_id: string | null
+  }[]>([])
+  const [tiposVehiculo, setTiposVehiculo] = useState<{ id: string; nombre: string }[]>([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
 
   useEffect(() => {
     const cargarCatalogos = async () => {
       const sb = getSupabaseBrowserClient()
-      const [tsRes, empRes, usrRes, condRes, vehRes] = await Promise.all([
+      const [tsRes, empRes, usrRes, condRes, vehRes, tiposVehRes] = await Promise.all([
         sb.from('tipos_servicio').select('id, nombre').eq('activo', true).order('nombre'),
-        sb.from('empresas').select('id, nombre_comercial').eq('estatus', 'Activo').order('nombre_comercial'),
+        sb.from('empresas').select('id, nombre_comercial').eq('estatus', 'Activa').order('nombre_comercial'),
         sb.from('usuarios').select('id, nombre, apellido, telefono, email').order('nombre'),
         sb.from('conductores').select('id, nombre, apellido').order('nombre'),
-        sb.from('vehiculos').select('id, marca, modelo, placas, anio, color, vin, transmision, usuario_id, empresa_id').order('marca'),
+        sb.from('vehiculos').select(`
+          id, marca, modelo, placas, anio, color, vin, transmision,
+          tipo_vehiculo, combustible, alias, verificacion_vigente, tarjeta_circulacion, num_llaves,
+          usuario_id, empresa_id
+        `).order('marca'),
+        sb.from('configuracion').select('valor').eq('clave', 'tipos_vehiculo').maybeSingle(),
       ])
       if (tsRes.data) setTiposServicio(tsRes.data.map((t: Record<string, unknown>) => ({ id: String(t.id), nombre: String(t.nombre ?? '') })))
       if (empRes.data) setEmpresasLista(empRes.data.map((e: Record<string, unknown>) => ({ id: String(e.id), nombre: String(e.nombre_comercial ?? '') })))
@@ -852,8 +878,29 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         id: String(v.id), marca: String(v.marca ?? ''), modelo: String(v.modelo ?? ''), placas: String(v.placas ?? ''),
         anio: v.anio ? String(v.anio) : null, color: v.color ? String(v.color) : null, vin: v.vin ? String(v.vin) : null,
         transmision: v.transmision ? String(v.transmision) : null,
+        tipoVehiculo: v.tipo_vehiculo ? String(v.tipo_vehiculo) : null,
+        combustible: v.combustible ? String(v.combustible) : null,
+        alias: v.alias ? String(v.alias) : null,
+        verificacionVigente: Boolean(v.verificacion_vigente),
+        tarjetaCirculacion: Boolean(v.tarjeta_circulacion),
+        numLlaves: Number(v.num_llaves ?? 1),
         usuario_id: v.usuario_id ? String(v.usuario_id) : null, empresa_id: v.empresa_id ? String(v.empresa_id) : null,
       })))
+      if (tiposVehRes.data?.valor) {
+        try {
+          const parsed = JSON.parse(String(tiposVehRes.data.valor))
+          if (Array.isArray(parsed)) {
+            setTiposVehiculo(
+              parsed
+                .filter((t: Record<string, unknown>) => t.activo !== false)
+                .map((t: Record<string, unknown>) => ({ id: String(t.id ?? t.nombre), nombre: String(t.nombre ?? '') }))
+                .filter(t => t.nombre)
+            )
+          }
+        } catch {
+          // catálogo vacío o corrupto: se deja vacío, el campo queda sin opciones
+        }
+      }
       setCargandoCatalogos(false)
     }
     cargarCatalogos()
@@ -884,6 +931,12 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       placas: v?.placas ?? '',
       vin: v?.vin ?? '',
       transmision: v?.transmision ?? '',
+      tipoVehiculo: v?.tipoVehiculo ?? '',
+      combustible: v?.combustible ?? '',
+      alias: v?.alias ?? '',
+      verificacionVigente: v?.verificacionVigente ?? false,
+      tarjetaCirculacion: v?.tarjetaCirculacion ?? false,
+      numLlaves: v?.numLlaves ?? 1,
     }))
     setErrors(e => ({ ...e, marca: '', modelo: '', placas: '' }))
   }
@@ -900,6 +953,12 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       placas: origen === 'manual' ? '' : f.placas,
       vin: origen === 'manual' ? '' : f.vin,
       transmision: origen === 'manual' ? '' : f.transmision,
+      tipoVehiculo: origen === 'manual' ? '' : f.tipoVehiculo,
+      combustible: origen === 'manual' ? '' : f.combustible,
+      alias: origen === 'manual' ? '' : f.alias,
+      verificacionVigente: origen === 'manual' ? false : f.verificacionVigente,
+      tarjetaCirculacion: origen === 'manual' ? false : f.tarjetaCirculacion,
+      numLlaves: origen === 'manual' ? 1 : f.numLlaves,
     }))
   }
 
@@ -963,22 +1022,34 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         if (vExistente) {
           vehiculoId = vExistente.id
         } else {
-          const { data: vNuevo } = await sb
-            .from('vehiculos')
-            .insert({
-              marca: form.marca.toUpperCase() || null,
-              modelo: form.modelo.toUpperCase() || null,
-              anio: form.anio || null,
-              color: form.color.toUpperCase() || null,
-              placas: form.placas.toUpperCase(),
-              vin: form.vin.toUpperCase() || null,
-              transmision: form.transmision || null,
-              usuario_id: form.clienteTipo === 'usuario' && form.clienteId !== 'nuevo' ? form.clienteId : null,
-              empresa_id: form.clienteTipo === 'empresa' ? form.clienteId : null,
-            })
-            .select('id')
-            .single()
-          vehiculoId = vNuevo?.id ?? null
+          let vNuevoId: string | null = null
+          for (let intento = 0; intento < 5; intento++) {
+            const { data: vNuevo, error: vError } = await sb
+              .from('vehiculos')
+              .insert({
+                folio: generarFolioVehiculo(),
+                marca: form.marca.toUpperCase() || null,
+                modelo: form.modelo.toUpperCase() || null,
+                anio: form.anio || null,
+                color: form.color.toUpperCase() || null,
+                placas: form.placas.toUpperCase(),
+                vin: form.vin.toUpperCase() || null,
+                transmision: form.transmision || null,
+                tipo_vehiculo: form.tipoVehiculo || null,
+                combustible: form.combustible || null,
+                alias: form.alias.toUpperCase() || null,
+                verificacion_vigente: form.verificacionVigente,
+                tarjeta_circulacion: form.tarjetaCirculacion,
+                num_llaves: form.numLlaves,
+                usuario_id: form.clienteTipo === 'usuario' && form.clienteId !== 'nuevo' ? form.clienteId : null,
+                empresa_id: form.clienteTipo === 'empresa' ? form.clienteId : null,
+              })
+              .select('id')
+              .single()
+            if (!vError) { vNuevoId = vNuevo?.id ?? null; break }
+            if (vError.code !== '23505' || !vError.message.includes('folio')) break
+          }
+          vehiculoId = vNuevoId
         }
       }
 
@@ -1296,6 +1367,66 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                     <option value="">Seleccionar...</option>
                     {TRANSMISIONES.map(t => <option key={t}>{t}</option>)}
                   </select>
+                </div>
+                <div>
+                  <Label>Tipo de vehículo</Label>
+                  <select value={form.tipoVehiculo} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('tipoVehiculo', e.target.value)} className={`${SelectCls('tipoVehiculo')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`}>
+                    <option value="">Seleccionar...</option>
+                    {tiposVehiculo.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
+                  </select>
+                  {!cargandoCatalogos && tiposVehiculo.length === 0 && form.vehiculoOrigen === 'manual' && (
+                    <p className="text-xs text-amber-500 mt-0.5">No hay tipos de vehículo capturados en Configuración.</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Combustible</Label>
+                  <select value={form.combustible} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('combustible', e.target.value)} className={`${SelectCls('combustible')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`}>
+                    <option value="">Seleccionar...</option>
+                    {COMBUSTIBLES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>Alias / Apodo</Label>
+                  <input type="text" placeholder="Ej. Camioneta gris 1" value={form.alias} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('alias', e.target.value.toUpperCase())} className={`${InputCls('alias')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label>Verificación vigente</Label>
+                  <div className="flex gap-2">
+                    {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
+                      <button key={String(opt.v)} type="button" disabled={form.vehiculoOrigen === 'flota'}
+                        onClick={() => setForm(f => ({ ...f, verificacionVigente: opt.v }))}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.verificacionVigente === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'} ${form.vehiculoOrigen === 'flota' ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>Tarjeta de circulación</Label>
+                  <div className="flex gap-2">
+                    {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
+                      <button key={String(opt.v)} type="button" disabled={form.vehiculoOrigen === 'flota'}
+                        onClick={() => setForm(f => ({ ...f, tarjetaCirculacion: opt.v }))}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.tarjetaCirculacion === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'} ${form.vehiculoOrigen === 'flota' ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>Número de llaves</Label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map(n => (
+                      <button key={n} type="button" disabled={form.vehiculoOrigen === 'flota'}
+                        onClick={() => setForm(f => ({ ...f, numLlaves: n }))}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.numLlaves === n ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'} ${form.vehiculoOrigen === 'flota' ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div>
