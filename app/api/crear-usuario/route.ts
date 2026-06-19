@@ -66,7 +66,10 @@ export async function POST(request: Request) {
   if (!user) return badRequest('No autenticado.', 401)
 
   const { data: esAdmin, error: adminCheckError } = await supabaseAuth.rpc('is_admin')
-  if (adminCheckError || !esAdmin) return badRequest('No autorizado.', 403)
+  if (adminCheckError || !esAdmin) {
+    console.error('Chequeo is_admin() falló:', { userId: user.id, email: user.email, adminCheckError, esAdmin })
+    return badRequest('No autorizado.', 403)
+  }
 
   // ── 2. Leer y validar el payload ───────────────────────────────────────────
   const body = (await request.json().catch(() => null)) as { perfil?: Partial<PerfilUsuario> } | null
