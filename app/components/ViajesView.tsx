@@ -75,6 +75,11 @@ interface Trip {
   evidencia: 'Completa' | 'Incompleta' | 'Pendiente'
   incidencias: number
   tipoServicio: string
+  tipoVehiculo: string
+  vehiculoAlias: string
+  usuarioId: string | null
+  empresaId: string | null
+  vehiculoId: string | null
   timeline: { evento: string; hora: string; actor: string }[]
   notas: { autor: string; texto: string; hora: string }[]
   observacionesConductor: string
@@ -612,9 +617,11 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
               <Field label="Estatus" value={<span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusStyle[trip.status]}`}>{trip.status}</span>} />
               <Field label="Tipo de servicio" value={trip.tipoServicio} />
               <Field label="Fecha y hora" value={`${trip.fecha} · ${trip.hora}`} />
+              <Field label="Tipo de cliente" value={trip.empresaId ? 'Empresa' : trip.usuarioId ? 'Usuario particular' : '—'} />
               <Field label="Usuario solicitante" value={trip.usuario} />
               <Field label="Empresa" value={trip.empresa} />
               <Field label="Conductor asignado" value={trip.conductor ?? <span className="text-red-500 italic">Sin asignar</span>} />
+              <Field label="ID Supabase viaje" value={<span className="font-mono text-xs">{trip.dbId}</span>} />
             </Grid2>
           </Section>
 
@@ -627,6 +634,9 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
               <Field label="Placas" value={trip.vehiculo.placas} />
               <Field label="VIN" value={<span className="font-mono text-xs">{trip.vehiculo.vin}</span>} />
               <Field label="Transmisión" value={trip.vehiculo.transmision} />
+              <Field label="Tipo de vehículo" value={trip.tipoVehiculo} />
+              <Field label="Alias / apodo" value={trip.vehiculoAlias || '—'} />
+              <Field label="ID Supabase vehículo" value={<span className="font-mono text-xs">{trip.vehiculoId ?? '—'}</span>} />
             </Grid2>
             {trip.vehiculo.observaciones && <Field label="Observaciones" value={trip.vehiculo.observaciones} />}
           </Section>
@@ -641,7 +651,7 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
                   <Field label="Número" value={trip.origenDetalle.numero} />
                   <Field label="Colonia" value={trip.origenDetalle.colonia} />
                   <Field label="CP" value={trip.origenDetalle.cp} />
-                  <Field label="Estado" value={trip.origenDetalle.estado} />
+                  <Field label="Municipio / Estado" value={trip.origenDetalle.estado} />
                 </Grid2>
                 <Field label="Contacto" value={trip.origenDetalle.contacto} />
                 <Field label="Teléfono de contacto" value={trip.origenDetalle.telefono} />
@@ -653,7 +663,7 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
                   <Field label="Número" value={trip.destinoDetalle.numero} />
                   <Field label="Colonia" value={trip.destinoDetalle.colonia} />
                   <Field label="CP" value={trip.destinoDetalle.cp} />
-                  <Field label="Estado" value={trip.destinoDetalle.estado} />
+                  <Field label="Municipio / Estado" value={trip.destinoDetalle.estado} />
                 </Grid2>
                 <Field label="Contacto" value={trip.destinoDetalle.contacto} />
                 <Field label="Teléfono de contacto" value={trip.destinoDetalle.telefono} />
@@ -1284,9 +1294,6 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       const conductorId: string | null = form.conductorId || null
 
       // 4. Crear el viaje
-      const origenCalle = [form.origenCalle, form.origenNumero].filter(Boolean).join(' ').toUpperCase()
-      const destinoCalle = [form.destinoCalle, form.destinoNumero].filter(Boolean).join(' ').toUpperCase()
-
       const { data: viaje, error } = await sb
         .from('viajes')
         .insert({
@@ -1295,13 +1302,15 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
           conductor_id: conductorId,
           vehiculo_id: vehiculoId,
           tipo_servicio_id: form.tipoServicioId || null,
-          origen_calle: origenCalle || null,
+          origen_calle: form.origenCalle.toUpperCase() || null,
+          origen_numero: form.origenNumero.toUpperCase() || null,
           origen_colonia: form.origenColonia.toUpperCase() || null,
           origen_estado: [form.origenMunicipio, form.origenEstado].filter(Boolean).join(', ').toUpperCase() || null,
           origen_cp: form.origenCp || null,
           origen_contacto: form.origenContactoNombre.toUpperCase() || null,
           origen_telefono: form.origenContactoTel || null,
-          destino_calle: destinoCalle || null,
+          destino_calle: form.destinoCalle.toUpperCase() || null,
+          destino_numero: form.destinoNumero.toUpperCase() || null,
           destino_colonia: form.destinoColonia.toUpperCase() || null,
           destino_estado: [form.destinoMunicipio, form.destinoEstado].filter(Boolean).join(', ').toUpperCase() || null,
           destino_cp: form.destinoCp || null,
@@ -2054,7 +2063,7 @@ interface ViajeDB {
   conductores: { nombre: string; apellido: string }[] | null
   usuarios: { nombre: string; apellido: string }[] | null
   empresas: { nombre_comercial: string }[] | null
-  vehiculos: { marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; observaciones: string | null }[] | null
+  vehiculos: { marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; tipo_vehiculo: string | null; alias: string | null; observaciones: string | null }[] | null
   tipos_servicio: { nombre: string }[] | null
 }
 
@@ -2068,6 +2077,9 @@ function viajeDBaTrip(v: ViajeDB): Trip {
   return {
     id: v.folio ?? v.id.slice(0, 8).toUpperCase(),
     dbId: v.id,
+    usuarioId: v.usuario_id ?? null,
+    empresaId: v.empresa_id ?? null,
+    vehiculoId: v.vehiculo_id ?? null,
     usuario: usuario ? `${usuario.nombre} ${usuario.apellido}` : '—',
     empresa: empresa?.nombre_comercial ?? '—',
     vehiculo: {
@@ -2080,6 +2092,8 @@ function viajeDBaTrip(v: ViajeDB): Trip {
       transmision: vehiculo?.transmision ?? '—',
       observaciones: vehiculo?.observaciones ?? '',
     },
+    tipoVehiculo: vehiculo?.tipo_vehiculo ?? '—',
+    vehiculoAlias: vehiculo?.alias ?? '',
     origen: [v.origen_calle, v.origen_colonia].filter(Boolean).join(', '),
     origenDetalle: {
       calle: v.origen_calle ?? '—',
@@ -2149,7 +2163,7 @@ export default function ViajesView() {
         conductores(nombre, apellido),
         usuarios(nombre, apellido),
         empresas(nombre_comercial),
-        vehiculos(marca, modelo, placas, anio, color, vin, transmision, observaciones),
+        vehiculos(marca, modelo, placas, anio, color, vin, transmision, tipo_vehiculo, alias, observaciones),
         tipos_servicio(nombre)
       `)
       .order('created_at', { ascending: false })
