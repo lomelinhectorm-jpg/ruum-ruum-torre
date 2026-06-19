@@ -414,20 +414,33 @@ export default function DocumentosView() {
     const sb = await getSB()
     const { data } = await sb.from('documentos').select('*').order('created_at', { ascending: false })
 
-    setDocs((data ?? []).map((r: Record<string, unknown>, i: number) => ({
-      _id: r.id as string,
-      id: `DOC-${String(i+1).padStart(4, '0')}`,
-      tipo: (r.tipo_doc as TipoDoc) || 'Otro',
-      entidad: (r.entidad_tipo as TipoEntidad) || 'Conductor',
-      entidadNombre: (r.entidad_id as string) || '—',
-      folio: (r.folio as string) || '—',
-      vigencia: fmt(r.fecha_vencimiento as string),
-      estatus: (r.estatus as EstatusDoc) || 'Pendiente',
-      fechaCarga: fmt(r.created_at as string),
-      revisadoPor: (r.revisado_por as string) || '—',
-      notas: (r.nota_rechazo as string) || '',
-      url: (r.archivo_url as string) || undefined,
-    })))
+    const filas = await Promise.all((data ?? []).map(async (r: Record<string, unknown>, i: number) => {
+      const archivoUrl = (r.archivo_url as string) || undefined
+      // Los documentos subidos desde las apps guardan un path dentro del bucket privado
+      // `documentos` (ej. "usuarios/<id>/ine-frente.jpg"). Los capturados manualmente en
+      // este panel pueden ser una URL externa (http...). Solo generamos signed URL para paths.
+      let urlResuelta = archivoUrl
+      if (archivoUrl && !/^https?:\/\//i.test(archivoUrl)) {
+        const { data: signed } = await sb.storage.from('documentos').createSignedUrl(archivoUrl, 3600)
+        urlResuelta = signed?.signedUrl ?? undefined
+      }
+      return {
+        _id: r.id as string,
+        id: `DOC-${String(i+1).padStart(4, '0')}`,
+        tipo: (r.tipo_doc as TipoDoc) || 'Otro',
+        entidad: (r.entidad_tipo as TipoEntidad) || 'Conductor',
+        entidadNombre: (r.entidad_id as string) || '—',
+        folio: (r.folio as string) || '—',
+        vigencia: fmt(r.fecha_vencimiento as string),
+        estatus: (r.estatus as EstatusDoc) || 'Pendiente',
+        fechaCarga: fmt(r.created_at as string),
+        revisadoPor: (r.revisado_por as string) || '—',
+        notas: (r.nota_rechazo as string) || '',
+        url: urlResuelta,
+      }
+    }))
+
+    setDocs(filas)
     setCargando(false)
   }, [])
 

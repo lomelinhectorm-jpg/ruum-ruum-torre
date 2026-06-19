@@ -598,6 +598,8 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({})
   const [guardando, setGuardando] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState('')
+  const [credenciales, setCredenciales] = useState<{ email: string; password: string } | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   const set = (k: keyof typeof form, v: string | boolean) => {
     setForm(f => ({ ...f, [k]: v }))
@@ -628,14 +630,12 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
     setGuardando(true)
     setErrorGuardar('')
     try {
-    const sb = getSupabaseBrowserClient()
-
       const domicilioFiscal = form.requiereFactura
         ? [form.fiscalCalle, form.fiscalNumero, form.fiscalColonia, form.fiscalMunicipio, form.fiscalEstado, form.fiscalCp]
             .filter(Boolean).join(', ').toUpperCase()
         : null
 
-      const { error } = await sb.from('usuarios').insert({
+      const perfil = {
         nombre:           form.nombre.toUpperCase(),
         apellido:         form.apellido.toUpperCase(),
         curp:             form.curp.toUpperCase() || null,
@@ -654,16 +654,35 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
         regimen_fiscal:   form.requiereFactura ? form.regimenFiscal : null,
         cfdi:             form.requiereFactura ? form.cfdi : null,
         domicilio_fiscal: domicilioFiscal,
+      }
+
+      const resp = await fetch('/api/crear-usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ perfil }),
       })
-      if (error) throw error
+
+      const data = (await resp.json().catch(() => null)) as { error?: string; password?: string } | null
+      if (!resp.ok || !data?.password) {
+        throw new Error(data?.error ?? 'No se pudo crear el usuario.')
+      }
+
+      // Mostramos las credenciales en pantalla en vez de cerrar el formulario.
+      setCredenciales({ email: perfil.email, password: data.password })
       onSave()
-      onClose()
     } catch (e) {
       console.error(e)
-      setErrorGuardar('Error al guardar. Verifica los datos e intenta de nuevo.')
+      setErrorGuardar(e instanceof Error ? e.message : 'Error al guardar. Verifica los datos e intenta de nuevo.')
     } finally {
       setGuardando(false)
     }
+  }
+
+  const copiarCredenciales = () => {
+    if (!credenciales) return
+    navigator.clipboard.writeText(`Correo: ${credenciales.email}\nContraseña temporal: ${credenciales.password}`)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
   }
 
   const cls = (k: string) =>
@@ -675,6 +694,47 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
       {children}{req && <span className="text-red-500 ml-0.5">*</span>}
     </label>
   )
+
+  // ── Pantalla de credenciales (se muestra tras crear la cuenta exitosamente) ──
+  if (credenciales) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="px-6 py-5 border-b border-slate-200 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-xl">✓</div>
+            <div>
+              <h2 className="font-bold text-slate-800 text-lg">Usuario creado</h2>
+              <p className="text-xs text-slate-400">Comparte estas credenciales con el cliente de forma segura</p>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Correo</p>
+                <p className="text-sm font-medium text-slate-800">{credenciales.email}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Contraseña temporal</p>
+                <p className="text-lg font-mono font-bold text-slate-800 tracking-wide">{credenciales.password}</p>
+              </div>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">
+              ⚠️ Esta contraseña no se mostrará de nuevo. Recomienda al cliente cambiarla en su primer inicio de sesión dentro de la app.
+            </p>
+            <button onClick={copiarCredenciales}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg text-sm transition-colors">
+              {copiado ? '✓ Copiado' : 'Copiar credenciales'}
+            </button>
+          </div>
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-end">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium bg-rr-route hover:bg-rr-routeDark text-rr-asphalt transition-colors">
+              Listo
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
