@@ -860,6 +860,18 @@ const USOS_CFDI = [
   { clave: 'CN01', desc: 'CN01 - Nómina' },
 ]
 
+function supabaseErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null) {
+    const e = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+    return [e.message, e.details, e.hint, e.code ? `Código: ${e.code}` : null]
+      .filter(Boolean)
+      .map(String)
+      .join(' · ')
+  }
+  return String(error)
+}
+
 type Step = 1 | 2 | 3 | 4
 
 interface FormData {
@@ -1236,11 +1248,14 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       // 2. Vehículo: de flota ya tiene id; manual se busca/crea por placas en la misma tabla vehiculos.
       let vehiculoId: string | null = form.vehiculoOrigen === 'flota' ? (form.vehiculoId || null) : null
       if (form.vehiculoOrigen === 'manual' && form.placas) {
-        const { data: vExistente } = await sb
+        const { data: vExistente, error: vExistenteError } = await sb
           .from('vehiculos')
           .select('id')
           .eq('placas', form.placas.toUpperCase())
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle()
+        if (vExistenteError) throw vExistenteError
 
         if (vExistente) {
           vehiculoId = vExistente.id
@@ -1328,7 +1343,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 
     } catch (e: unknown) {
       console.error('Error guardando viaje:', e)
-      setErrorGuardar('Ocurrió un error al guardar. Verifica los datos e intenta de nuevo.')
+      setErrorGuardar(`No se pudo guardar: ${supabaseErrorMessage(e)}`)
     } finally {
       setGuardando(false)
     }
@@ -1750,7 +1765,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 </div>
                 <div>
                   <Label>Transmisión</Label>
-                  <select value={form.transmision} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('transmision', e.target.value.toUpperCase())} className={`${SelectCls('transmision')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`}>
+                  <select value={form.transmision} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('transmision', e.target.value)} className={`${SelectCls('transmision')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`}>
                     <option value="">Seleccionar...</option>
                     {TRANSMISIONES.map(t => <option key={t}>{t}</option>)}
                   </select>
