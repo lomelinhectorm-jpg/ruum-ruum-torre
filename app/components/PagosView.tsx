@@ -70,7 +70,7 @@ interface Gasto {
 const estatusStyle: Record<EstatusPago, string> = {
   Pendiente:     'bg-slate-100 text-slate-500',
   'En revisión': 'bg-purple-100 text-purple-700',
-  Aprobado:      'bg-blue-100 text-blue-700',
+  Aprobado:      'bg-[#E8EFFF] text-rr-traceDeep',
   Rechazado:     'bg-red-100 text-red-700',
   Pagado:        'bg-green-100 text-green-700',
   Revocado:      'bg-orange-100 text-orange-700',
@@ -79,7 +79,7 @@ const estatusStyle: Record<EstatusPago, string> = {
 const estatusDot: Record<EstatusPago, string> = {
   Pendiente:     'bg-slate-400',
   'En revisión': 'bg-purple-500',
-  Aprobado:      'bg-blue-500',
+  Aprobado:      'bg-rr-trace',
   Rechazado:     'bg-red-500',
   Pagado:        'bg-green-500',
   Revocado:      'bg-orange-500',
@@ -200,14 +200,14 @@ function DetallePagoUsuario({ pago, onClose, onSave }: { pago: PagoUsuario; onCl
         <div className="p-6 space-y-4">
           <Sec title="💳 Pago del Usuario">
             <G2>
-              <F label="Viaje" value={<span className="font-semibold text-blue-600">{pago.viajeId}</span>} />
+              <F label="Viaje" value={<span className="font-semibold text-rr-trace">{pago.viajeId}</span>} />
               <F label="Usuario" value={pago.usuario} />
               <F label="Empresa" value={pago.empresa || '—'} />
               <F label="Tarifa cobrada" value={<span className="text-xl font-bold text-slate-800">${pago.tarifa.toLocaleString()} MXN</span>} />
               <F label="Método de pago" value={pago.metodoPago} />
               <F label="Fecha de pago" value={pago.fechaPago} />
               <F label="Facturación" value={pago.requiereFactura
-                ? <span className="text-blue-600 font-medium">✓ Requiere factura</span>
+                ? <span className="text-rr-trace font-medium">✓ Requiere factura</span>
                 : <span className="text-slate-400">No aplica</span>} />
               {pago.requiereFactura && <F label="Folio / UUID" value={<span className="font-mono text-xs">{pago.folio}</span>} />}
             </G2>
@@ -221,15 +221,15 @@ function DetallePagoUsuario({ pago, onClose, onSave }: { pago: PagoUsuario; onCl
             {editNota ? (
               <div className="space-y-2">
                 <textarea rows={3} value={notas} onChange={e => setNotas(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditNota(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={() => setEditNota(false)} className="bg-blue-600 text-white px-4 py-1.5 text-xs rounded-lg font-medium">OK</button>
+                  <button onClick={() => setEditNota(false)} className="bg-rr-route text-rr-asphalt px-4 py-1.5 text-xs rounded-lg font-medium">OK</button>
                 </div>
               </div>
             ) : (
               <div onClick={() => setEditNota(true)}
-                className={`rounded-xl border p-3 text-sm cursor-pointer hover:border-blue-300 transition-colors ${notas ? 'bg-amber-50 border-amber-100 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-400 italic'}`}>
+                className={`rounded-xl border p-3 text-sm cursor-pointer hover:border-rr-trace transition-colors ${notas ? 'bg-amber-50 border-amber-100 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-400 italic'}`}>
                 {notas || 'Sin notas. Clic para agregar.'}
               </div>
             )}
@@ -238,7 +238,7 @@ function DetallePagoUsuario({ pago, onClose, onSave }: { pago: PagoUsuario; onCl
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
             <button onClick={guardar} disabled={guardando}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              className="flex items-center gap-1.5 bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
@@ -309,7 +309,7 @@ function DetallePagoConductor({ pago, onClose, onSave }: { pago: PagoConductor; 
 
           <Sec title="📝 Notas">
             <textarea rows={2} value={notas} onChange={e => setNotas(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route"
               placeholder="Sin notas..." />
           </Sec>
 
@@ -360,7 +360,7 @@ function DetalleGasto({ gasto, onClose, onSave }: { gasto: Gasto; onClose: () =>
           <Sec title="🧾 Detalle del Gasto">
             <G2>
               <F label="Concepto" value={gasto.concepto} />
-              <F label="Viaje relacionado" value={<span className="font-semibold text-blue-600">{gasto.viajeId}</span>} />
+              <F label="Viaje relacionado" value={<span className="font-semibold text-rr-trace">{gasto.viajeId}</span>} />
               <F label="Conductor / Equipo" value={gasto.conductor} />
               <F label="Comprobante" value={<span className="font-mono text-xs">{gasto.comprobante}</span>} />
               <F label="Monto" value={<span className="text-xl font-bold text-slate-800">${gasto.monto.toLocaleString()} MXN</span>} />
@@ -376,7 +376,7 @@ function DetalleGasto({ gasto, onClose, onSave }: { gasto: Gasto; onClose: () =>
               <div className="flex-1">
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Aprobado por</p>
                 <select value={aprobado} onChange={e => setAprobado(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
                   <option value="—">Sin asignar</option>
                   {['Ops. Central','Coordinador','Admin','Finanzas'].map(r => <option key={r}>{r}</option>)}
                 </select>
@@ -395,7 +395,7 @@ function DetalleGasto({ gasto, onClose, onSave }: { gasto: Gasto; onClose: () =>
               <XCircleIcon className="w-4 h-4" />Rechazar
             </button>
             <button onClick={() => guardar()} disabled={guardando}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              className="flex items-center gap-1.5 bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
@@ -497,7 +497,7 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
     }
   }
 
-  const inputCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const inputCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route'
   const selectCls = `${inputCls} bg-white`
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -515,7 +515,7 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
           <div className="flex gap-2">
             {([['usuario','💳 Pago usuario'],['conductor','👤 Pago conductor'],['gasto','🧾 Gasto']] as [NuevoPagoTipo, string][]).map(([t, l]) => (
               <button key={t} onClick={() => setTipo(t)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${tipo === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${tipo === t ? 'border-rr-route bg-[#E8EFFF] text-rr-traceDeep' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                 {l}
               </button>
             ))}
@@ -560,7 +560,7 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
           <button onClick={guardar} disabled={guardando}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar registro'}
           </button>
         </div>
@@ -712,7 +712,7 @@ export default function PagosView() {
         {[
           { label: 'Cobrado a usuarios', value: `$${totalPagadoU.toLocaleString()}`, sub: 'pagado', color: 'text-green-600', icon: <ReceiptRefundIcon className="w-5 h-5 text-green-500" />, bg: 'bg-green-50' },
           { label: 'Por cobrar usuarios', value: `$${totalPendU.toLocaleString()}`, sub: 'pendiente / aprobado', color: 'text-amber-600', icon: <ExclamationTriangleIcon className="w-5 h-5 text-amber-500" />, bg: 'bg-amber-50' },
-          { label: 'Pagado a conductores', value: `$${totalPagadoC.toLocaleString()}`, sub: 'depositado', color: 'text-blue-600', icon: <BanknotesIcon className="w-5 h-5 text-blue-500" />, bg: 'bg-blue-50' },
+          { label: 'Pagado a conductores', value: `$${totalPagadoC.toLocaleString()}`, sub: 'depositado', color: 'text-rr-trace', icon: <BanknotesIcon className="w-5 h-5 text-rr-trace" />, bg: 'bg-[#E8EFFF]' },
           { label: 'Por pagar conductores', value: `$${totalPendC.toLocaleString()}`, sub: 'pendiente / aprobado', color: 'text-purple-600', icon: <BanknotesIcon className="w-5 h-5 text-purple-500" />, bg: 'bg-purple-50' },
           { label: 'Gastos aprobados', value: `$${totalGastos.toLocaleString()}`, sub: 'autorizados', color: 'text-rose-600', icon: <DocumentTextIcon className="w-5 h-5 text-rose-500" />, bg: 'bg-rose-50' },
         ].map((k, i) => (
@@ -737,10 +737,10 @@ export default function PagosView() {
               {mainTabs.map(t => (
                 <button key={t.id} onClick={() => { setTab(t.id); setFiltroEstatus('Todos'); setSearch('') }}
                   className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                    tab === t.id ? 'border-blue-600 text-blue-600 bg-blue-50/30' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    tab === t.id ? 'border-rr-route text-rr-trace bg-[#E8EFFF]/30' : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}>
                   {t.icon}{t.label}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === t.id ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>{t.count}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${tab === t.id ? 'bg-[#E8EFFF] text-rr-trace' : 'bg-slate-100 text-slate-400'}`}>{t.count}</span>
                 </button>
               ))}
             </div>
@@ -749,9 +749,9 @@ export default function PagosView() {
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48" />
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-48" />
               </div>
-              <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <button onClick={() => setShowForm(true)} className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <PlusIcon className="w-4 h-4" />Nuevo
               </button>
             </div>
@@ -797,7 +797,7 @@ export default function PagosView() {
                 {!cargando && filtUsuarios.map((p, i) => (
                   <tr key={i} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDetalleU(p)}>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{p.id}</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">{p.viajeId}</td>
+                    <td className="px-4 py-3 font-semibold text-rr-trace">{p.viajeId}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800 text-xs">{p.usuario}</div>
                       <div className="text-xs text-slate-400">{p.empresa || '—'}</div>
@@ -805,7 +805,7 @@ export default function PagosView() {
                     <td className="px-4 py-3 text-right font-bold text-slate-800">${p.tarifa.toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{p.metodoPago}</td>
                     <td className="px-4 py-3 text-center">
-                      {p.requiereFactura ? <span className="text-xs text-blue-600 font-medium">✓ Sí</span> : <span className="text-xs text-slate-300">No</span>}
+                      {p.requiereFactura ? <span className="text-xs text-rr-trace font-medium">✓ Sí</span> : <span className="text-xs text-slate-300">No</span>}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{p.fechaPago}</td>
                     <td className="px-4 py-3"><EBadge e={p.estatus} /></td>
@@ -886,7 +886,7 @@ export default function PagosView() {
                   <tr key={i} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDetalleG(g)}>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{g.id}</td>
                     <td className="px-4 py-3 font-medium text-slate-800">{g.concepto}</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">{g.viajeId}</td>
+                    <td className="px-4 py-3 font-semibold text-rr-trace">{g.viajeId}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{g.conductor}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{g.comprobante}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-800">${g.monto.toLocaleString()}</td>

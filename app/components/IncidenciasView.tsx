@@ -79,7 +79,7 @@ const RESPONSABLES = ['Ops. Central','Coordinador','Admin','Finanzas','Soporte']
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const estatusStyle: Record<EstatusIncidencia, string> = {
-  'Nueva':                'bg-blue-100 text-blue-700',
+  'Nueva':                'bg-[#E8EFFF] text-rr-traceDeep',
   'En revisión':          'bg-purple-100 text-purple-700',
   'Requiere información': 'bg-amber-100 text-amber-700',
   'En seguimiento':       'bg-sky-100 text-sky-700',
@@ -89,7 +89,7 @@ const estatusStyle: Record<EstatusIncidencia, string> = {
 }
 
 const estatusDot: Record<EstatusIncidencia, string> = {
-  'Nueva':                'bg-blue-500',
+  'Nueva':                'bg-rr-trace',
   'En revisión':          'bg-purple-500',
   'Requiere información': 'bg-amber-500',
   'En seguimiento':       'bg-sky-500',
@@ -121,7 +121,7 @@ const tipoIcon: Record<TipoIncidencia, string> = {
 
 const timelineColor: Record<string, string> = {
   sistema:   'bg-slate-400',
-  admin:     'bg-blue-500',
+  admin:     'bg-rr-trace',
   conductor: 'bg-purple-500',
   usuario:   'bg-green-500',
 }
@@ -255,7 +255,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
             <button onClick={() => setEditRes(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
               <CheckCircleIcon className="w-3.5 h-3.5" />Registrar resolución
             </button>
-            <button onClick={() => setShowNotif('usuario')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+            <button onClick={() => setShowNotif('usuario')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rr-trace bg-[#E8EFFF] hover:bg-[#E8EFFF] rounded-lg transition-colors">
               <BellAlertIcon className="w-3.5 h-3.5" />Notificar usuario
             </button>
             <button onClick={() => setShowNotif('conductor')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
@@ -277,11 +277,11 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
               </p>
               <textarea rows={3} value={notifMsg} onChange={e => setNotifMsg(e.target.value)}
                 placeholder={`Escribe el mensaje para el ${showNotif}...`}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowNotif(null)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
                 <button onClick={() => enviarNotif(showNotif)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
+                  className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors">
                   <PaperAirplaneIcon className="w-3.5 h-3.5" />Enviar notificación
                 </button>
               </div>
@@ -293,7 +293,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
             <h3 className="font-semibold text-slate-800 text-sm mb-4">📋 Información de la Incidencia</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4">
               <F label="ID Interno" value={inc.id} />
-              <F label="Viaje relacionado" value={<span className="font-semibold text-blue-600">{inc.viajeId}</span>} />
+              <F label="Viaje relacionado" value={<span className="font-semibold text-rr-trace">{inc.viajeId}</span>} />
               <F label="Tipo" value={<span className="flex items-center gap-1">{tipoIcon[inc.tipo]} {inc.tipo}</span>} />
               <F label="Usuario" value={inc.usuario} />
               <F label="Conductor" value={inc.conductor} />
@@ -304,7 +304,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
               <div>
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Responsable interno</p>
                 <select value={responsable} onChange={e => cambiarResponsable(e.target.value)} disabled={guardando}
-                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
+                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white w-full">
                   {RESPONSABLES.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
@@ -407,7 +407,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
               {docs.map((d, i) => (
                 <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                   <span className="text-sm text-slate-700">📎 {d}</span>
-                  <button className="text-xs text-blue-600 hover:underline">Ver</button>
+                  <button className="text-xs text-rr-trace hover:underline">Ver</button>
                 </div>
               ))}
             </div>
@@ -415,7 +415,7 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
               <input type="text" value={nuevoDoc} onChange={e => setNuevoDoc(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addDoc()}
                 placeholder="Nombre del documento..."
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
               <button onClick={addDoc} className="bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg transition-colors">
                 <DocumentArrowUpIcon className="w-4 h-4" />
               </button>
@@ -438,13 +438,13 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
                   <p className="text-xs text-slate-400">{t.hora} · <span className={`font-medium ${
                     t.tipo === 'conductor' ? 'text-purple-600' :
                     t.tipo === 'usuario' ? 'text-green-600' :
-                    t.tipo === 'sistema' ? 'text-slate-500' : 'text-blue-600'
+                    t.tipo === 'sistema' ? 'text-slate-500' : 'text-rr-trace'
                   }`}>{t.actor}</span></p>
                 </li>
               ))}
             </ol>
             <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-3 text-xs text-slate-400">
-              {[['admin','bg-blue-500','Admin'],['conductor','bg-purple-500','Conductor'],['usuario','bg-green-500','Usuario'],['sistema','bg-slate-400','Sistema']].map(([tipo, color, label]) => (
+              {[['admin','bg-rr-trace','Admin'],['conductor','bg-purple-500','Conductor'],['usuario','bg-green-500','Usuario'],['sistema','bg-slate-400','Sistema']].map(([tipo, color, label]) => (
                 <span key={tipo} className="flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${color}`} />
                   {label}
@@ -512,7 +512,7 @@ function NuevaIncidenciaForm({ onClose, onSave }: { onClose: () => void; onSave:
   }
 
   const I = (k: keyof typeof form) =>
-    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route`
   const E = ({ k }: { k: keyof typeof form }) => errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -687,7 +687,7 @@ export default function IncidenciasView() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {([
           ['Total',                incidencias.length,                                        'text-slate-800'],
-          ['Nuevas',               counts['Nueva'],                                            'text-blue-600'],
+          ['Nuevas',               counts['Nueva'],                                            'text-rr-trace'],
           ['En revisión',          counts['En revisión'],                                      'text-purple-600'],
           ['Requiere info',        counts['Requiere información'],                             'text-amber-600'],
           ['En seguimiento',       counts['En seguimiento'],                                   'text-sky-600'],
@@ -721,12 +721,12 @@ export default function IncidenciasView() {
           <div className="flex flex-col sm:flex-row justify-between gap-3 flex-wrap">
             <div className="flex gap-2 flex-wrap">
               <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value as TipoIncidencia | 'Todos')}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
                 <option value="Todos">Todos los tipos</option>
                 {TIPOS.map(t => <option key={t} value={t}>{tipoIcon[t]} {t}</option>)}
               </select>
               <select value={filtroPrio} onChange={e => setFiltroPrio(e.target.value as Prioridad | 'Todos')}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
                 <option value="Todos">Toda prioridad</option>
                 {(['Alta','Media','Baja'] as Prioridad[]).map(p => <option key={p}>{p}</option>)}
               </select>
@@ -735,7 +735,7 @@ export default function IncidenciasView() {
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="text" placeholder="Buscar incidencia..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56" />
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-56" />
               </div>
               <button onClick={() => setShowForm(true)}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
@@ -768,7 +768,7 @@ export default function IncidenciasView() {
               {filtered.map((inc, i) => (
                 <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setDetalle(inc)}>
                   <td className="px-4 py-3 font-semibold text-slate-700">{inc.id}</td>
-                  <td className="px-4 py-3 font-semibold text-blue-600">{inc.viajeId}</td>
+                  <td className="px-4 py-3 font-semibold text-rr-trace">{inc.viajeId}</td>
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 whitespace-nowrap">
                       <span>{tipoIcon[inc.tipo]}</span>{inc.tipo}

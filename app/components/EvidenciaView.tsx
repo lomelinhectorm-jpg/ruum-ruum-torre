@@ -72,7 +72,7 @@ const FOTOS_BASE: FotoItem[] = [
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const estatusStyle: Record<EstatusEvidencia, string> = {
   'Pendiente':                   'bg-slate-100 text-slate-500',
-  'Completa':                    'bg-blue-100 text-blue-700',
+  'Completa':                    'bg-[#E8EFFF] text-rr-traceDeep',
   'Incompleta':                  'bg-amber-100 text-amber-700',
   'En revisión':                 'bg-purple-100 text-purple-700',
   'Aprobada':                    'bg-green-100 text-green-700',
@@ -82,7 +82,7 @@ const estatusStyle: Record<EstatusEvidencia, string> = {
 
 const estatusDot: Record<EstatusEvidencia, string> = {
   'Pendiente':                   'bg-slate-400',
-  'Completa':                    'bg-blue-500',
+  'Completa':                    'bg-rr-trace',
   'Incompleta':                  'bg-amber-500',
   'En revisión':                 'bg-purple-500',
   'Aprobada':                    'bg-green-500',
@@ -209,7 +209,7 @@ function EvidenciaDetalle({
                 <div className="flex items-center gap-2">
                   <h2 className="font-bold text-slate-800 text-lg">Evidencia {ev.id}</h2>
                   <span className="text-slate-400">·</span>
-                  <span className="font-semibold text-blue-600">{ev.viajeId}</span>
+                  <span className="font-semibold text-rr-trace">{ev.viajeId}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${estatusStyle[estatus]}`}>
@@ -314,7 +314,7 @@ function EvidenciaDetalle({
                 </div>
                 <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
                   <span className="text-xs text-slate-500 font-medium">Recorrido total</span>
-                  <span className={`font-mono font-bold text-base ${kmRecorrido ? 'text-blue-600' : 'text-slate-300'}`}>
+                  <span className={`font-mono font-bold text-base ${kmRecorrido ? 'text-rr-trace' : 'text-slate-300'}`}>
                     {kmRecorrido ? `${kmRecorrido.toLocaleString()} km` : '—'}
                   </span>
                 </div>
@@ -457,7 +457,7 @@ function EvidenciaDetalle({
                     {incVinc || 'Sin incidencia vinculada'}
                   </div>
                   <button onClick={() => setEditInc(true)}
-                    className="text-xs text-blue-600 hover:underline ml-3">
+                    className="text-xs text-rr-trace hover:underline ml-3">
                     {incVinc ? 'Cambiar' : 'Asociar'}
                   </button>
                 </div>
@@ -490,7 +490,7 @@ function EvidenciaDetalle({
             <ol className="relative border-l-2 border-slate-200 space-y-3 ml-3">
               {historial.map((h, i) => (
                 <li key={i} className="ml-5">
-                  <span className="absolute -left-2 w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                  <span className="absolute -left-2 w-4 h-4 rounded-full bg-rr-trace flex items-center justify-center">
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   </span>
                   <p className="text-sm font-medium text-slate-800">{h.evento}</p>
@@ -610,7 +610,7 @@ export default function EvidenciaView() {
           <div className="relative w-full sm:w-72">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input type="text" placeholder="Buscar por viaje, conductor, vehículo..." value={search} onChange={e => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+              className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-full" />
           </div>
         </div>
 
@@ -642,7 +642,7 @@ export default function EvidenciaView() {
                   <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={() => setDetalle(ev)}>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{ev.id}</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">{ev.viajeId}</td>
+                    <td className="px-4 py-3 font-semibold text-rr-trace">{ev.viajeId}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800 text-xs">{ev.conductor}</div>
                       <div className="text-xs text-slate-400">{ev.vehiculo} · {ev.placas}</div>

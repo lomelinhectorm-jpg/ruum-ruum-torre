@@ -68,7 +68,7 @@ const TIPOS: TipoUsuario[] = ['Personal','Empresarial','Agencia','Lote','Flotill
 
 const tipoColor: Record<TipoUsuario, string> = {
   Personal:            'bg-purple-50 text-purple-700',
-  Empresarial:         'bg-blue-50 text-blue-700',
+  Empresarial:         'bg-[#E8EFFF] text-rr-traceDeep',
   Agencia:             'bg-indigo-50 text-indigo-700',
   Lote:                'bg-cyan-50 text-cyan-700',
   Flotilla:            'bg-sky-50 text-sky-700',
@@ -88,7 +88,7 @@ const estatusStyle: Record<Estatus, string> = {
 const pagoEstatusStyle: Record<string, string> = {
   Pagado:      'bg-green-50 text-green-700',
   Pendiente:   'bg-amber-50 text-amber-700',
-  'En revisión': 'bg-blue-50 text-blue-700',
+  'En revisión': 'bg-[#E8EFFF] text-rr-traceDeep',
 }
 
 // ─── PANEL DETALLE ────────────────────────────────────────────────────────────
@@ -242,7 +242,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
               </button>
             )}
             <button onClick={() => setEditMode(e => !e)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${editMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${editMode ? 'bg-rr-route text-rr-asphalt' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               <PencilSquareIcon className="w-3.5 h-3.5" />
               {editMode ? 'Editando...' : 'Editar datos'}
             </button>
@@ -255,7 +255,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-                tab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                tab === t.id ? 'border-rr-route text-rr-trace' : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}>
               {t.icon}{t.label}
             </button>
@@ -278,7 +278,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Tipo de usuario</p>
                     {editMode ? (
-                      <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoUsuario }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoUsuario }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
                         {TIPOS.map(t => <option key={t}>{t}</option>)}
                       </select>
                     ) : (
@@ -293,7 +293,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
                 </Grid2>
                 <div className="grid grid-cols-3 gap-3 mt-2">
                   {[
-                    { label: 'Viajes solicitados', value: viajes.length, color: 'text-blue-600' },
+                    { label: 'Viajes solicitados', value: viajes.length, color: 'text-rr-trace' },
                     { label: 'Vehículos', value: vehiculos.length, color: 'text-indigo-600' },
                     { label: 'Pagos registrados', value: pagos.length, color: 'text-emerald-600' },
                   ].map((s, i) => (
@@ -331,7 +331,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
               {editMode && (
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setEditMode(false)} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
-                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}</button>
+                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}</button>
                 </div>
               )}
             </div>
@@ -357,7 +357,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
                   <tbody className="divide-y divide-slate-100">
                     {viajes.map((v, i) => (
                       <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-semibold text-blue-600">{v.id}</td>
+                        <td className="px-4 py-3 font-semibold text-rr-trace">{v.id}</td>
                         <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{v.fecha}</td>
                         <td className="px-4 py-3 text-xs text-slate-600">{v.origen} → {v.destino}</td>
                         <td className="px-4 py-3">
@@ -381,8 +381,8 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
                 : vehiculos.map((v, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-50 rounded-lg">
-                        <TruckIcon className="w-5 h-5 text-blue-500" />
+                      <div className="p-2 bg-[#E8EFFF] rounded-lg">
+                        <TruckIcon className="w-5 h-5 text-rr-trace" />
                       </div>
                       <div>
                         <p className="font-medium text-slate-800">{v.modelo}</p>
@@ -478,7 +478,7 @@ function AccionesMenu({
       color: usuario.estatus === 'Suspendido' ? 'green' : 'red' },
   ]
   const colorCls: Record<string, string> = {
-    blue:   'text-blue-600 hover:bg-blue-50',
+    blue:   'text-rr-trace hover:bg-[#E8EFFF]',
     indigo: 'text-indigo-600 hover:bg-indigo-50',
     slate:  'text-slate-600 hover:bg-slate-50',
     amber:  'text-amber-600 hover:bg-amber-50',
@@ -525,7 +525,7 @@ function Field({ label, value, editable, mono, onChange }: { label: string; valu
     <div>
       <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">{label}</p>
       {editable && typeof value === 'string'
-        ? <input type="text" value={value} onChange={e => onChange?.(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        ? <input type="text" value={value} onChange={e => onChange?.(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
         : <div className={`text-sm text-slate-700 ${mono ? 'font-mono' : ''}`}>{value}</div>
       }
     </div>
@@ -667,7 +667,7 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
   }
 
   const cls = (k: string) =>
-    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+    `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route`
   const Err = ({ k }: { k: string }) =>
     errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
   const Label = ({ children, req }: { children: React.ReactNode; req?: boolean }) => (
@@ -780,23 +780,23 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
               onClick={() => set('requiereFactura', !form.requiereFactura)}
               className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${
                 form.requiereFactura
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-rr-route bg-[#E8EFFF]'
                   : 'border-slate-200 bg-slate-50 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
-                  form.requiereFactura ? 'bg-blue-100' : 'bg-slate-200'
+                  form.requiereFactura ? 'bg-[#E8EFFF]' : 'bg-slate-200'
                 }`}>🧾</div>
                 <div className="text-left">
-                  <p className={`text-sm font-semibold ${form.requiereFactura ? 'text-blue-700' : 'text-slate-700'}`}>
+                  <p className={`text-sm font-semibold ${form.requiereFactura ? 'text-rr-traceDeep' : 'text-slate-700'}`}>
                     Requiere facturación
                   </p>
                   <p className="text-xs text-slate-400">Activa para capturar datos fiscales del cliente</p>
                 </div>
               </div>
               <div className={`w-11 h-6 rounded-full transition-colors relative ${
-                form.requiereFactura ? 'bg-blue-500' : 'bg-slate-300'
+                form.requiereFactura ? 'bg-rr-trace' : 'bg-slate-300'
               }`}>
                 <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${
                   form.requiereFactura ? 'translate-x-5' : 'translate-x-0.5'
@@ -807,8 +807,8 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
 
           {/* ── Datos fiscales (condicional) ── */}
           {form.requiereFactura && (
-            <div className="space-y-4 border border-blue-100 bg-blue-50/40 rounded-xl p-4">
-              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide border-b border-blue-100 pb-2">
+            <div className="space-y-4 border border-[#C7D7FF] bg-[#E8EFFF]/40 rounded-xl p-4">
+              <p className="text-xs font-semibold text-rr-traceDeep uppercase tracking-wide border-b border-[#C7D7FF] pb-2">
                 🧾 Información fiscal
               </p>
 
@@ -900,7 +900,7 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
           <div className="flex flex-col items-end gap-1">
             {errorGuardar && <p className="text-xs text-red-500">{errorGuardar}</p>}
             <button onClick={handleSubmit} disabled={guardando}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
               <CheckCircleIcon className="w-4 h-4" />
               {guardando ? 'Guardando...' : 'Registrar usuario'}
             </button>
@@ -1028,9 +1028,9 @@ export default function UsuariosView() {
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="text" placeholder="Buscar usuario..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-52" />
               </div>
-              <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <button onClick={() => setShowForm(true)} className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <PlusIcon className="w-4 h-4" />
                 Nuevo
               </button>

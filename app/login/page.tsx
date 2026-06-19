@@ -48,11 +48,11 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4"
             style={{ backgroundColor: '#FFC400' }}>
-            <span className="font-black text-2xl" style={{ color: '#151515', fontFamily: 'Montserrat, sans-serif' }}>
+            <span className="font-black text-2xl" style={{ color: '#151515', fontFamily: 'Space Grotesk, sans-serif' }}>
               RR
             </span>
           </div>
-          <h1 className="text-white text-2xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+          <h1 className="text-white text-2xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Ruum Ruum Torre de Control
           </h1>
           <p className="text-sm mt-1" style={{ color: '#5F6368' }}>
@@ -95,7 +95,7 @@ export default function LoginPage() {
 
           <button type="submit" disabled={loading}
             className="w-full font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#FFC400', color: '#151515', fontFamily: 'Montserrat, sans-serif' }}>
+            style={{ backgroundColor: '#FFC400', color: '#151515', fontFamily: 'Space Grotesk, sans-serif' }}>
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">

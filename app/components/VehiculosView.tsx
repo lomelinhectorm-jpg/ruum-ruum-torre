@@ -281,7 +281,7 @@ function VehiculoDetalle({
             {tabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`px-4 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  tab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  tab === t.id ? 'border-rr-route text-rr-trace' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}>{t.label}</button>
             ))}
           </div>
@@ -294,7 +294,7 @@ function VehiculoDetalle({
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Viajes realizados', value: viajes.length, color: 'text-blue-600' },
+                  { label: 'Viajes realizados', value: viajes.length, color: 'text-rr-trace' },
                   { label: 'Tipo de vehículo', value: vehiculo.tipoVehiculo || '—', color: 'text-slate-700' },
                   { label: 'Documentos', value: docs.length, color: 'text-slate-700' },
                 ].map((s, i) => (
@@ -328,7 +328,7 @@ function VehiculoDetalle({
                     <div className="flex gap-2">
                       {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
                         <button key={String(opt.v)} onClick={() => cambiarVerificacion(opt.v)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${verificacionVigente === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${verificacionVigente === opt.v ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                           {opt.label}
                         </button>
                       ))}
@@ -339,7 +339,7 @@ function VehiculoDetalle({
                     <div className="flex gap-2">
                       {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
                         <button key={String(opt.v)} onClick={() => cambiarTarjeta(opt.v)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${tarjetaCirculacionFisica === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${tarjetaCirculacionFisica === opt.v ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                           {opt.label}
                         </button>
                       ))}
@@ -350,7 +350,7 @@ function VehiculoDetalle({
                     <div className="flex gap-2">
                       {[1, 2, 3].map(n => (
                         <button key={n} onClick={() => cambiarLlaves(n)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${numLlaves === n ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${numLlaves === n ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                           {n}
                         </button>
                       ))}
@@ -402,7 +402,7 @@ function VehiculoDetalle({
                   <tbody className="divide-y divide-slate-100">
                     {viajes.map((v, i) => (
                       <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-semibold text-blue-600">{v.id}</td>
+                        <td className="px-4 py-3 font-semibold text-rr-trace">{v.id}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{v.fecha}</td>
                         <td className="px-4 py-3 text-xs text-slate-600">{v.origen} → {v.destino}</td>
                         <td className="px-4 py-3 text-right font-semibold text-slate-800">${v.tarifa.toLocaleString()}</td>
@@ -493,7 +493,7 @@ function AccionesMenu({
     { label: vehiculo.activo ? 'Desactivar vehículo' : 'Activar vehículo', color: vehiculo.activo ? 'red' : 'green', tab: 'info' },
   ]
   const cls: Record<string, string> = {
-    blue: 'text-blue-600 hover:bg-blue-50', indigo: 'text-indigo-600 hover:bg-indigo-50',
+    blue: 'text-rr-trace hover:bg-[#E8EFFF]', indigo: 'text-indigo-600 hover:bg-indigo-50',
     slate: 'text-slate-600 hover:bg-slate-50', purple: 'text-purple-600 hover:bg-purple-50',
     amber: 'text-amber-600 hover:bg-amber-50', green: 'text-green-600 hover:bg-green-50',
     red: 'text-red-600 hover:bg-red-50',
@@ -664,7 +664,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
     }
   }
 
-  const I = (k: keyof FormState) => `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`
+  const I = (k: keyof FormState) => `w-full border ${errors[k] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white`
   const E = ({ k }: { k: keyof FormState }) => errors[k] ? <p className="text-xs text-red-500 mt-0.5">{errors[k]}</p> : null
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -691,7 +691,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
                 { v: 'empresa', label: 'Empresa' },
               ] as const).map(opt => (
                 <button key={opt.v} type="button" onClick={() => elegirDueno(opt.v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.duenoTipo === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.duenoTipo === opt.v ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                   {opt.label}
                 </button>
               ))}
@@ -758,7 +758,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
                 <L c="Observaciones" />
                 <textarea value={form.observaciones} onChange={e => set('observaciones', e.target.value)} rows={2}
                   placeholder="Detalles adicionales, golpes previos, accesorios, etc."
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
               </div>
             </div>
           </div>
@@ -772,7 +772,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
                   {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
                     <button key={String(opt.v)} type="button"
                       onClick={() => setForm(f => ({ ...f, verificacionVigente: opt.v }))}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.verificacionVigente === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.verificacionVigente === opt.v ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                       {opt.label}
                     </button>
                   ))}
@@ -784,7 +784,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
                   {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
                     <button key={String(opt.v)} type="button"
                       onClick={() => setForm(f => ({ ...f, tarjetaCirculacion: opt.v }))}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.tarjetaCirculacion === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.tarjetaCirculacion === opt.v ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                       {opt.label}
                     </button>
                   ))}
@@ -796,7 +796,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
                   {[1, 2, 3].map(n => (
                     <button key={n} type="button"
                       onClick={() => setForm(f => ({ ...f, numLlaves: n }))}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.numLlaves === n ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.numLlaves === n ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                       {n}
                     </button>
                   ))}
@@ -810,7 +810,7 @@ function NuevoVehiculoForm({ onClose, onSave }: { onClose: () => void; onSave: (
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
           <div className="flex flex-col items-end gap-1">
             {errorGuardar && <p className="text-xs text-red-500">{errorGuardar}</p>}
-            <button onClick={handleSubmit} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <button onClick={handleSubmit} disabled={guardando} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
               <CheckCircleIcon className="w-4 h-4" />
               {guardando ? 'Guardando...' : 'Registrar vehículo'}
             </button>
@@ -1020,7 +1020,7 @@ export default function VehiculosView() {
           { label: 'Total', value: counts.total, color: 'text-slate-800' },
           { label: 'Activos', value: counts.activos, color: 'text-green-600' },
           { label: 'Flota propia', value: counts.flota, color: 'text-slate-600' },
-          { label: 'De usuarios', value: counts.usuarios, color: 'text-blue-600' },
+          { label: 'De usuarios', value: counts.usuarios, color: 'text-rr-trace' },
           { label: 'De empresas', value: counts.empresas, color: 'text-indigo-600' },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-center">
@@ -1061,9 +1061,9 @@ export default function VehiculosView() {
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="text" placeholder="Buscar por marca, placa, VIN..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-60" />
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-60" />
               </div>
-              <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <button onClick={() => setShowForm(true)} className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <PlusIcon className="w-4 h-4" />Nuevo
               </button>
             </div>

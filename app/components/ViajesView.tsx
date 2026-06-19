@@ -100,8 +100,8 @@ const statusStyle: Record<string, string> = {
   'Solicitud recibida': 'bg-slate-100 text-slate-600',
   'Pendiente de revisión': 'bg-slate-100 text-slate-600',
   'Pendiente de asignación': 'bg-amber-100 text-amber-700',
-  'Conductor asignado': 'bg-blue-100 text-blue-700',
-  'Conductor en camino': 'bg-blue-100 text-blue-700',
+  'Conductor asignado': 'bg-[#E8EFFF] text-rr-traceDeep',
+  'Conductor en camino': 'bg-[#E8EFFF] text-rr-traceDeep',
   'Recolección en proceso': 'bg-indigo-100 text-indigo-700',
   'Evidencia inicial pendiente': 'bg-orange-100 text-orange-700',
   'Traslado en curso': 'bg-purple-100 text-purple-700',
@@ -144,7 +144,7 @@ function ActionMenu({ trip, onClose, onAction }: { trip: Trip; onClose: () => vo
     { id: 'cancelar', icon: XCircleIcon, label: 'Cancelar viaje', color: 'red', hidden: trip.status === 'Finalizado' || trip.status === 'Cancelado' },
   ]
   const colorCls: Record<string, string> = {
-    blue: 'text-blue-600 hover:bg-blue-50', indigo: 'text-indigo-600 hover:bg-indigo-50',
+    blue: 'text-rr-trace hover:bg-[#E8EFFF]', indigo: 'text-indigo-600 hover:bg-indigo-50',
     slate: 'text-slate-600 hover:bg-slate-50', purple: 'text-purple-600 hover:bg-purple-50',
     amber: 'text-amber-600 hover:bg-amber-50', green: 'text-green-600 hover:bg-green-50',
     red: 'text-red-600 hover:bg-red-50',
@@ -237,7 +237,7 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
         </div>
         <div className="p-5 space-y-3">
           <select value={seleccionado} onChange={e => setSeleccionado(e.target.value)} disabled={cargando}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
             <option value="">{cargando ? 'Cargando...' : 'Seleccionar conductor...'}</option>
             {conductores.map(c => (
               <option key={c.id} value={c.id}>{c.nombre} {c.apellido} · {c.disponibilidad}</option>
@@ -251,7 +251,7 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
         <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Cancelar</button>
           <button onClick={guardar} disabled={guardando}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium">
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
@@ -307,19 +307,19 @@ function EditarFechaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Fecha</label>
             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Hora</label>
             <input type="time" value={hora} onChange={e => setHora(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
           </div>
           {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
         </div>
         <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Cancelar</button>
           <button onClick={guardar} disabled={guardando}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium">
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
@@ -719,7 +719,7 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
                 if (isIncidencia && trip.incidencias === 0 && !real) return null
                 return (
                   <li key={i} className="ml-5">
-                    <span className={`absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full ${real ? 'bg-blue-500' : 'bg-slate-200'}`}>
+                    <span className={`absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full ${real ? 'bg-rr-trace' : 'bg-slate-200'}`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-white" />
                     </span>
                     <p className={`text-sm font-semibold ${real ? 'text-slate-800' : 'text-slate-300'}`}>{evento}</p>
@@ -1366,10 +1366,10 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   ]
 
   const InputCls = (field: keyof FormData) =>
-    `w-full border ${errors[field] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+    `w-full border ${errors[field] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route`
 
   const SelectCls = (field: keyof FormData) =>
-    `w-full border ${errors[field] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`
+    `w-full border ${errors[field] ? 'border-red-400 bg-red-50' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white`
 
   const Err = ({ field }: { field: keyof FormData }) =>
     errors[field] ? <p className="text-xs text-red-500 mt-0.5">{errors[field]}</p> : null
@@ -1404,13 +1404,13 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
               <div key={s.n} className="flex items-center flex-1">
                 <div className="flex flex-col items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${
-                    step === s.n ? 'border-blue-600 bg-blue-600 text-white'
+                    step === s.n ? 'border-rr-route bg-rr-route text-rr-asphalt'
                     : step > s.n ? 'border-green-500 bg-green-500 text-white'
                     : 'border-slate-300 bg-white text-slate-400'
                   }`}>
                     {step > s.n ? '✓' : s.n}
                   </div>
-                  <span className={`text-xs mt-1 font-medium whitespace-nowrap ${step === s.n ? 'text-blue-600' : step > s.n ? 'text-green-600' : 'text-slate-400'}`}>
+                  <span className={`text-xs mt-1 font-medium whitespace-nowrap ${step === s.n ? 'text-rr-trace' : step > s.n ? 'text-green-600' : 'text-slate-400'}`}>
                     {s.label}
                   </span>
                 </div>
@@ -1449,7 +1449,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                   ] as const).map(opt => (
                     <button key={opt.v} type="button"
                       onClick={() => setForm(f => ({ ...f, clienteTipo: opt.v, clienteId: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '' }))}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.clienteTipo === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.clienteTipo === opt.v ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                       {opt.label}
                     </button>
                   ))}
@@ -1475,7 +1475,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                           <div className="grid grid-cols-2 gap-2">
                             {TIPOS_EMPRESA.map(t => (
                               <button key={t} type="button" onClick={() => set('empresaTipo', t)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-colors text-left ${form.empresaTipo === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-colors text-left ${form.empresaTipo === t ? 'border-rr-route bg-[#E8EFFF] text-rr-traceDeep' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                                 <span className="text-base">{tipoEmpresaIcon[t]}</span>{t}
                               </button>
                             ))}
@@ -1621,22 +1621,22 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 
                         {/* Toggle facturación */}
                         <button type="button" onClick={() => set('requiereFactura', !form.requiereFactura)}
-                          className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${form.requiereFactura ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}`}>
+                          className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${form.requiereFactura ? 'border-rr-route bg-[#E8EFFF]' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}`}>
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${form.requiereFactura ? 'bg-blue-100' : 'bg-slate-200'}`}>🧾</div>
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${form.requiereFactura ? 'bg-[#E8EFFF]' : 'bg-slate-200'}`}>🧾</div>
                             <div className="text-left">
-                              <p className={`text-sm font-semibold ${form.requiereFactura ? 'text-blue-700' : 'text-slate-700'}`}>Requiere facturación</p>
+                              <p className={`text-sm font-semibold ${form.requiereFactura ? 'text-rr-traceDeep' : 'text-slate-700'}`}>Requiere facturación</p>
                               <p className="text-xs text-slate-400">Activa para capturar datos fiscales del cliente</p>
                             </div>
                           </div>
-                          <div className={`w-11 h-6 rounded-full transition-colors relative ${form.requiereFactura ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative ${form.requiereFactura ? 'bg-rr-trace' : 'bg-slate-300'}`}>
                             <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${form.requiereFactura ? 'translate-x-5' : 'translate-x-0.5'}`} />
                           </div>
                         </button>
 
                         {form.requiereFactura && (
-                          <div className="space-y-4 border border-blue-100 bg-blue-50/40 rounded-xl p-4">
-                            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide border-b border-blue-100 pb-2">🧾 Información fiscal</p>
+                          <div className="space-y-4 border border-[#C7D7FF] bg-[#E8EFFF]/40 rounded-xl p-4">
+                            <p className="text-xs font-semibold text-rr-traceDeep uppercase tracking-wide border-b border-[#C7D7FF] pb-2">🧾 Información fiscal</p>
                             <div className="grid grid-cols-2 gap-4">
                               <div className="col-span-2">
                                 <Label req>Razón social</Label>
@@ -1715,11 +1715,11 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 <Label req>Origen del vehículo</Label>
                 <div className="flex gap-2 mb-2">
                   <button type="button" onClick={() => cambiarVehiculoOrigen('flota')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.vehiculoOrigen === 'flota' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.vehiculoOrigen === 'flota' ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                     Vehículo ya capturado
                   </button>
                   <button type="button" onClick={() => cambiarVehiculoOrigen('manual')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.vehiculoOrigen === 'manual' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.vehiculoOrigen === 'manual' ? 'bg-rr-route border-rr-route text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                     Captura manual
                   </button>
                 </div>
@@ -2006,7 +2006,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400">Paso {step} de 4</span>
             {step < 4
-              ? <button onClick={next} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+              ? <button onClick={next} className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium transition-colors">
                   Siguiente →
                 </button>
               : <button onClick={handleSubmit} disabled={guardando} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
@@ -2337,10 +2337,10 @@ export default function ViajesView() {
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="text" placeholder="Buscar por ID, placa o conductor..."
                   value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64" />
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-64" />
               </div>
               <button onClick={() => setShowNewForm(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <PlusIcon className="w-4 h-4" />Nuevo viaje
               </button>
             </div>
@@ -2349,7 +2349,7 @@ export default function ViajesView() {
 
         {cargando ? (
           <div className="py-16 text-center">
-            <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3" />
+            <div className="inline-block w-6 h-6 border-2 border-rr-route border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-slate-400 text-sm">Cargando viajes...</p>
           </div>
         ) : (
@@ -2381,11 +2381,11 @@ export default function ViajesView() {
                 )}
                 {filtered.map((trip, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-blue-600 whitespace-nowrap">{trip.id}</td>
+                    <td className="px-4 py-3 font-semibold text-rr-trace whitespace-nowrap">{trip.id}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800 text-xs">{trip.usuario}</div>
                       <div className="text-xs text-slate-400 truncate max-w-[120px]">{trip.empresa}</div>
-                      <div className="text-xs text-blue-500 truncate max-w-[120px]">{trip.tipoServicio}</div>
+                      <div className="text-xs text-rr-trace truncate max-w-[120px]">{trip.tipoServicio}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-xs">{trip.vehiculo.marca} {trip.vehiculo.modelo}</div>

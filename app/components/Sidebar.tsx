@@ -58,16 +58,16 @@ export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onCl
 
   return (
     <aside className={`
-      bg-slate-900 text-white flex flex-col transition-all duration-300
+      bg-rr-asphalt text-white flex flex-col transition-all duration-300
       ${isMobile ? 'fixed inset-y-0 left-0 z-50 w-64' : 'w-64 flex-shrink-0'}
     `}>
-      <div className="p-6 border-b border-slate-700 flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-white">
-          R
+      <div className="p-6 border-b border-white/10 flex items-center gap-3">
+        <div className="w-9 h-9 bg-rr-route rounded-xl flex items-center justify-center font-black text-rr-asphalt">
+          RR
         </div>
         <div>
-          <h1 className="font-bold text-lg tracking-tight">Ruum Ruum</h1>
-          <p className="text-xs text-slate-400">Admin By MoviliaX</p>
+          <h1 className="font-display font-bold text-lg tracking-tight">ruum<span className="text-rr-route">ruum</span></h1>
+          <p className="text-xs text-rr-steelLight">Torre de Control</p>
         </div>
       </div>
 
@@ -87,16 +87,16 @@ export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onCl
         </ul>
       </nav>
 
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3">
           <img 
-            src="https://ui-avatars.com/api/?name=Admin+Ops&background=3b82f6&color=fff" 
+            src="https://ui-avatars.com/api/?name=Admin+Ops&background=FFC400&color=14141A" 
             alt="Admin"
             className="w-9 h-9 rounded-full"
           />
           <div>
             <p className="text-sm font-medium">Operaciones</p>
-            <p className="text-xs text-slate-400">Super Administrador</p>
+            <p className="text-xs text-rr-steelLight">Super Administrador</p>
           </div>
         </div>
       </div>

@@ -34,7 +34,7 @@ type ConfigTab =
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button onClick={() => onChange(!value)}
-      className={`relative inline-flex h-5 w-10 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-blue-500' : 'bg-slate-300'}`}>
+      className={`relative inline-flex h-5 w-10 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-rr-trace' : 'bg-slate-300'}`}>
       <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
     </button>
   )
@@ -59,7 +59,7 @@ function SCard({ title, subtitle, children, action }: {
 
 function Badge({ text, color = 'slate' }: { text: string; color?: string }) {
   const cls: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700', green: 'bg-green-50 text-green-700',
+    blue: 'bg-[#E8EFFF] text-rr-traceDeep', green: 'bg-green-50 text-green-700',
     red: 'bg-red-50 text-red-700', amber: 'bg-amber-50 text-amber-700',
     slate: 'bg-slate-100 text-slate-600', purple: 'bg-purple-50 text-purple-700',
     indigo: 'bg-indigo-50 text-indigo-700',
@@ -68,7 +68,7 @@ function Badge({ text, color = 'slate' }: { text: string; color?: string }) {
 }
 
 function iCls(err?: boolean) {
-  return `w-full border ${err ? 'border-red-400' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+  return `w-full border ${err ? 'border-red-400' : 'border-slate-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route`
 }
 
 function configWriteError(error: { code?: string; message?: string }, fallback: string) {
@@ -118,7 +118,7 @@ async function intentarRegistrarBitacora(accion: string, modulo: string, detalle
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete?: () => void }) {
   return (
     <div className="flex items-center gap-1">
-      <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><PencilSquareIcon className="w-4 h-4" /></button>
+      <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-rr-trace hover:bg-[#E8EFFF] rounded-lg transition-colors"><PencilSquareIcon className="w-4 h-4" /></button>
       {onDelete && <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="w-4 h-4" /></button>}
     </div>
   )
@@ -182,7 +182,7 @@ function TabRoles() {
   }
 
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-100 text-blue-700', green: 'bg-green-100 text-green-700',
+    blue: 'bg-[#E8EFFF] text-rr-traceDeep', green: 'bg-green-100 text-green-700',
     purple: 'bg-purple-100 text-purple-700', amber: 'bg-amber-100 text-amber-700',
     slate: 'bg-slate-100 text-slate-500',
   }
@@ -190,10 +190,10 @@ function TabRoles() {
   return (
     <div className="space-y-4">
       <SCard title="🛡️ Roles del sistema" subtitle="Define qué puede ver y hacer cada rol"
-        action={<button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo rol</button>}>
+        action={<button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo rol</button>}>
         {showForm && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-            <p className="text-xs font-semibold text-blue-700 uppercase">Nuevo rol</p>
+          <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+            <p className="text-xs font-semibold text-rr-traceDeep uppercase">Nuevo rol</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
               <div><label className="text-xs text-slate-500 mb-1 block">Color</label>
@@ -209,7 +209,7 @@ function TabRoles() {
                 {MODULOS_SISTEMA.map(m => (
                   <button key={m} type="button"
                     onClick={() => setForm(f => ({ ...f, permisos: f.permisos.includes(m) ? f.permisos.filter(x => x !== m) : [...f.permisos, m] }))}
-                    className={`px-2 py-1 rounded text-xs font-medium ${form.permisos.includes(m) ? 'bg-blue-100 text-blue-700' : 'bg-slate-50 text-slate-400'}`}>
+                    className={`px-2 py-1 rounded text-xs font-medium ${form.permisos.includes(m) ? 'bg-[#E8EFFF] text-rr-traceDeep' : 'bg-slate-50 text-slate-400'}`}>
                     {m}
                   </button>
                 ))}
@@ -217,7 +217,7 @@ function TabRoles() {
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-              <button onClick={handleCrear} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+              <button onClick={handleCrear} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
             </div>
             {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
           </div>
@@ -249,13 +249,13 @@ function TabRoles() {
               {(expanded === r.id || editing === r.id) && (
                 <div className="px-4 pb-4 border-t border-slate-100 pt-3">
                   <p className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wide">
-                    Módulos con acceso {editing === r.id && <span className="text-blue-500">(toca para activar/desactivar)</span>}
+                    Módulos con acceso {editing === r.id && <span className="text-rr-trace">(toca para activar/desactivar)</span>}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {MODULOS_SISTEMA.map(m => (
                       <button key={m} type="button" disabled={editing !== r.id}
                         onClick={() => togglePermiso(r.id, r.permisos, m)}
-                        className={`px-2 py-1 rounded text-xs font-medium transition-colors ${r.permisos.includes(m) ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-300 line-through'} ${editing === r.id ? 'cursor-pointer hover:ring-2 hover:ring-blue-300' : ''}`}>
+                        className={`px-2 py-1 rounded text-xs font-medium transition-colors ${r.permisos.includes(m) ? 'bg-[#E8EFFF] text-rr-traceDeep' : 'bg-slate-50 text-slate-300 line-through'} ${editing === r.id ? 'cursor-pointer hover:ring-2 hover:ring-rr-trace' : ''}`}>
                         {m}
                       </button>
                     ))}
@@ -358,14 +358,14 @@ function TabUsuariosInternos() {
     setConfirmDelete(null)
   }
 
-  const iCls2 = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const iCls2 = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route'
 
   return (
     <SCard title="👥 Usuarios internos del sistema" subtitle="Personal con acceso al panel de administración"
-      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo usuario</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo usuario</button>}>
       {showForm && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar usuario interno' : 'Nuevo usuario interno'}</p>
+        <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar usuario interno' : 'Nuevo usuario interno'}</p>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre(s)*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls2} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Apellido(s)</label><input type="text" value={form.apellido} onChange={e => setForm(f => ({...f, apellido: e.target.value.toUpperCase()}))} className={iCls2} /></div>
@@ -379,7 +379,7 @@ function TabUsuariosInternos() {
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-            <button onClick={handleGuardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            <button onClick={handleGuardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
           {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
@@ -534,10 +534,10 @@ function TabZonas() {
 
   return (
     <SCard title="📍 Zonas de operación" subtitle="Define las áreas de cobertura del servicio"
-      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva zona</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva zona</button>}>
       {showForm && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar zona' : 'Nueva zona'}</p>
+        <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar zona' : 'Nueva zona'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls()} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Radio (km)</label><input type="number" min="0" value={form.radioKm} onChange={e => setForm(f => ({...f, radioKm: e.target.value}))} className={iCls()} /></div>
@@ -545,7 +545,7 @@ function TabZonas() {
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </div>
       )}
@@ -556,8 +556,8 @@ function TabZonas() {
         {zonas.map(z => (
           <div key={z.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${z.activa ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${z.activa ? 'bg-blue-50' : 'bg-slate-100'}`}>
-                <MapPinIcon className={`w-4 h-4 ${z.activa ? 'text-blue-500' : 'text-slate-400'}`} />
+              <div className={`p-2 rounded-lg ${z.activa ? 'bg-[#E8EFFF]' : 'bg-slate-100'}`}>
+                <MapPinIcon className={`w-4 h-4 ${z.activa ? 'text-rr-trace' : 'text-slate-400'}`} />
               </div>
               <div>
                 <p className="font-medium text-slate-800 text-sm">{z.nombre}</p>
@@ -640,10 +640,10 @@ function TabServicios() {
 
   return (
     <SCard title="🚘 Tipos de servicio" subtitle="Configura los tipos de traslado disponibles"
-      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
       {showForm && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar tipo de servicio' : 'Nuevo tipo de servicio'}</p>
+        <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar tipo de servicio' : 'Nuevo tipo de servicio'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-[80px_1fr] gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Icono</label><input type="text" maxLength={4} value={form.icono} onChange={e => setForm(f => ({...f, icono: e.target.value}))} className={`${iCls()} text-center text-lg`} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
@@ -655,7 +655,7 @@ function TabServicios() {
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
           {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
@@ -827,10 +827,10 @@ function TabVehiculos() {
 
   return (
     <SCard title="🚘 Tipos de vehículo" subtitle="Categorías de vehículos que opera la plataforma"
-      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo tipo</button>}>
       {showForm && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar tipo de vehículo' : 'Nuevo tipo de vehículo'}</p>
+        <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar tipo de vehículo' : 'Nuevo tipo de vehículo'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-[80px_1fr_100px] gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Icono</label><input type="text" maxLength={4} value={form.icono} onChange={e => setForm(f => ({...f, icono: e.target.value}))} className={`${iCls()} text-center text-lg`} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
@@ -839,7 +839,7 @@ function TabVehiculos() {
           <div><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </div>
       )}
@@ -976,7 +976,7 @@ function TabEvidencia() {
         <div className="mt-4 flex justify-end items-center gap-3">
           {guardado && <span className="text-xs text-green-600 font-medium">✓ Reglas guardadas</span>}
           {error && <span className="text-xs text-red-600">{error}</span>}
-          <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+          <button onClick={guardar} disabled={guardando} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar reglas'}
           </button>
         </div>
@@ -1014,7 +1014,7 @@ function TabEstados() {
   }
 
   const colorDot: Record<string, string> = {
-    slate: 'bg-slate-400', amber: 'bg-amber-500', blue: 'bg-blue-500',
+    slate: 'bg-slate-400', amber: 'bg-amber-500', blue: 'bg-rr-trace',
     indigo: 'bg-indigo-500', orange: 'bg-orange-500', purple: 'bg-purple-500',
     violet: 'bg-violet-500', green: 'bg-green-500', red: 'bg-red-500', rose: 'bg-rose-500',
   }
@@ -1040,7 +1040,7 @@ function TabEstados() {
                 </p>
                 {editing === e.id ? (
                   <div className="flex items-center gap-2 mt-1.5">
-                    <input defaultValue={e.siguiente} id={`sig-${e.id}`} className="text-xs border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input defaultValue={e.siguiente} id={`sig-${e.id}`} className="text-xs border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rr-route" />
                     <label className="flex items-center gap-1 text-xs text-slate-500">
                       <input type="checkbox" defaultChecked={e.auto} id={`auto-${e.id}`} /> Automático
                     </label>
@@ -1050,7 +1050,7 @@ function TabEstados() {
                         const auto = (document.getElementById(`auto-${e.id}`) as HTMLInputElement)?.checked ?? e.auto
                         guardarSiguiente(e.id, sig, auto)
                       }}
-                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700">Guardar</button>
+                      className="text-xs bg-rr-route text-rr-asphalt px-2 py-1 rounded-lg hover:bg-rr-routeDark">Guardar</button>
                     <button onClick={() => setEditing(null)} className="text-xs text-slate-500 px-2 py-1 hover:bg-slate-100 rounded-lg">Cancelar</button>
                   </div>
                 ) : (
@@ -1128,15 +1128,15 @@ function TabNotificaciones() {
   }
 
   const canalColor: Record<string, string> = {
-    Email: 'bg-blue-50 text-blue-700', App: 'bg-green-50 text-green-700',
+    Email: 'bg-[#E8EFFF] text-rr-traceDeep', App: 'bg-green-50 text-green-700',
     SMS: 'bg-orange-50 text-orange-700', WhatsApp: 'bg-emerald-50 text-emerald-700',
   }
   return (
     <SCard title="🔔 Plantillas de notificación" subtitle="Configura qué notificaciones se envían y por qué canal"
-      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva plantilla</button>}>
+      action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva plantilla</button>}>
       {showForm && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-          <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar plantilla' : 'Nueva plantilla'}</p>
+        <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+          <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar plantilla' : 'Nueva plantilla'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Evento*</label><input type="text" placeholder="Ej. Conductor asignado" value={form.evento} onChange={e => setForm(f => ({...f, evento: e.target.value}))} className={iCls()} /></div>
             <div><label className="text-xs text-slate-500 mb-1 block">Destinatario</label><input type="text" placeholder="Ej. Usuario solicitante" value={form.destinatario} onChange={e => setForm(f => ({...f, destinatario: e.target.value}))} className={iCls()} /></div>
@@ -1155,7 +1155,7 @@ function TabNotificaciones() {
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+            <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
           {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
@@ -1275,17 +1275,17 @@ function TabPagos() {
   return (
     <div className="space-y-4">
       <SCard title="💳 Métodos de pago habilitados" subtitle="Configura las formas de pago disponibles para usuarios y conductores"
-        action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevoMetodo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Agregar método</button>}>
+        action={<button onClick={() => (showForm ? setShowForm(false) : abrirNuevoMetodo())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Agregar método</button>}>
         {showForm && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-            <p className="text-xs font-semibold text-blue-700 uppercase">{editId ? 'Editar método de pago' : 'Nuevo método de pago'}</p>
+          <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
+            <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar método de pago' : 'Nuevo método de pago'}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" placeholder="Ej. Transferencia SPEI" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={iCls()} /></div>
               <div><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
-              <button onClick={guardarMetodo} disabled={guardando} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+              <button onClick={guardarMetodo} disabled={guardando} className="px-3 py-1.5 text-xs bg-rr-route text-rr-asphalt rounded-lg hover:bg-rr-routeDark disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
             </div>
             {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
           </div>
@@ -1335,7 +1335,7 @@ function TabPagos() {
         <div className="mt-4 flex justify-end items-center gap-3">
           {cicloGuardado && <span className="text-xs text-green-600 font-medium">✓ Ciclo guardado</span>}
           {errorCiclo && <span className="text-xs text-red-600">{errorCiclo}</span>}
-          <button onClick={guardarCiclo} disabled={guardandoCiclo} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+          <button onClick={guardarCiclo} disabled={guardandoCiclo} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardandoCiclo ? 'Guardando...' : 'Guardar ciclo'}
           </button>
         </div>
@@ -1416,7 +1416,7 @@ function TabFiscal() {
         <div className="mt-4 flex justify-end items-center gap-3">
           {guardado && <span className="text-xs text-green-600 font-medium">✓ Datos fiscales guardados</span>}
           {error && <span className="text-xs text-red-600">{error}</span>}
-          <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+          <button onClick={guardar} disabled={guardando} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar datos fiscales'}
           </button>
         </div>
@@ -1510,7 +1510,7 @@ function TabSeguridad() {
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <button onClick={guardar} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+          <button onClick={guardar} disabled={guardando} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar seguridad'}
           </button>
         </div>
@@ -1668,12 +1668,12 @@ export default function ConfiguracionView() {
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`w-full flex items-start gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
-                tab === t.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                tab === t.id ? 'bg-rr-route text-rr-asphalt shadow-sm' : 'text-slate-600 hover:bg-slate-100'
               }`}>
               <span className={`mt-0.5 flex-shrink-0 ${tab === t.id ? 'text-white' : 'text-slate-400'}`}>{t.icon}</span>
               <div>
                 <p className={`text-sm font-medium leading-tight ${tab === t.id ? 'text-white' : 'text-slate-700'}`}>{t.label}</p>
-                <p className={`text-xs mt-0.5 ${tab === t.id ? 'text-blue-100' : 'text-slate-400'}`}>{t.desc}</p>
+                <p className={`text-xs mt-0.5 ${tab === t.id ? 'text-white/70' : 'text-slate-400'}`}>{t.desc}</p>
               </div>
             </button>
           ))}
@@ -1683,7 +1683,7 @@ export default function ConfiguracionView() {
         <div className="flex-1 min-w-0">
           <div className="mb-5">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-blue-600">{active.icon}</span>
+              <span className="text-rr-trace">{active.icon}</span>
               <h2 className="font-bold text-slate-800 text-lg">{active.label}</h2>
             </div>
             <p className="text-sm text-slate-500">{active.desc}</p>

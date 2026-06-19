@@ -218,7 +218,7 @@ function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: (
             </G2>
             {doc.url && (
               <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                className="mt-3 flex items-center gap-2 text-sm text-rr-trace hover:underline">
                 <ArrowDownTrayIcon className="w-4 h-4" />Ver / Descargar documento
               </a>
             )}
@@ -228,7 +228,7 @@ function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: (
             <div>
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Revisado por</p>
               <select value={revisadoPor} onChange={e => setRevisadoPor(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
                 <option value="—">Sin asignar</option>
                 {['Ops. Central','Coordinador','Admin','Cumplimiento'].map(r => <option key={r}>{r}</option>)}
               </select>
@@ -241,7 +241,7 @@ function DetalleDocumento({ doc, onClose, onSave }: { doc: Documento; onClose: (
 
           <Sec title="📝 Notas">
             <textarea rows={2} value={notas} onChange={e => setNotas(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route"
               placeholder="Sin notas..." />
           </Sec>
 
@@ -305,7 +305,7 @@ function NuevoDocumentoForm({ onClose, onSave }: { onClose: () => void; onSave: 
     }
   }
 
-  const inputCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const inputCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route'
   const selectCls = `${inputCls} bg-white`
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -369,7 +369,7 @@ function NuevoDocumentoForm({ onClose, onSave }: { onClose: () => void; onSave: 
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
           <button onClick={guardar} disabled={guardando}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
             <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Registrar documento'}
           </button>
         </div>
@@ -495,9 +495,9 @@ export default function DocumentosView() {
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="text" placeholder="Buscar documento..." value={search} onChange={e => setSearch(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
+                className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-52" />
             </div>
-            <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <button onClick={() => setShowForm(true)} className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
               <PlusIcon className="w-4 h-4" />Registrar
             </button>
           </div>
@@ -585,7 +585,7 @@ export default function DocumentosView() {
                     <td className="px-4 py-3 text-right flex justify-end gap-2 items-center" onClick={e => e.stopPropagation()}>
                       {d.url && (
                         <a href={d.url} target="_blank" rel="noopener noreferrer"
-                          className="text-slate-400 hover:text-blue-600 transition-colors" title="Descargar">
+                          className="text-slate-400 hover:text-rr-trace transition-colors" title="Descargar">
                           <ArrowDownTrayIcon className="w-4 h-4" />
                         </a>
                       )}

@@ -70,7 +70,7 @@ const TIPOS_EMPRESA: TipoEmpresa[] = [
 ]
 
 const tipoColor: Record<TipoEmpresa, string> = {
-  'Agencia automotriz': 'bg-blue-50 text-blue-700',
+  'Agencia automotriz': 'bg-[#E8EFFF] text-rr-traceDeep',
   'Lote de autos':      'bg-sky-50 text-sky-700',
   'Arrendadora':        'bg-teal-50 text-teal-700',
   'Flotilla':           'bg-indigo-50 text-indigo-700',
@@ -262,7 +262,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                 </button>
               )}
               <button onClick={() => setEditMode(e => !e)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${editMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${editMode ? 'bg-rr-route text-rr-asphalt' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                 <PencilSquareIcon className="w-3.5 h-3.5" />{editMode ? 'Editando...' : 'Editar'}
               </button>
               <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
@@ -273,7 +273,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
           <div className="grid grid-cols-3 gap-3 mt-4 pb-1">
             {[
               { label: 'Total facturado', value: `$${totalFacturado.toLocaleString()}`, color: 'text-emerald-600' },
-              { label: 'Viajes totales',  value: viajesTotal,  color: 'text-blue-600' },
+              { label: 'Viajes totales',  value: viajesTotal,  color: 'text-rr-trace' },
               { label: 'Usuarios vinculados', value: usuariosVinculados.length, color: 'text-indigo-600' },
             ].map((k, i) => (
               <div key={i} className="bg-slate-50 rounded-xl border border-slate-100 p-3 text-center">
@@ -288,7 +288,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
             {tabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  tab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  tab === t.id ? 'border-rr-route text-rr-trace' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}>
                 {t.icon}{t.label}
               </button>
@@ -308,7 +308,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Tipo de empresa</p>
                     {editMode ? (
-                      <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoEmpresa }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full">
+                      <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoEmpresa }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white w-full">
                         {TIPOS_EMPRESA.map(t => <option key={t}>{t}</option>)}
                       </select>
                     ) : <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${tipoColor[empresa.tipo]}`}>{tipoIcon[empresa.tipo]} {empresa.tipo}</span>}
@@ -337,7 +337,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
               {editMode && (
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setEditMode(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}</button>
+                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}</button>
                 </div>
               )}
             </div>
@@ -351,19 +351,19 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Descuento aplicado</p>
                     {editMode
-                      ? <input type="number" value={form.descuento} onChange={e => setForm(f => ({ ...f, descuento: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                      ? <input type="number" value={form.descuento} onChange={e => setForm(f => ({ ...f, descuento: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-full" />
                       : <span className="text-xl font-bold text-green-600">{empresa.descuento}%</span>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Crédito (días)</p>
                     {editMode
-                      ? <input type="number" value={form.creditoDias} onChange={e => setForm(f => ({ ...f, creditoDias: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
-                      : <span className="text-xl font-bold text-blue-600">{empresa.creditoDias} días</span>}
+                      ? <input type="number" value={form.creditoDias} onChange={e => setForm(f => ({ ...f, creditoDias: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-full" />
+                      : <span className="text-xl font-bold text-rr-trace">{empresa.creditoDias} días</span>}
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Límite de crédito</p>
                     {editMode
-                      ? <input type="number" value={form.limiteCredito} onChange={e => setForm(f => ({ ...f, limiteCredito: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                      ? <input type="number" value={form.limiteCredito} onChange={e => setForm(f => ({ ...f, limiteCredito: +e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-full" />
                       : <span className="text-xl font-bold text-slate-800">${empresa.limiteCredito.toLocaleString()} MXN</span>}
                   </div>
                   <F label="Vigencia del convenio" value={empresa.vigenciaConvenio} />
@@ -378,12 +378,12 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                     <p className="text-2xl font-bold text-emerald-700">${totalFacturado.toLocaleString()}</p>
                     <p className="text-xs text-emerald-500 mt-0.5">MXN acumulado</p>
                   </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
-                    <p className="text-xs text-blue-600 font-medium mb-1">Promedio por viaje</p>
-                    <p className="text-2xl font-bold text-blue-700">
+                  <div className="bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl p-4 text-center">
+                    <p className="text-xs text-rr-trace font-medium mb-1">Promedio por viaje</p>
+                    <p className="text-2xl font-bold text-rr-traceDeep">
                       ${viajesTotal > 0 ? Math.round(totalFacturado / viajesTotal).toLocaleString() : '—'}
                     </p>
-                    <p className="text-xs text-blue-500 mt-0.5">en {viajesTotal} viajes</p>
+                    <p className="text-xs text-rr-trace mt-0.5">en {viajesTotal} viajes</p>
                   </div>
                 </div>
               </SCard>
@@ -391,7 +391,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
               {editMode && (
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setEditMode(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar'}</button>
+                  <button onClick={guardarPerfil} disabled={guardandoPerfil} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium transition-colors">{guardandoPerfil ? 'Guardando...' : 'Guardar'}</button>
                 </div>
               )}
             </div>
@@ -438,7 +438,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                 : vehiculosFrecuentes.map((v, i) => (
                   <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-50 rounded-lg"><TruckIcon className="w-5 h-5 text-blue-500" /></div>
+                      <div className="p-2 bg-[#E8EFFF] rounded-lg"><TruckIcon className="w-5 h-5 text-rr-trace" /></div>
                       <div>
                         <p className="font-medium text-slate-800 text-sm">{v.modelo}</p>
                         <p className="text-xs text-slate-400">Placas: <span className="font-mono">{v.placas}</span> · {v.anio}</p>
@@ -471,7 +471,7 @@ function EmpresaDetalle({ empresa, idx, onClose, onUpdate }: {
                   <tbody className="divide-y divide-slate-100">
                     {historialViajes.map((v, i) => (
                       <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-semibold text-blue-600">{v.id}</td>
+                        <td className="px-4 py-3 font-semibold text-rr-trace">{v.id}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{v.fecha}</td>
                         <td className="px-4 py-3 text-xs text-slate-600">{v.ruta}</td>
                         <td className="px-4 py-3 text-right font-bold text-slate-800">${v.monto.toLocaleString()}</td>
@@ -557,7 +557,7 @@ function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: ()
     } finally { setGuardando(false) }
   }
 
-  const iCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const iCls = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route'
   const L = ({ c, req }: { c: React.ReactNode; req?: boolean }) => (
     <label className="block text-xs font-medium text-slate-500 mb-1">{c}{req && <span className="text-red-500 ml-0.5">*</span>}</label>
   )
@@ -579,7 +579,7 @@ function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: ()
             <div className="grid grid-cols-2 gap-2">
               {TIPOS_EMPRESA.map(t => (
                 <button key={t} onClick={() => setTipo(t)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-colors text-left ${tipo === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-colors text-left ${tipo === t ? 'border-rr-route bg-[#E8EFFF] text-rr-traceDeep' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                   <span className="text-base">{tipoIcon[t]}</span>{t}
                 </button>
               ))}
@@ -623,7 +623,7 @@ function NuevaEmpresaForm({ onClose, onSave }: { onClose: () => void; onSave: ()
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
           <div className="flex flex-col items-end gap-1">
             {errorGuardar && <p className="text-xs text-red-500">{errorGuardar}</p>}
-            <button onClick={handleSubmit} disabled={guardando} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <button onClick={handleSubmit} disabled={guardando} className="bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
               <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Registrar empresa'}
             </button>
           </div>
@@ -650,7 +650,7 @@ function F({ label, value, editable, onChange }: { label: string; value: React.R
     <div>
       <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">{label}</p>
       {editable && typeof value === 'string'
-        ? <input type="text" value={value} onChange={e => onChange?.(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        ? <input type="text" value={value} onChange={e => onChange?.(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route" />
         : <div className="text-sm text-slate-700">{value}</div>}
     </div>
   )
@@ -781,9 +781,9 @@ export default function EmpresasView() {
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input type="text" placeholder="Buscar empresa..." value={search} onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rr-route w-52" />
               </div>
-              <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+              <button onClick={() => setShowForm(true)} className="bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                 <PlusIcon className="w-4 h-4" />Nueva empresa
               </button>
             </div>

@@ -230,7 +230,7 @@ function ReporteOperativo({ periodo, onExportable }: { periodo: Periodo; onExpor
                   <span className="text-slate-400">{count} ({data.total ? ((count/data.total)*100).toFixed(0) : 0}%)</span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${data.total ? (count/data.total)*100 : 0}%` }} />
+                  <div className="h-full rounded-full bg-rr-trace transition-all" style={{ width: `${data.total ? (count/data.total)*100 : 0}%` }} />
                 </div>
               </div>
             ))}
@@ -325,7 +325,7 @@ function ReporteFinanciero({ periodo, onExportable }: { periodo: Periodo; onExpo
   const margenPct = data.totalIng ? ((margen / data.totalIng) * 100).toFixed(1) : '0'
 
   const estatusBadge = (s: string) => {
-    const map: Record<string,string> = { Pendiente: 'bg-amber-100 text-amber-700', 'En revisión': 'bg-purple-100 text-purple-700', Aprobado: 'bg-blue-100 text-blue-700', Pagado: 'bg-green-100 text-green-700', Rechazado: 'bg-red-100 text-red-700' }
+    const map: Record<string,string> = { Pendiente: 'bg-amber-100 text-amber-700', 'En revisión': 'bg-purple-100 text-purple-700', Aprobado: 'bg-[#E8EFFF] text-rr-traceDeep', Pagado: 'bg-green-100 text-green-700', Rechazado: 'bg-red-100 text-red-700' }
     return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${map[s] ?? 'bg-slate-100 text-slate-600'}`}>{s}</span>
   }
 
@@ -460,7 +460,7 @@ function ReporteConductores({ onExportable }: { onExportable: (fn: () => void) =
                 <span className="text-slate-500 font-semibold">${c.ganancias.toLocaleString()}</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-blue-500" style={{ width: `${(c.ganancias / maxGanancias) * 100}%` }} />
+                <div className="h-full rounded-full bg-rr-trace" style={{ width: `${(c.ganancias / maxGanancias) * 100}%` }} />
               </div>
             </div>
           ))}
@@ -594,7 +594,7 @@ export default function ReportesView() {
           <div className="flex gap-1 overflow-x-auto">
             {mainTabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-lg transition-colors ${tab === t.id ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-lg transition-colors ${tab === t.id ? 'bg-rr-route text-rr-asphalt' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
                 {t.icon}{t.label}
               </button>
             ))}
@@ -619,7 +619,7 @@ export default function ReportesView() {
           <p className="text-xs text-slate-400">
             <span className="font-medium text-slate-600">Reportes</span>
             <span className="mx-1.5">›</span>
-            <span className="font-medium text-blue-600">{mainTabs.find(t => t.id === tab)?.label}</span>
+            <span className="font-medium text-rr-trace">{mainTabs.find(t => t.id === tab)?.label}</span>
             {periodoNeedsSelector && <span className="ml-2 text-slate-400">· {periodo === 'hoy' ? 'Hoy' : periodo === 'semana' ? 'Esta semana' : periodo === 'mes' ? 'Este mes' : 'Este trimestre'}</span>}
           </p>
         </div>

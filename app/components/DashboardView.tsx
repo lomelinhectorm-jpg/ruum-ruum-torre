@@ -50,10 +50,10 @@ interface Alerta {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const colorMap: Record<string, { bg: string; text: string; icon: string }> = {
-  blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    icon: 'text-blue-600' },
+  blue:    { bg: 'bg-[#E8EFFF]',  text: 'text-rr-traceDeep', icon: 'text-rr-trace' },
   green:   { bg: 'bg-green-50',   text: 'text-green-600',   icon: 'text-green-600' },
-  indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600',  icon: 'text-indigo-600' },
-  purple:  { bg: 'bg-purple-50',  text: 'text-purple-600',  icon: 'text-purple-600' },
+  indigo:  { bg: 'bg-[#E8EFFF]',  text: 'text-rr-traceDeep', icon: 'text-rr-trace' },
+  purple:  { bg: 'bg-[#FFF4CC]',  text: 'text-[#7A5600]',    icon: 'text-rr-routeDark' },
   amber:   { bg: 'bg-amber-50',   text: 'text-amber-600',   icon: 'text-amber-600' },
   emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: 'text-emerald-600' },
   red:     { bg: 'bg-red-50',     text: 'text-red-600',     icon: 'text-red-600' },
@@ -62,24 +62,24 @@ const colorMap: Record<string, { bg: string; text: string; icon: string }> = {
 const alertStyles: Record<string, string> = {
   error:   'bg-red-50 border-red-100 text-red-800',
   warning: 'bg-amber-50 border-amber-100 text-amber-800',
-  info:    'bg-blue-50 border-blue-100 text-blue-800',
+  info:    'bg-[#E8EFFF] border-[#C7D7FF] text-rr-traceDeep',
 }
 const alertDot: Record<string, string> = {
   error:   'bg-red-500',
   warning: 'bg-amber-500',
-  info:    'bg-blue-500',
+  info:    'bg-rr-trace',
 }
 
 const statusStyle: Record<string, string> = {
   'Solicitud recibida':         'bg-slate-100 text-slate-600',
   'Pendiente de revisión':      'bg-slate-100 text-slate-600',
   'Pendiente de asignación':    'bg-amber-100 text-amber-700',
-  'Conductor asignado':         'bg-blue-100 text-blue-700',
-  'Conductor en camino':        'bg-blue-100 text-blue-700',
-  'Recolección en proceso':     'bg-indigo-100 text-indigo-700',
+  'Conductor asignado':         'bg-[#E8EFFF] text-rr-traceDeep',
+  'Conductor en camino':        'bg-[#E8EFFF] text-rr-traceDeep',
+  'Recolección en proceso':     'bg-[#E8EFFF] text-rr-traceDeep',
   'Evidencia inicial pendiente':'bg-orange-100 text-orange-700',
-  'Traslado en curso':          'bg-purple-100 text-purple-700',
-  'Entrega en proceso':         'bg-violet-100 text-violet-700',
+  'Traslado en curso':          'bg-[#FFF4CC] text-[#7A5600]',
+  'Entrega en proceso':         'bg-[#FFF4CC] text-[#7A5600]',
   'Evidencia final pendiente':  'bg-orange-100 text-orange-700',
   'Finalizado':                 'bg-green-100 text-green-700',
   'Cancelado':                  'bg-red-100 text-red-600',
@@ -89,17 +89,17 @@ const statusStyle: Record<string, string> = {
 // ─── MAPA SVG (estático — se actualiza cuando haya GPS real) ──────────────────
 function MapaOperacion({ viajesActivos }: { viajesActivos: number }) {
   return (
-    <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-          <MapPinIcon className="w-5 h-5 text-blue-500" />
+    <div className="lg:col-span-2 bg-white rounded-xl border border-[#EAE7DD] shadow-sm overflow-hidden">
+      <div className="p-4 border-b border-[#EAE7DD] flex items-center justify-between">
+        <h3 className="font-semibold text-rr-asphalt flex items-center gap-2">
+          <MapPinIcon className="w-5 h-5 text-rr-trace" />
           Mapa de Operación
         </h3>
         <span className="text-xs text-slate-400">{viajesActivos} viaje{viajesActivos !== 1 ? 's' : ''} activo{viajesActivos !== 1 ? 's' : ''} en ruta</span>
       </div>
       <div className="relative bg-slate-100" style={{ height: 280 }}>
         <svg viewBox="0 0 600 280" className="w-full h-full">
-          <rect width="600" height="280" fill="#e8edf2" />
+          <rect width="600" height="280" fill="#F4F2EC" />
           {[60,120,180,240,300,360,420,480,540].map(x => (
             <line key={`v${x}`} x1={x} y1="0" x2={x} y2="280" stroke="#d1d9e3" strokeWidth="1" />
           ))}
@@ -108,19 +108,19 @@ function MapaOperacion({ viajesActivos }: { viajesActivos: number }) {
           ))}
           <line x1="0" y1="140" x2="600" y2="140" stroke="#c4cdd8" strokeWidth="3" />
           <line x1="300" y1="0" x2="300" y2="280" stroke="#c4cdd8" strokeWidth="3" />
-          <ellipse cx="300" cy="140" rx="200" ry="110" fill="#3b82f6" fillOpacity="0.07" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="6 4" />
-          <path d="M 140 90 Q 220 70 300 140" stroke="#3b82f6" strokeWidth="2.5" fill="none" strokeDasharray="6 3" opacity="0.7" />
-          <path d="M 380 80 Q 420 140 460 180" stroke="#8b5cf6" strokeWidth="2.5" fill="none" strokeDasharray="6 3" opacity="0.7" />
-          <circle cx="220" cy="75" r="10" fill="#3b82f6" />
+          <ellipse cx="300" cy="140" rx="200" ry="110" fill="#3D7BFF" fillOpacity="0.07" stroke="#3D7BFF" strokeWidth="1.5" strokeDasharray="6 4" />
+          <path d="M 140 90 Q 220 70 300 140" stroke="#FFC400" strokeWidth="3" fill="none" strokeDasharray="8 5" opacity="0.9" />
+          <path d="M 380 80 Q 420 140 460 180" stroke="#3D7BFF" strokeWidth="2.5" fill="none" strokeDasharray="6 3" opacity="0.75" />
+          <circle cx="220" cy="75" r="10" fill="#FFC400" />
           <text x="220" y="79" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">C</text>
           <circle cx="420" cy="130" r="10" fill="#8b5cf6" />
           <text x="420" y="134" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">A</text>
           <text x="300" y="255" textAnchor="middle" fill="#94a3b8" fontSize="10">Zona Metropolitana CDMX · GPS en tiempo real próximamente</text>
         </svg>
       </div>
-      <div className="p-3 border-t border-slate-100 bg-blue-50">
-        <p className="text-xs text-blue-600 text-center">
-          📍 El tracking GPS en tiempo real se activará cuando los conductores usen la app
+      <div className="p-3 border-t border-[#EAE7DD] bg-[#E8EFFF]">
+        <p className="text-xs text-rr-traceDeep text-center">
+          Tracking GPS en tiempo real se activará cuando los conductores usen la app
         </p>
       </div>
     </div>
@@ -268,7 +268,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-lg font-bold text-slate-800">Panel de operaciones</h2>
+          <h2 className="font-display text-lg font-bold text-rr-asphalt">Panel de operaciones</h2>
           {cargando
             ? <p className="text-xs text-slate-400">Cargando datos...</p>
             : <p className="text-xs text-slate-400">Actualizado hace unos segundos · refresca cada 30s</p>
@@ -276,7 +276,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
         </div>
         <button
           onClick={() => onNavigate?.('viajes')}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm">
+          className="flex items-center gap-2 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
           <PlusIcon className="w-4 h-4" />
           Nuevo viaje
         </button>
@@ -288,7 +288,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
           const Icon = card.icon
           const c = colorMap[card.color] ?? colorMap.blue
           return (
-            <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2">
+            <div key={idx} className="bg-white p-4 rounded-xl border border-[#EAE7DD] shadow-sm flex flex-col gap-2 border-l-4 border-l-rr-route">
               <div className="flex justify-between items-start">
                 <p className="text-xs text-slate-500 font-medium leading-tight">{card.title}</p>
                 <div className={`p-1.5 ${c.bg} rounded-lg flex-shrink-0`}>
@@ -297,7 +297,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
               </div>
               {cargando
                 ? <div className="h-8 bg-slate-100 animate-pulse rounded" />
-                : <p className="text-2xl font-bold text-slate-800">{card.value}</p>
+                : <p className="font-display text-2xl font-bold text-rr-asphalt">{card.value}</p>
               }
               <p className="text-xs text-slate-400">{card.trend}</p>
             </div>
@@ -330,7 +330,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
             }
           </div>
           <button onClick={() => onNavigate?.('incidencias')}
-            className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium text-center w-full">
+            className="mt-4 text-xs text-rr-trace hover:text-rr-traceDeep font-medium text-center w-full">
             Ver todas las alertas →
           </button>
         </div>
@@ -352,7 +352,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
               : <ol className="relative border-l border-slate-200 space-y-4 ml-2">
                   {viajesRecientes.map((v, idx) => (
                     <li key={idx} className="ml-4">
-                      <span className="absolute -left-3 flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-200 text-xs font-bold text-blue-600">
+                      <span className="absolute -left-3 flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-200 text-xs font-bold text-rr-trace">
                         {idx + 1}
                       </span>
                       <div>
@@ -375,7 +375,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
                 </ol>
           }
           <button onClick={() => onNavigate?.('viajes')}
-            className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            className="mt-4 text-xs text-rr-trace hover:text-rr-traceDeep font-medium">
             Ver historial completo →
           </button>
         </div>
@@ -395,7 +395,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
                   <CalendarDaysIcon className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                   <p className="text-sm text-slate-400 italic">Sin viajes próximos programados</p>
                   <button onClick={() => onNavigate?.('viajes')}
-                    className="mt-3 text-xs text-blue-600 hover:underline">
+                    className="mt-3 text-xs text-rr-trace hover:underline">
                     Crear nuevo viaje →
                   </button>
                 </div>
@@ -414,7 +414,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
                         <div className="w-px bg-slate-200 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-blue-600">{v.folio ?? v.id.slice(0,8)}</span>
+                            <span className="text-xs font-semibold text-rr-trace">{v.folio ?? v.id.slice(0,8)}</span>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusStyle[v.status] ?? ''}`}>
                               {v.status}
                             </span>
@@ -432,7 +432,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (view: stri
                 </div>
           }
           <button onClick={() => onNavigate?.('viajes')}
-            className="mt-4 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            className="mt-4 text-xs text-rr-trace hover:text-rr-traceDeep font-medium">
             Ver todos los viajes →
           </button>
         </div>

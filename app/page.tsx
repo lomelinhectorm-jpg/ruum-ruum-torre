@@ -83,7 +83,7 @@ export default function Home() {
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <TopBar title={titles[activeView] || 'Ruum Ruum Torre de Control'} onMenuClick={toggle} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+        <main className="flex-1 overflow-y-auto bg-rr-evidence p-4 md:p-8">
           {renderView()}
         </main>
       </div>
@@ -91,7 +91,7 @@ export default function Home() {
       {/* Mobile overlay */}
       {isMobile && isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="fixed inset-0 bg-rr-asphalt/60 z-40"
           onClick={close}
         />
       )}

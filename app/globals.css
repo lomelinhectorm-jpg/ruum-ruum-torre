@@ -3,18 +3,56 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --rr-asphalt: #14141A;
+    --rr-asphalt-2: #1E1F28;
+    --rr-asphalt-3: #2A2B36;
+    --rr-route: #FFC400;
+    --rr-route-dark: #E0A800;
+    --rr-trace: #3D7BFF;
+    --rr-trace-deep: #1A3D8F;
+    --rr-steel: #6B7280;
+    --rr-steel-light: #9CA3AF;
+    --rr-evidence: #F7F6F2;
+    --rr-success: #1FAE63;
+    --rr-danger: #E0334E;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-800;
+    @apply bg-rr-evidence text-rr-asphalt antialiased;
+    font-family: var(--font-inter), Inter, sans-serif;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display), "Space Grotesk", sans-serif;
+    letter-spacing: 0;
   }
 }
 
 @layer components {
   .sidebar-link {
-    @apply flex items-center gap-3 px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors;
+    @apply flex items-center gap-3 px-6 py-3 text-sm font-medium text-rr-steelLight hover:bg-white/10 hover:text-white transition-colors;
   }
   
   .sidebar-link.active {
-    @apply bg-white/10 border-l-4 border-blue-400;
+    @apply bg-rr-route/10 border-l-4 border-rr-route text-white;
+  }
+
+  .rr-card {
+    @apply rounded-2xl border border-[#EAE7DD] bg-white shadow-sm;
+  }
+
+  .rr-primary-action {
+    @apply bg-rr-route text-rr-asphalt hover:bg-rr-routeDark font-semibold shadow-sm transition-colors;
+  }
+
+  .rr-route-label {
+    @apply inline-flex items-center gap-2 rounded-full bg-[#FFF4CC] px-2.5 py-1 text-xs font-semibold text-[#7A5600];
+  }
+
+  .rr-route-label::before {
+    content: '';
+    @apply h-1.5 w-1.5 rounded-full bg-rr-routeDark;
   }
 }
 
@@ -25,15 +63,20 @@
   }
   
   ::-webkit-scrollbar-track {
-    @apply bg-slate-100;
+    @apply bg-[#EFEDE6];
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded;
+    @apply bg-rr-steelLight rounded;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-400;
+    @apply bg-rr-steel;
+  }
+
+  .route-line-bg {
+    background-image: repeating-linear-gradient(100deg, transparent 0 64px, rgba(255,196,0,.35) 64px 70px, transparent 70px 140px);
+    mask-image: linear-gradient(180deg, transparent, black 35%, black 75%, transparent);
   }
 
   .animate-fade-in {
