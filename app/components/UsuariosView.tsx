@@ -47,6 +47,12 @@ interface Usuario {
   fechaRegistro: string
   estatus: Estatus
   viajesSolicitados: number
+  calle: string
+  numero: string
+  colonia: string
+  municipio: string
+  estadoGeo: string
+  codigoPostal: string
   razonSocial: string
   rfc: string
   regimenFiscal: string
@@ -97,6 +103,8 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
   const [form, setForm] = useState({
     nombre: usuario.nombre, apellido: usuario.apellido, curp: usuario.curp,
     email: usuario.email, telefono: usuario.telefono, tipo: usuario.tipo,
+    calle: usuario.calle, numero: usuario.numero, colonia: usuario.colonia,
+    municipio: usuario.municipio, estadoGeo: usuario.estadoGeo, codigoPostal: usuario.codigoPostal,
     razonSocial: usuario.razonSocial, rfc: usuario.rfc, regimenFiscal: usuario.regimenFiscal,
     domicilioFiscal: usuario.domicilioFiscal, cfdi: usuario.cfdi,
   })
@@ -166,6 +174,9 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
     await sb.from('usuarios').update({
       nombre: form.nombre.toUpperCase(), apellido: form.apellido.toUpperCase(), curp: form.curp.toUpperCase(),
       email: form.email.toLowerCase(), telefono: form.telefono, tipo: form.tipo,
+      calle: form.calle.toUpperCase() || null, numero: form.numero.toUpperCase() || null,
+      colonia: form.colonia.toUpperCase() || null, municipio: form.municipio.toUpperCase() || null,
+      estado_geo: form.estadoGeo.toUpperCase() || null, codigo_postal: form.codigoPostal || null,
       razon_social: form.razonSocial.toUpperCase(), rfc: form.rfc.toUpperCase(), regimen_fiscal: form.regimenFiscal,
       domicilio_fiscal: form.domicilioFiscal.toUpperCase(), cfdi: form.cfdi,
     }).eq('id', usuario.id)
@@ -292,6 +303,18 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
                     </div>
                   ))}
                 </div>
+              </Section>
+
+              {/* Domicilio general */}
+              <Section title="Domicilio" icon="🏠">
+                <Grid2>
+                  <Field label="Calle" editable={editMode} value={form.calle} onChange={v => setForm(f => ({ ...f, calle: v }))} />
+                  <Field label="Número" editable={editMode} value={form.numero} onChange={v => setForm(f => ({ ...f, numero: v }))} />
+                  <Field label="Colonia" editable={editMode} value={form.colonia} onChange={v => setForm(f => ({ ...f, colonia: v }))} />
+                  <Field label="Código Postal" editable={editMode} value={form.codigoPostal} onChange={v => setForm(f => ({ ...f, codigoPostal: v }))} />
+                  <Field label="Municipio / Alcaldía" editable={editMode} value={form.municipio} onChange={v => setForm(f => ({ ...f, municipio: v }))} />
+                  <Field label="Estado" editable={editMode} value={form.estadoGeo} onChange={v => setForm(f => ({ ...f, estadoGeo: v }))} />
+                </Grid2>
               </Section>
 
               {/* Información fiscal */}
@@ -564,6 +587,8 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
   const [form, setForm] = useState({
     nombre: '', apellido: '', curp: '', email: '', telefono: '',
     tipo: '' as TipoUsuario | '',
+    // Domicilio general (no fiscal)
+    calle: '', numero: '', colonia: '', municipio: '', estadoGeo: '', codigoPostal: '',
     // Fiscal
     requiereFactura: false,
     razonSocial: '', rfc: '', regimenFiscal: '', cfdi: '',
@@ -618,6 +643,12 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
         telefono:         form.telefono,
         tipo:             form.tipo,
         estatus:          'Activo',
+        calle:            form.calle.toUpperCase() || null,
+        numero:           form.numero.toUpperCase() || null,
+        colonia:          form.colonia.toUpperCase() || null,
+        municipio:        form.municipio.toUpperCase() || null,
+        estado_geo:       form.estadoGeo.toUpperCase() || null,
+        codigo_postal:    form.codigoPostal || null,
         razon_social:     form.requiereFactura ? form.razonSocial.toUpperCase() : null,
         rfc:              form.requiereFactura ? form.rfc.toUpperCase() : null,
         regimen_fiscal:   form.requiereFactura ? form.regimenFiscal : null,
@@ -701,6 +732,43 @@ function NuevoUsuarioForm({ onClose, onSave }: { onClose: () => void; onSave: ()
                     set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`)
                   }} className={cls('telefono')} />
                 <Err k="telefono" />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Domicilio general ── */}
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 border-b pb-1">🏠 Domicilio</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 sm:col-span-1">
+                <Label>Calle</Label>
+                <input type="text" placeholder="NOMBRE DE LA CALLE" value={form.calle}
+                  onChange={e => set('calle', e.target.value.toUpperCase())} className={cls('calle')} />
+              </div>
+              <div>
+                <Label>Número</Label>
+                <input type="text" placeholder="EXT / INT" value={form.numero}
+                  onChange={e => set('numero', e.target.value.toUpperCase())} className={cls('numero')} />
+              </div>
+              <div>
+                <Label>Colonia</Label>
+                <input type="text" placeholder="COLONIA" value={form.colonia}
+                  onChange={e => set('colonia', e.target.value.toUpperCase())} className={cls('colonia')} />
+              </div>
+              <div>
+                <Label>Código Postal</Label>
+                <input type="text" placeholder="00000" maxLength={5} value={form.codigoPostal}
+                  onChange={e => set('codigoPostal', e.target.value.replace(/\D/g,'').slice(0,5))} className={cls('codigoPostal')} />
+              </div>
+              <div>
+                <Label>Municipio / Alcaldía</Label>
+                <input type="text" placeholder="MUNICIPIO" value={form.municipio}
+                  onChange={e => set('municipio', e.target.value.toUpperCase())} className={cls('municipio')} />
+              </div>
+              <div>
+                <Label>Estado</Label>
+                <input type="text" placeholder="ESTADO" value={form.estadoGeo}
+                  onChange={e => set('estadoGeo', e.target.value.toUpperCase())} className={cls('estadoGeo')} />
               </div>
             </div>
           </div>
@@ -858,7 +926,7 @@ export default function UsuariosView() {
     const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('usuarios')
-      .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')
+      .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, calle, numero, colonia, municipio, estado_geo, codigo_postal, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')
       .order('created_at', { ascending: false })
 
     if (!error && data) {
@@ -878,6 +946,12 @@ export default function UsuariosView() {
         regimenFiscal:    String(u.regimen_fiscal ?? ''),
         domicilioFiscal:  String(u.domicilio_fiscal ?? ''),
         cfdi:             String(u.cfdi ?? ''),
+        calle:            String(u.calle ?? ''),
+        numero:           String(u.numero ?? ''),
+        colonia:          String(u.colonia ?? ''),
+        municipio:        String(u.municipio ?? ''),
+        estadoGeo:        String(u.estado_geo ?? ''),
+        codigoPostal:     String(u.codigo_postal ?? ''),
         vehiculos: [], pagos: [], viajes: [], notas: [],
       })))
     }

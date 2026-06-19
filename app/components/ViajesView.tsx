@@ -38,6 +38,16 @@ type StatusKey =
   | 'Cancelado'
   | 'En revisión por incidencia'
 
+interface DireccionDetalle {
+  calle: string
+  numero: string
+  colonia: string
+  estado: string
+  cp: string
+  contacto: string
+  telefono: string
+}
+
 interface Trip {
   id: string
   dbId: string
@@ -45,8 +55,10 @@ interface Trip {
   empresa: string
   vehiculo: { marca: string; modelo: string; anio: string; color: string; placas: string; vin: string; transmision: string; observaciones: string }
   origen: string
+  origenDetalle: DireccionDetalle
   origenContacto: string
   destino: string
+  destinoDetalle: DireccionDetalle
   destinoContacto: string
   referencias: string
   instrucciones: string
@@ -621,12 +633,32 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
 
           {/* 3. Ruta */}
           <Section title="3. Ruta" icon="📍">
-            <Grid2>
-              <Field label="Dirección origen" value={trip.origen} />
-              <Field label="Contacto en origen" value={trip.origenContacto} />
-              <Field label="Dirección destino" value={trip.destino} />
-              <Field label="Contacto en destino" value={trip.destinoContacto} />
-            </Grid2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Origen</p>
+                <Grid2>
+                  <Field label="Calle" value={trip.origenDetalle.calle} />
+                  <Field label="Número" value={trip.origenDetalle.numero} />
+                  <Field label="Colonia" value={trip.origenDetalle.colonia} />
+                  <Field label="CP" value={trip.origenDetalle.cp} />
+                  <Field label="Estado" value={trip.origenDetalle.estado} />
+                </Grid2>
+                <Field label="Contacto" value={trip.origenDetalle.contacto} />
+                <Field label="Teléfono de contacto" value={trip.origenDetalle.telefono} />
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Destino</p>
+                <Grid2>
+                  <Field label="Calle" value={trip.destinoDetalle.calle} />
+                  <Field label="Número" value={trip.destinoDetalle.numero} />
+                  <Field label="Colonia" value={trip.destinoDetalle.colonia} />
+                  <Field label="CP" value={trip.destinoDetalle.cp} />
+                  <Field label="Estado" value={trip.destinoDetalle.estado} />
+                </Grid2>
+                <Field label="Contacto" value={trip.destinoDetalle.contacto} />
+                <Field label="Teléfono de contacto" value={trip.destinoDetalle.telefono} />
+              </div>
+            </div>
             <Field label="Referencias" value={trip.referencias || '—'} />
             <Field label="Instrucciones especiales" value={trip.instrucciones || '—'} />
           </Section>
@@ -756,6 +788,56 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 // ─── NUEVO VIAJE FORM ─────────────────────────────────────────────────────────
 const TRANSMISIONES = ['Automática', 'Manual', 'CVT', 'Secuencial']
 const COMBUSTIBLES = ['Gasolina', 'Diésel', 'Eléctrico']
+const TIPOS_USUARIO = ['Personal','Empresarial','Agencia','Lote','Flotilla','Arrendadora','Taller','Aseguradora','Entrega al cliente']
+
+const REGIMENES_FISCAL = [
+  { clave: '601', desc: '601 - General de Ley Personas Morales' },
+  { clave: '603', desc: '603 - Personas Morales con Fines no Lucrativos' },
+  { clave: '605', desc: '605 - Sueldos y Salarios e Ingresos Asimilados a Salarios' },
+  { clave: '606', desc: '606 - Arrendamiento' },
+  { clave: '607', desc: '607 - Régimen de Enajenación o Adquisición de Bienes' },
+  { clave: '608', desc: '608 - Demás Ingresos' },
+  { clave: '610', desc: '610 - Residentes en el Extranjero sin Establecimiento Permanente en México' },
+  { clave: '611', desc: '611 - Ingresos por Dividendos (socios y accionistas)' },
+  { clave: '612', desc: '612 - Personas Físicas con Actividades Empresariales y Profesionales' },
+  { clave: '614', desc: '614 - Ingresos por intereses' },
+  { clave: '615', desc: '615 - Régimen de los ingresos por obtención de premios' },
+  { clave: '616', desc: '616 - Sin obligaciones fiscales' },
+  { clave: '620', desc: '620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos' },
+  { clave: '621', desc: '621 - Incorporación Fiscal' },
+  { clave: '622', desc: '622 - Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras' },
+  { clave: '623', desc: '623 - Opcional para Grupos de Sociedades' },
+  { clave: '624', desc: '624 - Coordinados' },
+  { clave: '625', desc: '625 - Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas' },
+  { clave: '626', desc: '626 - Régimen Simplificado de Confianza' },
+]
+
+const USOS_CFDI = [
+  { clave: 'G01', desc: 'G01 - Adquisición de mercancias' },
+  { clave: 'G02', desc: 'G02 - Devoluciones, descuentos o bonificaciones' },
+  { clave: 'G03', desc: 'G03 - Gastos en general' },
+  { clave: 'I01', desc: 'I01 - Construcciones' },
+  { clave: 'I02', desc: 'I02 - Mobilario y equipo de oficina por inversiones' },
+  { clave: 'I03', desc: 'I03 - Equipo de transporte' },
+  { clave: 'I04', desc: 'I04 - Equipo de computo y accesorios' },
+  { clave: 'I05', desc: 'I05 - Dados, troqueles, moldes, matrices y herramental' },
+  { clave: 'I06', desc: 'I06 - Comunicaciones telefónicas' },
+  { clave: 'I07', desc: 'I07 - Comunicaciones satelitales' },
+  { clave: 'I08', desc: 'I08 - Otra maquinaria y equipo' },
+  { clave: 'D01', desc: 'D01 - Honorarios médicos, dentales y gastos hospitalarios' },
+  { clave: 'D02', desc: 'D02 - Gastos médicos por incapacidad o discapacidad' },
+  { clave: 'D03', desc: 'D03 - Gastos funerales' },
+  { clave: 'D04', desc: 'D04 - Donativos' },
+  { clave: 'D05', desc: 'D05 - Intereses reales efectivamente pagados por créditos hipotecarios (casa habitación)' },
+  { clave: 'D06', desc: 'D06 - Aportaciones voluntarias al SAR' },
+  { clave: 'D07', desc: 'D07 - Primas por seguros de gastos médicos' },
+  { clave: 'D08', desc: 'D08 - Gastos de transportación escolar obligatoria' },
+  { clave: 'D09', desc: 'D09 - Depósitos en cuentas para el ahorro, primas que tengan como base planes de pensiones' },
+  { clave: 'D10', desc: 'D10 - Pagos por servicios educativos (colegiaturas)' },
+  { clave: 'S01', desc: 'S01 - Sin efectos fiscales' },
+  { clave: 'CP01', desc: 'CP01 - Pagos' },
+  { clave: 'CN01', desc: 'CN01 - Nómina' },
+]
 
 const FOLIO_CHARS_VEHICULO = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // sin I/O para evitar confusión visual
 function generarFolioVehiculo() {
@@ -773,8 +855,29 @@ interface FormData {
   clienteId: string
   usuarioNombre: string
   usuarioApellido: string
+  usuarioCurp: string
+  usuarioTipo: string
   telefono: string
   email: string
+  // Domicilio general del usuario nuevo (no fiscal)
+  usuarioCalle: string
+  usuarioNumero: string
+  usuarioColonia: string
+  usuarioMunicipio: string
+  usuarioEstado: string
+  usuarioCp: string
+  // Facturación del usuario nuevo (condicional)
+  requiereFactura: boolean
+  razonSocial: string
+  rfc: string
+  regimenFiscal: string
+  cfdi: string
+  fiscalCalle: string
+  fiscalNumero: string
+  fiscalColonia: string
+  fiscalMunicipio: string
+  fiscalEstado: string
+  fiscalCp: string
   // Step 2 – Vehículo
   vehiculoOrigen: 'flota' | 'manual'
   vehiculoId: string
@@ -824,7 +927,10 @@ interface FormData {
 }
 
 const EMPTY_FORM: FormData = {
-  tipoServicioId: '', clienteTipo: '', clienteId: '', usuarioNombre: '', usuarioApellido: '', telefono: '', email: '',
+  tipoServicioId: '', clienteTipo: '', clienteId: '', usuarioNombre: '', usuarioApellido: '', usuarioCurp: '', usuarioTipo: '', telefono: '', email: '',
+  usuarioCalle: '', usuarioNumero: '', usuarioColonia: '', usuarioMunicipio: '', usuarioEstado: '', usuarioCp: '',
+  requiereFactura: false, razonSocial: '', rfc: '', regimenFiscal: '', cfdi: '',
+  fiscalCalle: '', fiscalNumero: '', fiscalColonia: '', fiscalMunicipio: '', fiscalEstado: '', fiscalCp: '',
   vehiculoOrigen: 'manual', vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '',
   tipoVehiculo: '', combustible: '', alias: '', verificacionVigente: false, tarjetaCirculacion: false, numLlaves: 1, obsVehiculo: '',
   fecha: '', hora: '',
@@ -913,7 +1019,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
     return false
   })
 
-  const set = (field: keyof FormData, value: string) => {
+  const set = (field: keyof FormData, value: string | boolean) => {
     setForm(f => ({ ...f, [field]: value }))
     setErrors(e => ({ ...e, [field]: '' }))
   }
@@ -972,6 +1078,15 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       if (form.clienteTipo === 'usuario' && form.clienteId === 'nuevo') {
         if (!form.usuarioNombre) newErrors.usuarioNombre = 'Requerido'
         if (!form.usuarioApellido) newErrors.usuarioApellido = 'Requerido'
+        if (!form.usuarioTipo) newErrors.usuarioTipo = 'Requerido'
+        if (form.requiereFactura) {
+          if (!form.razonSocial) newErrors.razonSocial = 'Requerido'
+          if (!form.rfc) newErrors.rfc = 'Requerido'
+          if (!form.regimenFiscal) newErrors.regimenFiscal = 'Requerido'
+          if (!form.cfdi) newErrors.cfdi = 'Requerido'
+          if (!form.fiscalCalle) newErrors.fiscalCalle = 'Requerido'
+          if (!form.fiscalCp) newErrors.fiscalCp = 'Requerido'
+        }
       }
     }
     if (step === 2) {
@@ -1017,39 +1132,56 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
           .from('vehiculos')
           .select('id')
           .eq('placas', form.placas.toUpperCase())
-          .single()
+          .maybeSingle()
 
         if (vExistente) {
           vehiculoId = vExistente.id
         } else {
-          let vNuevoId: string | null = null
+          // IMPORTANTE: no encadenar .select().single() al insert. Si esa
+          // segunda lectura falla por cualquier motivo (timing, RLS, etc.),
+          // el vehículo ya quedó creado en la base pero perderíamos su id
+          // y el viaje se guardaría sin vehiculo_id. En vez de eso: insertamos
+          // con un folio que ya generamos nosotros, y luego lo buscamos por
+          // ese folio en una consulta aparte (idempotente y verificable).
+          let folioGenerado = ''
+          let insertOk = false
           for (let intento = 0; intento < 5; intento++) {
-            const { data: vNuevo, error: vError } = await sb
-              .from('vehiculos')
-              .insert({
-                folio: generarFolioVehiculo(),
-                marca: form.marca.toUpperCase() || null,
-                modelo: form.modelo.toUpperCase() || null,
-                anio: form.anio || null,
-                color: form.color.toUpperCase() || null,
-                placas: form.placas.toUpperCase(),
-                vin: form.vin.toUpperCase() || null,
-                transmision: form.transmision || null,
-                tipo_vehiculo: form.tipoVehiculo || null,
-                combustible: form.combustible || null,
-                alias: form.alias.toUpperCase() || null,
-                verificacion_vigente: form.verificacionVigente,
-                tarjeta_circulacion: form.tarjetaCirculacion,
-                num_llaves: form.numLlaves,
-                usuario_id: form.clienteTipo === 'usuario' && form.clienteId !== 'nuevo' ? form.clienteId : null,
-                empresa_id: form.clienteTipo === 'empresa' ? form.clienteId : null,
-              })
-              .select('id')
-              .single()
-            if (!vError) { vNuevoId = vNuevo?.id ?? null; break }
-            if (vError.code !== '23505' || !vError.message.includes('folio')) break
+            folioGenerado = generarFolioVehiculo()
+            const { error: vError } = await sb.from('vehiculos').insert({
+              folio: folioGenerado,
+              marca: form.marca.toUpperCase() || null,
+              modelo: form.modelo.toUpperCase() || null,
+              anio: form.anio || null,
+              color: form.color.toUpperCase() || null,
+              placas: form.placas.toUpperCase(),
+              vin: form.vin.toUpperCase() || null,
+              transmision: form.transmision || null,
+              tipo_vehiculo: form.tipoVehiculo || null,
+              combustible: form.combustible || null,
+              alias: form.alias.toUpperCase() || null,
+              verificacion_vigente: form.verificacionVigente,
+              tarjeta_circulacion: form.tarjetaCirculacion,
+              num_llaves: form.numLlaves,
+              usuario_id: form.clienteTipo === 'usuario' && form.clienteId !== 'nuevo' ? form.clienteId : null,
+              empresa_id: form.clienteTipo === 'empresa' ? form.clienteId : null,
+            })
+            if (!vError) { insertOk = true; break }
+            // 23505 = unique_violation; si es por folio, reintenta con uno nuevo.
+            // Cualquier otro error sí debe detener el flujo y reportarse.
+            if (vError.code !== '23505' || !vError.message.includes('folio')) {
+              throw vError
+            }
           }
-          vehiculoId = vNuevoId
+          if (!insertOk) throw new Error('No se pudo generar un folio único para el vehículo tras varios intentos.')
+
+          const { data: vCreado, error: vLecturaError } = await sb
+            .from('vehiculos')
+            .select('id')
+            .eq('folio', folioGenerado)
+            .maybeSingle()
+          if (vLecturaError) throw vLecturaError
+          if (!vCreado) throw new Error('El vehículo se registró pero no se pudo recuperar su id. Verifica en la sección Vehículos.')
+          vehiculoId = vCreado.id
         }
       }
 
@@ -1060,19 +1192,45 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       let usuarioId: string | null = null
       if (form.clienteTipo === 'usuario') {
         if (form.clienteId === 'nuevo') {
-          const { data: usrNuevo } = await sb
-            .from('usuarios')
-            .insert({
-              nombre: form.usuarioNombre.toUpperCase(),
-              apellido: form.usuarioApellido.toUpperCase(),
-              telefono: form.telefono || null,
-              email: form.email.toLowerCase() || null,
-              tipo: 'Particular',
-              estatus: 'Activo',
-            })
-            .select('id')
-            .single()
-          usuarioId = usrNuevo?.id ?? null
+          const domicilioFiscalNuevo = form.requiereFactura
+            ? [form.fiscalCalle, form.fiscalNumero, form.fiscalColonia, form.fiscalMunicipio, form.fiscalEstado, form.fiscalCp]
+                .filter(Boolean).join(', ').toUpperCase()
+            : null
+
+          const { error: uError } = await sb.from('usuarios').insert({
+            nombre: form.usuarioNombre.toUpperCase(),
+            apellido: form.usuarioApellido.toUpperCase(),
+            curp: form.usuarioCurp.toUpperCase() || null,
+            telefono: form.telefono || null,
+            email: form.email.toLowerCase() || null,
+            tipo: form.usuarioTipo || 'Personal',
+            estatus: 'Activo',
+            calle: form.usuarioCalle.toUpperCase() || null,
+            numero: form.usuarioNumero.toUpperCase() || null,
+            colonia: form.usuarioColonia.toUpperCase() || null,
+            municipio: form.usuarioMunicipio.toUpperCase() || null,
+            estado_geo: form.usuarioEstado.toUpperCase() || null,
+            codigo_postal: form.usuarioCp || null,
+            razon_social: form.requiereFactura ? form.razonSocial.toUpperCase() : null,
+            rfc: form.requiereFactura ? form.rfc.toUpperCase() : null,
+            regimen_fiscal: form.requiereFactura ? form.regimenFiscal : null,
+            cfdi: form.requiereFactura ? form.cfdi : null,
+            domicilio_fiscal: domicilioFiscalNuevo,
+          })
+          if (uError) throw uError
+
+          // No encadenamos .select().single() al insert (ver nota arriba sobre
+          // vehículos): buscamos la fila aparte por un criterio que sabemos
+          // único en este momento (email si lo capturaron, si no la
+          // combinación nombre+apellido+teléfono más reciente).
+          let usuarioQuery = sb.from('usuarios').select('id').order('created_at', { ascending: false }).limit(1)
+          usuarioQuery = form.email
+            ? usuarioQuery.eq('email', form.email.toLowerCase())
+            : usuarioQuery.eq('nombre', form.usuarioNombre.toUpperCase()).eq('apellido', form.usuarioApellido.toUpperCase())
+          const { data: usrCreado, error: uLecturaError } = await usuarioQuery.maybeSingle()
+          if (uLecturaError) throw uLecturaError
+          if (!usrCreado) throw new Error('El usuario se registró pero no se pudo recuperar su id. Verifica en la sección Usuarios.')
+          usuarioId = usrCreado.id
         } else {
           usuarioId = form.clienteId
         }
@@ -1270,25 +1428,153 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                     </div>
 
                     {form.clienteId === 'nuevo' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <Label req>Nombre(s) del solicitante</Label>
-                          <input type="text" placeholder="NOMBRE(S)" value={form.usuarioNombre} onChange={e => set('usuarioNombre', e.target.value.toUpperCase())} className={InputCls('usuarioNombre')} />
-                          <Err field="usuarioNombre" />
+                      <div className="space-y-4 border border-slate-200 rounded-xl p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-2">👤 Datos personales</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <Label req>Nombre(s)</Label>
+                            <input type="text" placeholder="NOMBRE(S)" value={form.usuarioNombre} onChange={e => set('usuarioNombre', e.target.value.toUpperCase())} className={InputCls('usuarioNombre')} />
+                            <Err field="usuarioNombre" />
+                          </div>
+                          <div>
+                            <Label req>Apellido(s)</Label>
+                            <input type="text" placeholder="APELLIDO(S)" value={form.usuarioApellido} onChange={e => set('usuarioApellido', e.target.value.toUpperCase())} className={InputCls('usuarioApellido')} />
+                            <Err field="usuarioApellido" />
+                          </div>
+                          <div>
+                            <Label>CURP</Label>
+                            <input type="text" placeholder="18 CARACTERES" maxLength={18} value={form.usuarioCurp} onChange={e => set('usuarioCurp', e.target.value.toUpperCase())} className={InputCls('usuarioCurp')} />
+                          </div>
+                          <div>
+                            <Label req>Tipo de usuario</Label>
+                            <select value={form.usuarioTipo} onChange={e => set('usuarioTipo', e.target.value)} className={SelectCls('usuarioTipo')}>
+                              <option value="">Seleccionar...</option>
+                              {TIPOS_USUARIO.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <Err field="usuarioTipo" />
+                          </div>
+                          <div>
+                            <Label>Teléfono de contacto</Label>
+                            <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/[^0-9]/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} />
+                          </div>
+                          <div>
+                            <Label>Correo electrónico</Label>
+                            <input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} />
+                          </div>
                         </div>
+
+                        {/* Domicilio general (no fiscal) */}
                         <div>
-                          <Label req>Apellido(s)</Label>
-                          <input type="text" placeholder="APELLIDO(S)" value={form.usuarioApellido} onChange={e => set('usuarioApellido', e.target.value.toUpperCase())} className={InputCls('usuarioApellido')} />
-                          <Err field="usuarioApellido" />
+                          <p className="text-xs font-medium text-slate-500 mb-2">Domicilio</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2 sm:col-span-1">
+                              <Label>Calle</Label>
+                              <input type="text" placeholder="NOMBRE DE LA CALLE" value={form.usuarioCalle} onChange={e => set('usuarioCalle', e.target.value.toUpperCase())} className={InputCls('usuarioCalle')} />
+                            </div>
+                            <div>
+                              <Label>Número</Label>
+                              <input type="text" placeholder="EXT / INT" value={form.usuarioNumero} onChange={e => set('usuarioNumero', e.target.value.toUpperCase())} className={InputCls('usuarioNumero')} />
+                            </div>
+                            <div>
+                              <Label>Colonia</Label>
+                              <input type="text" placeholder="COLONIA" value={form.usuarioColonia} onChange={e => set('usuarioColonia', e.target.value.toUpperCase())} className={InputCls('usuarioColonia')} />
+                            </div>
+                            <div>
+                              <Label>Código Postal</Label>
+                              <input type="text" placeholder="00000" maxLength={5} value={form.usuarioCp} onChange={e => set('usuarioCp', e.target.value.replace(/\D/g,'').slice(0,5))} className={InputCls('usuarioCp')} />
+                            </div>
+                            <div>
+                              <Label>Municipio / Alcaldía</Label>
+                              <input type="text" placeholder="MUNICIPIO" value={form.usuarioMunicipio} onChange={e => set('usuarioMunicipio', e.target.value.toUpperCase())} className={InputCls('usuarioMunicipio')} />
+                            </div>
+                            <div>
+                              <Label>Estado</Label>
+                              <input type="text" placeholder="ESTADO" value={form.usuarioEstado} onChange={e => set('usuarioEstado', e.target.value.toUpperCase())} className={InputCls('usuarioEstado')} />
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <Label>Teléfono de contacto</Label>
-                          <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/[^0-9]/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} />
-                        </div>
-                        <div>
-                          <Label>Correo electrónico</Label>
-                          <input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} />
-                        </div>
+
+                        {/* Toggle facturación */}
+                        <button type="button" onClick={() => set('requiereFactura', !form.requiereFactura)}
+                          className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${form.requiereFactura ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${form.requiereFactura ? 'bg-blue-100' : 'bg-slate-200'}`}>🧾</div>
+                            <div className="text-left">
+                              <p className={`text-sm font-semibold ${form.requiereFactura ? 'text-blue-700' : 'text-slate-700'}`}>Requiere facturación</p>
+                              <p className="text-xs text-slate-400">Activa para capturar datos fiscales del cliente</p>
+                            </div>
+                          </div>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative ${form.requiereFactura ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${form.requiereFactura ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                          </div>
+                        </button>
+
+                        {form.requiereFactura && (
+                          <div className="space-y-4 border border-blue-100 bg-blue-50/40 rounded-xl p-4">
+                            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide border-b border-blue-100 pb-2">🧾 Información fiscal</p>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="col-span-2">
+                                <Label req>Razón social</Label>
+                                <input type="text" placeholder="NOMBRE O RAZÓN SOCIAL COMPLETA" value={form.razonSocial} onChange={e => set('razonSocial', e.target.value.toUpperCase())} className={InputCls('razonSocial')} />
+                                <Err field="razonSocial" />
+                              </div>
+                              <div>
+                                <Label req>RFC</Label>
+                                <input type="text" placeholder="RFC 12 O 13 CARACTERES" maxLength={13} value={form.rfc} onChange={e => set('rfc', e.target.value.toUpperCase())} className={InputCls('rfc')} />
+                                <Err field="rfc" />
+                              </div>
+                              <div />
+                              <div className="col-span-2">
+                                <Label req>Régimen fiscal</Label>
+                                <select value={form.regimenFiscal} onChange={e => set('regimenFiscal', e.target.value)} className={SelectCls('regimenFiscal')}>
+                                  <option value="">Seleccionar régimen...</option>
+                                  {REGIMENES_FISCAL.map(r => <option key={r.clave} value={r.clave}>{r.desc}</option>)}
+                                </select>
+                                <Err field="regimenFiscal" />
+                              </div>
+                              <div className="col-span-2">
+                                <Label req>Uso de CFDI</Label>
+                                <select value={form.cfdi} onChange={e => set('cfdi', e.target.value)} className={SelectCls('cfdi')}>
+                                  <option value="">Seleccionar uso de CFDI...</option>
+                                  {USOS_CFDI.map(c => <option key={c.clave} value={c.clave}>{c.desc}</option>)}
+                                </select>
+                                <Err field="cfdi" />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 mb-2">Domicilio fiscal</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2 sm:col-span-1">
+                                  <Label req>Calle</Label>
+                                  <input type="text" placeholder="NOMBRE DE LA CALLE" value={form.fiscalCalle} onChange={e => set('fiscalCalle', e.target.value.toUpperCase())} className={InputCls('fiscalCalle')} />
+                                  <Err field="fiscalCalle" />
+                                </div>
+                                <div>
+                                  <Label>Número</Label>
+                                  <input type="text" placeholder="EXT / INT" value={form.fiscalNumero} onChange={e => set('fiscalNumero', e.target.value.toUpperCase())} className={InputCls('fiscalNumero')} />
+                                </div>
+                                <div>
+                                  <Label>Colonia</Label>
+                                  <input type="text" placeholder="COLONIA" value={form.fiscalColonia} onChange={e => set('fiscalColonia', e.target.value.toUpperCase())} className={InputCls('fiscalColonia')} />
+                                </div>
+                                <div>
+                                  <Label req>Código Postal</Label>
+                                  <input type="text" placeholder="00000" maxLength={5} value={form.fiscalCp} onChange={e => set('fiscalCp', e.target.value.replace(/\D/g,'').slice(0,5))} className={InputCls('fiscalCp')} />
+                                  <Err field="fiscalCp" />
+                                </div>
+                                <div>
+                                  <Label>Municipio / Alcaldía</Label>
+                                  <input type="text" placeholder="MUNICIPIO" value={form.fiscalMunicipio} onChange={e => set('fiscalMunicipio', e.target.value.toUpperCase())} className={InputCls('fiscalMunicipio')} />
+                                </div>
+                                <div>
+                                  <Label>Estado</Label>
+                                  <input type="text" placeholder="ESTADO" value={form.fiscalEstado} onChange={e => set('fiscalEstado', e.target.value.toUpperCase())} className={InputCls('fiscalEstado')} />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1666,19 +1952,37 @@ interface ViajeDB {
   conductor_id: string | null
   usuario_id: string | null
   empresa_id: string | null
+  vehiculo_id: string | null
   status: StatusKey
   fecha_programada: string | null
   hora_programada: string | null
   origen_calle: string | null
+  origen_numero: string | null
   origen_colonia: string | null
+  origen_estado: string | null
+  origen_cp: string | null
+  origen_contacto: string | null
+  origen_telefono: string | null
   destino_calle: string | null
+  destino_numero: string | null
   destino_colonia: string | null
+  destino_estado: string | null
+  destino_cp: string | null
+  destino_contacto: string | null
+  destino_telefono: string | null
+  referencias: string | null
+  instrucciones: string | null
   tarifa_cliente: number
   pago_conductor: number
+  gastos_extra: number | null
+  gastos_autorizados: number | null
+  ajustes: number | null
+  observaciones_conductor: string | null
+  revision_admin: string | null
   conductores: { nombre: string; apellido: string }[] | null
   usuarios: { nombre: string; apellido: string }[] | null
   empresas: { nombre_comercial: string }[] | null
-  vehiculos: { marca: string; modelo: string; placas: string }[] | null
+  vehiculos: { marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; observaciones: string | null }[] | null
   tipos_servicio: { nombre: string }[] | null
 }
 
@@ -1697,15 +2001,37 @@ function viajeDBaTrip(v: ViajeDB): Trip {
     vehiculo: {
       marca: vehiculo?.marca ?? '—',
       modelo: vehiculo?.modelo ?? '—',
-      anio: '—', color: '—',
+      anio: vehiculo?.anio ?? '—',
+      color: vehiculo?.color ?? '—',
       placas: vehiculo?.placas ?? '—',
-      vin: '—', transmision: '—', observaciones: '',
+      vin: vehiculo?.vin ?? '—',
+      transmision: vehiculo?.transmision ?? '—',
+      observaciones: vehiculo?.observaciones ?? '',
     },
     origen: [v.origen_calle, v.origen_colonia].filter(Boolean).join(', '),
-    origenContacto: '—',
+    origenDetalle: {
+      calle: v.origen_calle ?? '—',
+      numero: v.origen_numero ?? '—',
+      colonia: v.origen_colonia ?? '—',
+      estado: v.origen_estado ?? '—',
+      cp: v.origen_cp ?? '—',
+      contacto: v.origen_contacto ?? '—',
+      telefono: v.origen_telefono ?? '—',
+    },
+    origenContacto: v.origen_contacto ?? '—',
     destino: [v.destino_calle, v.destino_colonia].filter(Boolean).join(', '),
-    destinoContacto: '—',
-    referencias: '', instrucciones: '',
+    destinoDetalle: {
+      calle: v.destino_calle ?? '—',
+      numero: v.destino_numero ?? '—',
+      colonia: v.destino_colonia ?? '—',
+      estado: v.destino_estado ?? '—',
+      cp: v.destino_cp ?? '—',
+      contacto: v.destino_contacto ?? '—',
+      telefono: v.destino_telefono ?? '—',
+    },
+    destinoContacto: v.destino_contacto ?? '—',
+    referencias: v.referencias ?? '',
+    instrucciones: v.instrucciones ?? '',
     fecha: v.fecha_programada ?? '—',
     hora: v.hora_programada ?? '—',
     conductor: conductor ? `${conductor.nombre} ${conductor.apellido}` : null,
@@ -1713,14 +2039,15 @@ function viajeDBaTrip(v: ViajeDB): Trip {
     status: v.status,
     tarifaCliente: v.tarifa_cliente ?? 0,
     pagoConductor: v.pago_conductor ?? 0,
-    gastosExtra: 0,
-    gastosAutorizados: 0,
-    ajustes: 0,
+    gastosExtra: v.gastos_extra ?? 0,
+    gastosAutorizados: v.gastos_autorizados ?? 0,
+    ajustes: v.ajustes ?? 0,
     evidencia: 'Pendiente',
     incidencias: 0,
     tipoServicio: tipoServicio?.nombre ?? '—',
     timeline: [], notas: [],
-    observacionesConductor: '', revisionAdmin: '',
+    observacionesConductor: v.observaciones_conductor ?? '',
+    revisionAdmin: v.revision_admin ?? '',
   }
 }
 
@@ -1741,18 +2068,28 @@ export default function ViajesView() {
       .from('viajes')
       .select(`
         id, folio, status, fecha_programada, hora_programada,
-        conductor_id, usuario_id, empresa_id,
-        origen_calle, origen_colonia, destino_calle, destino_colonia,
-        tarifa_cliente, pago_conductor,
+        conductor_id, usuario_id, empresa_id, vehiculo_id,
+        origen_calle, origen_numero, origen_colonia, origen_estado, origen_cp, origen_contacto, origen_telefono,
+        destino_calle, destino_numero, destino_colonia, destino_estado, destino_cp, destino_contacto, destino_telefono,
+        referencias, instrucciones,
+        tarifa_cliente, pago_conductor, gastos_extra, gastos_autorizados, ajustes,
+        observaciones_conductor, revision_admin,
         conductores(nombre, apellido),
         usuarios(nombre, apellido),
         empresas(nombre_comercial),
-        vehiculos(marca, modelo, placas),
+        vehiculos(marca, modelo, placas, anio, color, vin, transmision, observaciones),
         tipos_servicio(nombre)
       `)
       .order('created_at', { ascending: false })
 
+    if (error) {
+      console.error('Error cargando viajes:', error)
+    }
     if (!error && data) {
+      // Diagnóstico temporal: confirma en la consola del navegador (F12) si
+      // los joins de usuario/empresa/conductor/vehículo realmente resuelven.
+      // Puedes quitar este console.log una vez confirmado.
+      console.log('[Viajes] muestra de datos crudos recibidos de Supabase:', data.slice(0, 3))
       setTrips((data as ViajeDB[]).map(viajeDBaTrip))
     }
     setCargando(false)
