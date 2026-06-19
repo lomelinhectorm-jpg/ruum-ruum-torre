@@ -787,8 +787,29 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 // ─── NUEVO VIAJE FORM ─────────────────────────────────────────────────────────
 const TRANSMISIONES = ['Automática', 'Manual', 'CVT', 'Secuencial']
-const COMBUSTIBLES = ['Gasolina', 'Diésel', 'Eléctrico']
 const TIPOS_USUARIO = ['Personal','Empresarial','Agencia','Lote','Flotilla','Arrendadora','Taller','Aseguradora','Entrega al cliente']
+type TipoEmpresa =
+  | 'Aseguradora'
+  | 'Agencia'
+  | 'Lote'
+  | 'Flotilla'
+  | 'Arrendadora'
+  | 'Taller'
+  | 'Empresa general'
+
+const TIPOS_EMPRESA: TipoEmpresa[] = [
+  'Aseguradora', 'Agencia', 'Lote', 'Flotilla', 'Arrendadora', 'Taller', 'Empresa general',
+]
+
+const tipoEmpresaIcon: Record<TipoEmpresa, string> = {
+  Aseguradora: '🛡️',
+  Agencia: '🏢',
+  Lote: '🚗',
+  Flotilla: '🚛',
+  Arrendadora: '📋',
+  Taller: '🔧',
+  'Empresa general': '🏭',
+}
 
 const REGIMENES_FISCAL = [
   { clave: '601', desc: '601 - General de Ley Personas Morales' },
@@ -839,13 +860,6 @@ const USOS_CFDI = [
   { clave: 'CN01', desc: 'CN01 - Nómina' },
 ]
 
-const FOLIO_CHARS_VEHICULO = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // sin I/O para evitar confusión visual
-function generarFolioVehiculo() {
-  let folio = ''
-  for (let i = 0; i < 8; i++) folio += FOLIO_CHARS_VEHICULO[Math.floor(Math.random() * FOLIO_CHARS_VEHICULO.length)]
-  return folio
-}
-
 type Step = 1 | 2 | 3 | 4
 
 interface FormData {
@@ -853,6 +867,19 @@ interface FormData {
   tipoServicioId: string
   clienteTipo: '' | 'empresa' | 'usuario'
   clienteId: string
+  empresaTipo: TipoEmpresa | ''
+  empresaRazonSocial: string
+  empresaNombreComercial: string
+  empresaRfc: string
+  empresaContacto: string
+  empresaTelefono: string
+  empresaEmail: string
+  empresaRegimenFiscal: string
+  empresaCfdi: string
+  empresaDomicilioFiscal: string
+  empresaDescuento: string
+  empresaCreditoDias: string
+  empresaLimiteCredito: string
   usuarioNombre: string
   usuarioApellido: string
   usuarioCurp: string
@@ -889,11 +916,7 @@ interface FormData {
   vin: string
   transmision: string
   tipoVehiculo: string
-  combustible: string
   alias: string
-  verificacionVigente: boolean
-  tarjetaCirculacion: boolean
-  numLlaves: number
   obsVehiculo: string
   // Step 3 – Ruta y fecha
   fecha: string
@@ -927,12 +950,15 @@ interface FormData {
 }
 
 const EMPTY_FORM: FormData = {
-  tipoServicioId: '', clienteTipo: '', clienteId: '', usuarioNombre: '', usuarioApellido: '', usuarioCurp: '', usuarioTipo: '', telefono: '', email: '',
+  tipoServicioId: '', clienteTipo: '', clienteId: '',
+  empresaTipo: '', empresaRazonSocial: '', empresaNombreComercial: '', empresaRfc: '', empresaContacto: '', empresaTelefono: '', empresaEmail: '',
+  empresaRegimenFiscal: '', empresaCfdi: '', empresaDomicilioFiscal: '', empresaDescuento: '0', empresaCreditoDias: '0', empresaLimiteCredito: '0',
+  usuarioNombre: '', usuarioApellido: '', usuarioCurp: '', usuarioTipo: '', telefono: '', email: '',
   usuarioCalle: '', usuarioNumero: '', usuarioColonia: '', usuarioMunicipio: '', usuarioEstado: '', usuarioCp: '',
   requiereFactura: false, razonSocial: '', rfc: '', regimenFiscal: '', cfdi: '',
   fiscalCalle: '', fiscalNumero: '', fiscalColonia: '', fiscalMunicipio: '', fiscalEstado: '', fiscalCp: '',
   vehiculoOrigen: 'manual', vehiculoId: '', marca: '', modelo: '', anio: '', color: '', placas: '', vin: '', transmision: '',
-  tipoVehiculo: '', combustible: '', alias: '', verificacionVigente: false, tarjetaCirculacion: false, numLlaves: 1, obsVehiculo: '',
+  tipoVehiculo: '', alias: '', obsVehiculo: '',
   fecha: '', hora: '',
   origenCalle: '', origenNumero: '', origenColonia: '', origenMunicipio: '', origenEstado: '', origenCp: '',
   origenContactoNombre: '', origenContactoTel: '',
@@ -954,8 +980,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   const [conductoresLista, setConductoresLista] = useState<{ id: string; nombre: string; apellido: string }[]>([])
   const [vehiculosLista, setVehiculosLista] = useState<{
     id: string; marca: string; modelo: string; placas: string; anio: string | null; color: string | null
-    vin: string | null; transmision: string | null; tipoVehiculo: string | null; combustible: string | null
-    alias: string | null; verificacionVigente: boolean; tarjetaCirculacion: boolean; numLlaves: number
+    vin: string | null; transmision: string | null; tipoVehiculo: string | null
+    alias: string | null; observaciones: string | null
     usuario_id: string | null; empresa_id: string | null
   }[]>([])
   const [tiposVehiculo, setTiposVehiculo] = useState<{ id: string; nombre: string }[]>([])
@@ -971,7 +997,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         sb.from('conductores').select('id, nombre, apellido').order('nombre'),
         sb.from('vehiculos').select(`
           id, marca, modelo, placas, anio, color, vin, transmision,
-          tipo_vehiculo, combustible, alias, verificacion_vigente, tarjeta_circulacion, num_llaves,
+          tipo_vehiculo, alias, observaciones,
           usuario_id, empresa_id
         `).order('marca'),
         sb.from('configuracion').select('valor').eq('clave', 'tipos_vehiculo').maybeSingle(),
@@ -985,11 +1011,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         anio: v.anio ? String(v.anio) : null, color: v.color ? String(v.color) : null, vin: v.vin ? String(v.vin) : null,
         transmision: v.transmision ? String(v.transmision) : null,
         tipoVehiculo: v.tipo_vehiculo ? String(v.tipo_vehiculo) : null,
-        combustible: v.combustible ? String(v.combustible) : null,
         alias: v.alias ? String(v.alias) : null,
-        verificacionVigente: Boolean(v.verificacion_vigente),
-        tarjetaCirculacion: Boolean(v.tarjeta_circulacion),
-        numLlaves: Number(v.num_llaves ?? 1),
+        observaciones: v.observaciones ? String(v.observaciones) : null,
         usuario_id: v.usuario_id ? String(v.usuario_id) : null, empresa_id: v.empresa_id ? String(v.empresa_id) : null,
       })))
       if (tiposVehRes.data?.valor) {
@@ -1014,8 +1037,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 
   // Vehículos de la flota disponibles para el cliente seleccionado en el paso 1
   const vehiculosDelCliente = vehiculosLista.filter(v => {
-    if (form.clienteTipo === 'empresa' && form.clienteId) return v.empresa_id === form.clienteId
-    if (form.clienteTipo === 'usuario' && form.clienteId) return v.usuario_id === form.clienteId
+    if (form.clienteTipo === 'empresa' && form.clienteId && form.clienteId !== 'nuevo') return v.empresa_id === form.clienteId
+    if (form.clienteTipo === 'usuario' && form.clienteId && form.clienteId !== 'nuevo') return v.usuario_id === form.clienteId
     return false
   })
 
@@ -1038,11 +1061,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       vin: v?.vin ?? '',
       transmision: v?.transmision ?? '',
       tipoVehiculo: v?.tipoVehiculo ?? '',
-      combustible: v?.combustible ?? '',
       alias: v?.alias ?? '',
-      verificacionVigente: v?.verificacionVigente ?? false,
-      tarjetaCirculacion: v?.tarjetaCirculacion ?? false,
-      numLlaves: v?.numLlaves ?? 1,
+      obsVehiculo: v?.observaciones ?? '',
     }))
     setErrors(e => ({ ...e, marca: '', modelo: '', placas: '' }))
   }
@@ -1060,11 +1080,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       vin: origen === 'manual' ? '' : f.vin,
       transmision: origen === 'manual' ? '' : f.transmision,
       tipoVehiculo: origen === 'manual' ? '' : f.tipoVehiculo,
-      combustible: origen === 'manual' ? '' : f.combustible,
       alias: origen === 'manual' ? '' : f.alias,
-      verificacionVigente: origen === 'manual' ? false : f.verificacionVigente,
-      tarjetaCirculacion: origen === 'manual' ? false : f.tarjetaCirculacion,
-      numLlaves: origen === 'manual' ? 1 : f.numLlaves,
+      obsVehiculo: origen === 'manual' ? '' : f.obsVehiculo,
     }))
   }
 
@@ -1074,10 +1091,19 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       if (!form.tipoServicioId) newErrors.tipoServicioId = 'Requerido'
       if (!form.clienteTipo) newErrors.clienteTipo = 'Requerido'
       if (form.clienteTipo === 'empresa' && !form.clienteId) newErrors.clienteId = 'Requerido'
+      if (form.clienteTipo === 'empresa' && form.clienteId === 'nuevo') {
+        if (!form.empresaTipo) newErrors.empresaTipo = 'Requerido'
+        if (!form.empresaRazonSocial) newErrors.empresaRazonSocial = 'Requerido'
+        if (!form.empresaRfc) newErrors.empresaRfc = 'Requerido'
+        if (!form.empresaContacto) newErrors.empresaContacto = 'Requerido'
+        if (!form.empresaTelefono) newErrors.empresaTelefono = 'Requerido'
+      }
       if (form.clienteTipo === 'usuario' && !form.clienteId) newErrors.clienteId = 'Requerido'
       if (form.clienteTipo === 'usuario' && form.clienteId === 'nuevo') {
         if (!form.usuarioNombre) newErrors.usuarioNombre = 'Requerido'
         if (!form.usuarioApellido) newErrors.usuarioApellido = 'Requerido'
+        if (!form.email) newErrors.email = 'Requerido'
+        if (!form.telefono) newErrors.telefono = 'Requerido'
         if (!form.usuarioTipo) newErrors.usuarioTipo = 'Requerido'
         if (form.requiereFactura) {
           if (!form.razonSocial) newErrors.razonSocial = 'Requerido'
@@ -1125,71 +1151,9 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
     try {
     const sb = getSupabaseBrowserClient()
 
-      // 1. Vehículo: de flota ya tiene id; manual se busca/crea por placas
-      let vehiculoId: string | null = form.vehiculoOrigen === 'flota' ? (form.vehiculoId || null) : null
-      if (form.vehiculoOrigen === 'manual' && form.placas) {
-        const { data: vExistente } = await sb
-          .from('vehiculos')
-          .select('id')
-          .eq('placas', form.placas.toUpperCase())
-          .maybeSingle()
-
-        if (vExistente) {
-          vehiculoId = vExistente.id
-        } else {
-          // IMPORTANTE: no encadenar .select().single() al insert. Si esa
-          // segunda lectura falla por cualquier motivo (timing, RLS, etc.),
-          // el vehículo ya quedó creado en la base pero perderíamos su id
-          // y el viaje se guardaría sin vehiculo_id. En vez de eso: insertamos
-          // con un folio que ya generamos nosotros, y luego lo buscamos por
-          // ese folio en una consulta aparte (idempotente y verificable).
-          let folioGenerado = ''
-          let insertOk = false
-          for (let intento = 0; intento < 5; intento++) {
-            folioGenerado = generarFolioVehiculo()
-            const { error: vError } = await sb.from('vehiculos').insert({
-              folio: folioGenerado,
-              marca: form.marca.toUpperCase() || null,
-              modelo: form.modelo.toUpperCase() || null,
-              anio: form.anio || null,
-              color: form.color.toUpperCase() || null,
-              placas: form.placas.toUpperCase(),
-              vin: form.vin.toUpperCase() || null,
-              transmision: form.transmision || null,
-              tipo_vehiculo: form.tipoVehiculo || null,
-              combustible: form.combustible || null,
-              alias: form.alias.toUpperCase() || null,
-              verificacion_vigente: form.verificacionVigente,
-              tarjeta_circulacion: form.tarjetaCirculacion,
-              num_llaves: form.numLlaves,
-              usuario_id: form.clienteTipo === 'usuario' && form.clienteId !== 'nuevo' ? form.clienteId : null,
-              empresa_id: form.clienteTipo === 'empresa' ? form.clienteId : null,
-            })
-            if (!vError) { insertOk = true; break }
-            // 23505 = unique_violation; si es por folio, reintenta con uno nuevo.
-            // Cualquier otro error sí debe detener el flujo y reportarse.
-            if (vError.code !== '23505' || !vError.message.includes('folio')) {
-              throw vError
-            }
-          }
-          if (!insertOk) throw new Error('No se pudo generar un folio único para el vehículo tras varios intentos.')
-
-          const { data: vCreado, error: vLecturaError } = await sb
-            .from('vehiculos')
-            .select('id')
-            .eq('folio', folioGenerado)
-            .maybeSingle()
-          if (vLecturaError) throw vLecturaError
-          if (!vCreado) throw new Error('El vehículo se registró pero no se pudo recuperar su id. Verifica en la sección Vehículos.')
-          vehiculoId = vCreado.id
-        }
-      }
-
-      // 2. Conductor: ya viene como id real seleccionado del catálogo
-      const conductorId: string | null = form.conductorId || null
-
-      // 3. Usuario: id real seleccionado, o se crea uno nuevo si el cliente es particular nuevo
+      // 1. Usuario / Empresa: resolver primero el cliente real para vincular vehículo y viaje.
       let usuarioId: string | null = null
+      let empresaId: string | null = null
       if (form.clienteTipo === 'usuario') {
         if (form.clienteId === 'nuevo') {
           const domicilioFiscalNuevo = form.requiereFactura
@@ -1234,12 +1198,77 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
         } else {
           usuarioId = form.clienteId
         }
+      } else if (form.clienteTipo === 'empresa') {
+        if (form.clienteId === 'nuevo') {
+          const { error: eError } = await sb.from('empresas').insert({
+            tipo: form.empresaTipo,
+            razon_social: form.empresaRazonSocial.toUpperCase(),
+            nombre_comercial: form.empresaNombreComercial.toUpperCase() || form.empresaRazonSocial.toUpperCase(),
+            rfc: form.empresaRfc.toUpperCase(),
+            contacto_principal: form.empresaContacto.toUpperCase(),
+            telefono: form.empresaTelefono,
+            correo: form.empresaEmail.toLowerCase() || null,
+            regimen_fiscal: form.empresaRegimenFiscal || null,
+            cfdi: form.empresaCfdi || null,
+            domicilio_fiscal: form.empresaDomicilioFiscal.toUpperCase() || null,
+            descuento: parseFloat(form.empresaDescuento) || 0,
+            credito_dias: parseInt(form.empresaCreditoDias) || 0,
+            limite_credito: parseFloat(form.empresaLimiteCredito) || 0,
+            estatus: 'Activa',
+          })
+          if (eError) throw eError
+
+          const { data: empCreada, error: eLecturaError } = await sb
+            .from('empresas')
+            .select('id')
+            .eq('rfc', form.empresaRfc.toUpperCase())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (eLecturaError) throw eLecturaError
+          if (!empCreada) throw new Error('La empresa se registró pero no se pudo recuperar su id. Verifica en la sección Empresas.')
+          empresaId = empCreada.id
+        } else {
+          empresaId = form.clienteId
+        }
       }
 
-      // 4. Empresa: id real seleccionado del catálogo (incluye Ruum-Ruum si está capturada como empresa)
-      const empresaId: string | null = form.clienteTipo === 'empresa' ? form.clienteId : null
+      // 2. Vehículo: de flota ya tiene id; manual se busca/crea por placas en la misma tabla vehiculos.
+      let vehiculoId: string | null = form.vehiculoOrigen === 'flota' ? (form.vehiculoId || null) : null
+      if (form.vehiculoOrigen === 'manual' && form.placas) {
+        const { data: vExistente } = await sb
+          .from('vehiculos')
+          .select('id')
+          .eq('placas', form.placas.toUpperCase())
+          .maybeSingle()
 
-      // 5. Crear el viaje
+        if (vExistente) {
+          vehiculoId = vExistente.id
+        } else {
+          const { data: vCreado, error: vError } = await sb.from('vehiculos').insert({
+            usuario_id: usuarioId,
+            empresa_id: empresaId,
+            marca: form.marca.toUpperCase() || null,
+            modelo: form.modelo.toUpperCase() || null,
+            anio: form.anio || null,
+            color: form.color.toUpperCase() || null,
+            placas: form.placas.toUpperCase(),
+            vin: form.vin.toUpperCase() || null,
+            transmision: form.transmision || null,
+            tipo_vehiculo: form.tipoVehiculo || null,
+            observaciones: form.obsVehiculo.toUpperCase() || null,
+            alias: form.alias.toUpperCase() || null,
+            activo: true,
+          }).select('id').single()
+          if (vError) throw vError
+          vehiculoId = vCreado.id
+        }
+      }
+
+      // 3. Conductor: ya viene como id real seleccionado del catálogo
+      const conductorId: string | null = form.conductorId || null
+
+      // 4. Crear el viaje
       const origenCalle = [form.origenCalle, form.origenNumero].filter(Boolean).join(' ').toUpperCase()
       const destinoCalle = [form.destinoCalle, form.destinoNumero].filter(Boolean).join(' ').toUpperCase()
 
@@ -1277,7 +1306,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 
       if (error) throw error
 
-      // 6. Timeline y nota interna
+      // 5. Timeline y nota interna
       await sb.from('timeline_viaje').insert({
         viaje_id: viaje.id,
         evento: 'Viaje registrado por operaciones',
@@ -1408,10 +1437,80 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                     <select value={form.clienteId} onChange={e => set('clienteId', e.target.value)} className={SelectCls('clienteId')} disabled={cargandoCatalogos}>
                       <option value="">{cargandoCatalogos ? 'Cargando...' : 'Seleccionar empresa...'}</option>
                       {empresasLista.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                      <option value="nuevo">+ Capturar nueva empresa...</option>
                     </select>
                     <Err field="clienteId" />
                     {!cargandoCatalogos && empresasLista.length === 0 && (
                       <p className="text-xs text-amber-500 mt-0.5">No hay empresas activas capturadas. Incluye también la operación Ruum-Ruum si está registrada como empresa.</p>
+                    )}
+                    {form.clienteId === 'nuevo' && (
+                      <div className="space-y-4 border border-slate-200 rounded-xl p-4 mt-3">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-2">🏢 Datos de la empresa</p>
+                        <div>
+                          <Label req>Tipo de empresa</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {TIPOS_EMPRESA.map(t => (
+                              <button key={t} type="button" onClick={() => set('empresaTipo', t)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-colors text-left ${form.empresaTipo === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                <span className="text-base">{tipoEmpresaIcon[t]}</span>{t}
+                              </button>
+                            ))}
+                          </div>
+                          <Err field="empresaTipo" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="col-span-2">
+                            <Label req>Razón social</Label>
+                            <input type="text" value={form.empresaRazonSocial} onChange={e => set('empresaRazonSocial', e.target.value.toUpperCase())} className={InputCls('empresaRazonSocial')} />
+                            <Err field="empresaRazonSocial" />
+                          </div>
+                          <div>
+                            <Label>Nombre comercial</Label>
+                            <input type="text" value={form.empresaNombreComercial} onChange={e => set('empresaNombreComercial', e.target.value.toUpperCase())} className={InputCls('empresaNombreComercial')} />
+                          </div>
+                          <div>
+                            <Label req>RFC</Label>
+                            <input type="text" placeholder="12 O 13 CARACTERES" maxLength={13} value={form.empresaRfc} onChange={e => set('empresaRfc', e.target.value.toUpperCase())} className={InputCls('empresaRfc')} />
+                            <Err field="empresaRfc" />
+                          </div>
+                          <div>
+                            <Label req>Contacto principal</Label>
+                            <input type="text" value={form.empresaContacto} onChange={e => set('empresaContacto', e.target.value.toUpperCase())} className={InputCls('empresaContacto')} />
+                            <Err field="empresaContacto" />
+                          </div>
+                          <div>
+                            <Label req>Teléfono</Label>
+                            <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.empresaTelefono}
+                              onChange={e => { const d = e.target.value.replace(/\D/g,'').slice(0,10); set('empresaTelefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('empresaTelefono')} />
+                            <Err field="empresaTelefono" />
+                          </div>
+                          <div className="col-span-2">
+                            <Label>Correo electrónico</Label>
+                            <input type="email" value={form.empresaEmail} onChange={e => set('empresaEmail', e.target.value)} className={InputCls('empresaEmail')} />
+                          </div>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-1">🧾 Facturación</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Régimen fiscal</Label>
+                            <input type="text" placeholder="601 - GENERAL DE LEY..." value={form.empresaRegimenFiscal} onChange={e => set('empresaRegimenFiscal', e.target.value.toUpperCase())} className={InputCls('empresaRegimenFiscal')} />
+                          </div>
+                          <div>
+                            <Label>CFDI</Label>
+                            <input type="text" placeholder="G03 - GASTOS EN GENERAL" value={form.empresaCfdi} onChange={e => set('empresaCfdi', e.target.value.toUpperCase())} className={InputCls('empresaCfdi')} />
+                          </div>
+                          <div className="col-span-2">
+                            <Label>Domicilio fiscal</Label>
+                            <input type="text" value={form.empresaDomicilioFiscal} onChange={e => set('empresaDomicilioFiscal', e.target.value.toUpperCase())} className={InputCls('empresaDomicilioFiscal')} />
+                          </div>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide border-b pb-1">📋 Condiciones comerciales</p>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div><Label>Descuento (%)</Label><input type="number" min="0" max="100" value={form.empresaDescuento} onChange={e => set('empresaDescuento', e.target.value)} className={InputCls('empresaDescuento')} /></div>
+                          <div><Label>Crédito (días)</Label><input type="number" min="0" value={form.empresaCreditoDias} onChange={e => set('empresaCreditoDias', e.target.value)} className={InputCls('empresaCreditoDias')} /></div>
+                          <div><Label>Límite crédito ($)</Label><input type="number" min="0" value={form.empresaLimiteCredito} onChange={e => set('empresaLimiteCredito', e.target.value)} className={InputCls('empresaLimiteCredito')} /></div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1454,12 +1553,14 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                             <Err field="usuarioTipo" />
                           </div>
                           <div>
-                            <Label>Teléfono de contacto</Label>
+                            <Label req>Teléfono de contacto</Label>
                             <input type="tel" placeholder="55-0000-0000" maxLength={12} value={form.telefono} onChange={e => { const d = e.target.value.replace(/[^0-9]/g,'').slice(0,10); set('telefono', d.length<=3?d:d.length<=6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`) }} className={InputCls('telefono')} />
+                            <Err field="telefono" />
                           </div>
                           <div>
-                            <Label>Correo electrónico</Label>
+                            <Label req>Correo electrónico</Label>
                             <input type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={e => set('email', e.target.value)} className={InputCls('email')} />
+                            <Err field="email" />
                           </div>
                         </div>
 
@@ -1665,59 +1766,13 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                   )}
                 </div>
                 <div>
-                  <Label>Combustible</Label>
-                  <select value={form.combustible} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('combustible', e.target.value)} className={`${SelectCls('combustible')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`}>
-                    <option value="">Seleccionar...</option>
-                    {COMBUSTIBLES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
                   <Label>Alias / Apodo</Label>
                   <input type="text" placeholder="Ej. Camioneta gris 1" value={form.alias} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('alias', e.target.value.toUpperCase())} className={`${InputCls('alias')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Verificación vigente</Label>
-                  <div className="flex gap-2">
-                    {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
-                      <button key={String(opt.v)} type="button" disabled={form.vehiculoOrigen === 'flota'}
-                        onClick={() => setForm(f => ({ ...f, verificacionVigente: opt.v }))}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.verificacionVigente === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'} ${form.vehiculoOrigen === 'flota' ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Tarjeta de circulación</Label>
-                  <div className="flex gap-2">
-                    {([{ v: true, label: 'Sí' }, { v: false, label: 'No' }] as const).map(opt => (
-                      <button key={String(opt.v)} type="button" disabled={form.vehiculoOrigen === 'flota'}
-                        onClick={() => setForm(f => ({ ...f, tarjetaCirculacion: opt.v }))}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.tarjetaCirculacion === opt.v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'} ${form.vehiculoOrigen === 'flota' ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Número de llaves</Label>
-                  <div className="flex gap-2">
-                    {[1, 2, 3].map(n => (
-                      <button key={n} type="button" disabled={form.vehiculoOrigen === 'flota'}
-                        onClick={() => setForm(f => ({ ...f, numLlaves: n }))}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${form.numLlaves === n ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'} ${form.vehiculoOrigen === 'flota' ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
               <div>
                 <Label>Observaciones del vehículo</Label>
-                <textarea rows={2} placeholder="Rasguños, daños preexistentes, equipo especial..." value={form.obsVehiculo} onChange={e => set('obsVehiculo', e.target.value.toUpperCase())} className={InputCls('obsVehiculo')} />
+                <textarea rows={2} placeholder="Rasguños, daños preexistentes, equipo especial..." value={form.obsVehiculo} disabled={form.vehiculoOrigen === 'flota'} onChange={e => set('obsVehiculo', e.target.value.toUpperCase())} className={`${InputCls('obsVehiculo')} ${form.vehiculoOrigen === 'flota' ? 'bg-slate-100 text-slate-500' : ''}`} />
               </div>
             </div>
           )}
@@ -1895,7 +1950,9 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 {[
                   ['Servicio', tiposServicio.find(t => t.id === form.tipoServicioId)?.nombre || '—'],
                   ['Cliente', form.clienteTipo === 'empresa'
-                    ? (empresasLista.find(e => e.id === form.clienteId)?.nombre || '—')
+                    ? (form.clienteId === 'nuevo'
+                        ? (form.empresaNombreComercial || form.empresaRazonSocial || '—')
+                        : empresasLista.find(e => e.id === form.clienteId)?.nombre || '—')
                     : form.clienteTipo === 'usuario'
                       ? (form.clienteId === 'nuevo'
                           ? [form.usuarioNombre, form.usuarioApellido].filter(Boolean).join(' ') || '—'
