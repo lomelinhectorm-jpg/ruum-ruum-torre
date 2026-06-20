@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -2235,7 +2236,7 @@ export default function ViajesView() {
       {showNewForm && (
         <NuevoViajeForm
           onClose={() => setShowNewForm(false)}
-          onSave={() => { setShowNewForm(false); cargarViajes() }}
+          onSave={cargarViajes}
         />
       )}
       {detailTrip && <TripDetail trip={detailTrip} onClose={() => setDetailTrip(null)} />}
