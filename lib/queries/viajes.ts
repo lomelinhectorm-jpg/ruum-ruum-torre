@@ -44,16 +44,29 @@ export async function getViaje(id: string) {
       tipos_servicio(nombre),
       evidencias(*),
       incidencias(*),
-      timeline_viaje(evento, actor, actor_tipo, created_at),
-      notas_internas(autor_nombre, texto, created_at)
+      timeline_viaje(evento, actor, actor_tipo, created_at)
     `)
     .eq('id', id)
     .order('created_at', { ascending: true, foreignTable: 'timeline_viaje' })
-    .order('created_at', { ascending: true, foreignTable: 'notas_internas' })
     .single()
 
   if (error) throw error
-  return data
+
+  // notas_internas no tiene columna viaje_id — es una tabla polimórfica
+  // (entidad_id + entidad_tipo) usada también para notas de otras
+  // entidades. PostgREST no puede embeberla en el select de arriba
+  // porque no existe una foreign key real que la relacione con
+  // `viajes`; se trae aparte y se adjunta al resultado.
+  const { data: notas, error: notasError } = await supabase
+    .from('notas_internas')
+    .select('autor_nombre, texto, created_at')
+    .eq('entidad_tipo', 'viaje')
+    .eq('entidad_id', id)
+    .order('created_at', { ascending: true })
+
+  if (notasError) throw notasError
+
+  return { ...data, notas_internas: notas ?? [] }
 }
 
 // ── CREAR ───────────────────────────────────────────────────

@@ -525,8 +525,8 @@ function ConductorDetalle({
                       </div>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      inc.estatus === 'Abierta' ? 'bg-red-100 text-red-700' :
-                      inc.estatus === 'En seguimiento' ? 'bg-[#E8EFFF] text-rr-traceDeep' :
+                      ['Nueva', 'Requiere información', 'Escalada'].includes(inc.estatus) ? 'bg-red-100 text-red-700' :
+                      ['En revisión', 'En seguimiento'].includes(inc.estatus) ? 'bg-[#E8EFFF] text-rr-traceDeep' :
                       'bg-green-100 text-green-700'
                     }`}>{inc.estatus}</span>
                   </div>

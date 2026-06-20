@@ -306,8 +306,13 @@ function EditarFechaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () 
 }
 
 // ─── REGISTRAR INCIDENCIA ──────────────────────────────────────────────────────
-const TIPOS_INCIDENCIA = ['Daño al vehículo', 'Retraso', 'Accidente', 'Comportamiento del conductor', 'Comportamiento del cliente', 'Otro']
-const PRIORIDADES_INCIDENCIA = ['Baja', 'Media', 'Alta', 'Crítica']
+const TIPOS_INCIDENCIA = [
+  'Daños reportados', 'Retraso', 'Falta de evidencia', 'Contacto no disponible',
+  'Problema con documentación', 'Problema con pago', 'Cancelación',
+  'Diferencia de kilometraje', 'Diferencia de combustible',
+  'Problema con conductor', 'Problema con usuario', 'Otro',
+]
+const PRIORIDADES_INCIDENCIA = ['Baja', 'Media', 'Alta']
 
 function IncidenciaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () => void; onSaved: () => void }) {
   const [tipo, setTipo] = useState('')
@@ -329,7 +334,7 @@ function IncidenciaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () =
         tipo,
         descripcion: descripcion.trim(),
         prioridad,
-        estatus: 'Abierta',
+        estatus: 'Nueva',
       })
       if (error) throw error
 
