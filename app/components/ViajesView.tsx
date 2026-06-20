@@ -1207,11 +1207,11 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
               },
             }),
           })
-          const dataUsuario = await respUsuario.json().catch(() => null) as { error?: string; userId?: string; password?: string } | null
-          if (!respUsuario.ok || !dataUsuario?.userId) {
+          const dataUsuario = await respUsuario.json().catch(() => null) as { error?: string; usuarioId?: string; password?: string } | null
+          if (!respUsuario.ok || !dataUsuario?.usuarioId) {
             throw new Error(dataUsuario?.error ?? 'No se pudo crear el usuario.')
           }
-          usuarioId = dataUsuario.userId
+          usuarioId = dataUsuario.usuarioId
           if (dataUsuario.password) {
             credencialesGeneradas = { email: form.email.toLowerCase(), password: dataUsuario.password }
           }

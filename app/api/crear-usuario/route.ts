@@ -1,4 +1,4 @@
-// app/api/crear-usuario/route.ts — admin-web
+  // app/api/crear-usuario/route.ts — admin-web
 // Crea un Usuario (cliente) con cuenta de acceso real en Supabase Auth.
 // Solo lo puede ejecutar un integrante activo del equipo interno con rol autorizado.
 import { NextResponse } from 'next/server'
@@ -31,12 +31,30 @@ function badRequest(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
-// Contraseña temporal legible, sin caracteres que se confundan entre sí (0/O, 1/I/l).
+const PALABRAS_PASSWORD = [
+  'tigre', 'leon', 'oso', 'lobo', 'zorro', 'aguila', 'conejo', 'tortuga',
+  'jaguar', 'puma', 'venado', 'caballo', 'toro', 'gallo', 'pavo', 'sapo',
+  'rana', 'pulpo', 'ballena', 'foca', 'lince', 'nutria', 'mapache', 'sol',
+  'luna', 'estrella', 'nube', 'rio', 'mar', 'monte', 'valle', 'bosque',
+  'piedra', 'arena', 'viento', 'fuego', 'lluvia', 'nieve', 'hielo', 'roca',
+  'isla', 'playa', 'selva', 'mango', 'limon', 'naranja', 'platano', 'manzana',
+  'durazno', 'melon', 'coco', 'trueno', 'rayo', 'cometa', 'planeta', 'faro',
+  'puente', 'torre', 'barco', 'avion', 'tren', 'motor', 'rueda', 'ancla',
+  'vela', 'remo',
+]
+
+// Contraseña temporal pensada para dictarse por teléfono o anotarse a mano:
+// dos palabras comunes distintas + 3 dígitos (ej. "tigre-sol-472"). Es
+// deliberadamente de baja entropía comparada con una contraseña real —
+// se compensa con que es de un solo uso y de vida corta (la cuenta exige
+// cambiarla en el primer ingreso, ver requiere_cambio_password), no con
+// que sea difícil de adivinar a fuerza bruta.
 function generarPasswordTemporal(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  let pwd = ''
-  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
-  return pwd
+  const i = Math.floor(Math.random() * PALABRAS_PASSWORD.length)
+  let j = Math.floor(Math.random() * PALABRAS_PASSWORD.length)
+  while (j === i) j = Math.floor(Math.random() * PALABRAS_PASSWORD.length)
+  const numero = Math.floor(100 + Math.random() * 900) // 100–999
+  return `${PALABRAS_PASSWORD[i]}-${PALABRAS_PASSWORD[j]}-${numero}`
 }
 
 const ROLES_AUTORIZADOS = new Set([
@@ -81,7 +99,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from('usuarios')
-    .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, calle, numero, colonia, municipio, estado_geo, codigo_postal, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')
+    .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, calle, numero, colonia, municipio, estado_geo, codigo_postal, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, requiere_cambio_password, created_at')
     .order('created_at', { ascending: false })
 
   if (error) return badRequest(error.message, 500)
@@ -171,7 +189,7 @@ export async function POST(request: Request) {
   }
 
   // ── 4. Insertar el registro de negocio en `usuarios` ──────────────────────
-  const { error: dbError } = await admin.from('usuarios').insert({
+  const { data: usuarioCreado, error: dbError } = await admin.from('usuarios').insert({
     auth_id: authData.user.id,
     nombre: String(perfil.nombre),
     apellido: String(perfil.apellido),
@@ -191,7 +209,8 @@ export async function POST(request: Request) {
     regimen_fiscal: perfil.regimen_fiscal || null,
     cfdi: perfil.cfdi || null,
     domicilio_fiscal: perfil.domicilio_fiscal || null,
-  })
+    requiere_cambio_password: true,
+  }).select('id').single()
 
   if (dbError) {
     // Si falla el insert de negocio, no dejamos huérfana la cuenta de auth.
@@ -199,5 +218,15 @@ export async function POST(request: Request) {
     return badRequest(dbError.message, 422)
   }
 
-  return NextResponse.json({ ok: true, userId: authData.user.id, password: tempPassword })
+  if (!usuarioCreado) {
+    await admin.auth.admin.deleteUser(authData.user.id).catch(() => undefined)
+    return badRequest('No se pudo confirmar la creación del usuario.', 500)
+  }
+
+  return NextResponse.json({
+    ok: true,
+    userId: authData.user.id,
+    usuarioId: usuarioCreado.id,
+    password: tempPassword,
+  })
 }
