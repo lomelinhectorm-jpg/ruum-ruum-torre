@@ -1,7 +1,6 @@
 // app/api/crear-usuario/route.ts — admin-web
 // Crea un Usuario (cliente) con cuenta de acceso real en Supabase Auth.
-// Solo lo puede ejecutar un admin autenticado (se verifica con is_admin() vía RPC,
-// usando la sesión propia del que llama — no con el service_role).
+// Solo lo puede ejecutar un integrante activo del equipo interno con rol autorizado.
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
@@ -40,6 +39,55 @@ function generarPasswordTemporal(): string {
   return pwd
 }
 
+const ROLES_AUTORIZADOS = new Set([
+  'Super Administrador',
+  'Coordinador Operativo',
+  'Analista Financiero',
+  'Validador Documental',
+])
+
+export async function GET() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    return badRequest('Falta configurar Supabase en el servidor.', 500)
+  }
+
+  const cookieStore = await cookies()
+  const supabaseAuth = createServerClient(supabaseUrl, anonKey, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll() {},
+    },
+  })
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) return badRequest('No autenticado.', 401)
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data: usuarioInterno, error: adminCheckError } = await admin
+    .from('usuarios_internos')
+    .select('activo, roles(nombre, activo)')
+    .eq('auth_id', user.id)
+    .maybeSingle()
+  const rol = usuarioInterno?.roles as unknown as { nombre?: string; activo?: boolean } | null
+  const autorizado = Boolean(
+    usuarioInterno?.activo && rol?.activo && rol.nombre && ROLES_AUTORIZADOS.has(rol.nombre)
+  )
+  if (adminCheckError || !autorizado) return badRequest('No autorizado.', 403)
+
+  const { data, error } = await admin
+    .from('usuarios')
+    .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, calle, numero, colonia, municipio, estado_geo, codigo_postal, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) return badRequest(error.message, 500)
+  return NextResponse.json({ usuarios: data ?? [] })
+}
+
 export async function POST(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -48,6 +96,10 @@ export async function POST(request: Request) {
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return badRequest('Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor.', 500)
   }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
 
   // ── 1. Verificar que quien llama es un admin con sesión válida ────────────
   const cookieStore = await cookies()
@@ -65,9 +117,30 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabaseAuth.auth.getUser()
   if (!user) return badRequest('No autenticado.', 401)
 
-  const { data: esAdmin, error: adminCheckError } = await supabaseAuth.rpc('is_admin')
+  const { data: usuarioInterno, error: adminCheckError } = await admin
+    .from('usuarios_internos')
+    .select('id, activo, roles(nombre, activo)')
+    .eq('auth_id', user.id)
+    .maybeSingle()
+
+  const rol = usuarioInterno?.roles as unknown as { nombre?: string; activo?: boolean } | null
+  const esAdmin = Boolean(
+    usuarioInterno?.activo &&
+    rol?.activo &&
+    rol.nombre &&
+    ROLES_AUTORIZADOS.has(rol.nombre)
+  )
+
   if (adminCheckError || !esAdmin) {
-    console.error('Chequeo is_admin() falló:', { userId: user.id, email: user.email, adminCheckError, esAdmin })
+    console.error('Chequeo de administrador falló:', {
+      userId: user.id,
+      email: user.email,
+      adminCheckError,
+      usuarioInternoId: usuarioInterno?.id ?? null,
+      usuarioInternoActivo: usuarioInterno?.activo ?? null,
+      rol: rol?.nombre ?? null,
+      rolActivo: rol?.activo ?? null,
+    })
     return badRequest('No autorizado.', 403)
   }
 
@@ -81,10 +154,6 @@ export async function POST(request: Request) {
 
   const email = String(perfil.email).toLowerCase().trim()
   const tempPassword = generarPasswordTemporal()
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
 
   // ── 3. Crear la cuenta de autenticación ───────────────────────────────────
   const { data: authData, error: authError } = await admin.auth.admin.createUser({

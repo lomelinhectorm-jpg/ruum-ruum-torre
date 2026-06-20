@@ -983,13 +983,11 @@ export default function UsuariosView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarUsuarios = useCallback(async () => {
-    const sb = getSupabaseBrowserClient()
-    const { data, error } = await sb
-      .from('usuarios')
-      .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, calle, numero, colonia, municipio, estado_geo, codigo_postal, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, created_at')
-      .order('created_at', { ascending: false })
-
-    if (!error && data) {
+    try {
+      const response = await fetch('/api/crear-usuario', { cache: 'no-store' })
+      const payload = (await response.json().catch(() => null)) as { usuarios?: Record<string, unknown>[]; error?: string } | null
+      if (!response.ok) throw new Error(payload?.error ?? 'No se pudieron cargar los usuarios.')
+      const data = payload?.usuarios ?? []
       setUsuarios(data.map((u: Record<string, unknown>) => ({
         id:               String(u.id ?? ''),
         nombre:           String(u.nombre ?? ''),
@@ -1014,8 +1012,11 @@ export default function UsuariosView() {
         codigoPostal:     String(u.codigo_postal ?? ''),
         vehiculos: [], pagos: [], viajes: [], notas: [],
       })))
+    } catch (error) {
+      console.error('Error cargando usuarios:', error)
+    } finally {
+      setCargando(false)
     }
-    setCargando(false)
   }, [])
 
   useEffect(() => { cargarUsuarios() }, [cargarUsuarios])

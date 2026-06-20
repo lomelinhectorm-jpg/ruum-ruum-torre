@@ -57,9 +57,11 @@ as $$
   select exists (
     select 1
     from public.usuarios_internos ui
+    inner join public.roles r on r.id = ui.rol_id
     where ui.auth_id = auth.uid()
       and ui.activo = true
-      and ui.rol in ('Super Administrador', 'Coordinador Operativo', 'Analista Financiero', 'Validador Documental')
+      and r.activo = true
+      and r.nombre in ('Super Administrador', 'Coordinador Operativo', 'Analista Financiero', 'Validador Documental')
   );
 $$;
 ```
