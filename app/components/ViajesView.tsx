@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
+import { getViajes, getViaje, createViaje, updateViajeStatus, asignarConductor, actualizarFechaViaje, agregarNota } from '@/lib/queries/viajes'
+import { getConductores } from '@/lib/queries/conductores'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -183,12 +185,12 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
 
   useEffect(() => {
     const cargar = async () => {
-      const sb = getSupabaseBrowserClient()
-      const { data } = await sb
-        .from('conductores')
-        .select('id, nombre, apellido, disponibilidad')
-        .order('nombre')
-      if (data) setConductores(data as { id: string; nombre: string; apellido: string; disponibilidad: string }[])
+      try {
+        const data = await getConductores()
+        setConductores(data as { id: string; nombre: string; apellido: string; disponibilidad: string }[])
+      } catch (e) {
+        console.error('Error cargando conductores:', e)
+      }
       setCargando(false)
     }
     cargar()
@@ -199,23 +201,11 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
     setGuardando(true)
     setErrorMsg('')
     try {
-      const sb = getSupabaseBrowserClient()
-      const nuevoStatus: StatusKey = trip.status === 'Solicitud recibida' || trip.status === 'Pendiente de revisión' || trip.status === 'Pendiente de asignación'
-        ? 'Conductor asignado'
-        : trip.status
-
-      const { error } = await sb
-        .from('viajes')
-        .update({ conductor_id: seleccionado, status: nuevoStatus })
-        .eq('id', trip.dbId)
-      if (error) throw error
-
       const conductor = conductores.find(c => c.id === seleccionado)
-      await sb.from('timeline_viaje').insert({
-        viaje_id: trip.dbId,
-        evento: trip.conductorId ? 'Conductor reasignado' : 'Conductor asignado',
-        actor: conductor ? `${conductor.nombre} ${conductor.apellido}` : 'Admin',
-        actor_tipo: 'admin',
+      await asignarConductor(trip.dbId, seleccionado, {
+        statusActual: trip.status,
+        teniaConductorPrevio: !!trip.conductorId,
+        actorNombre: conductor ? `${conductor.nombre} ${conductor.apellido}` : 'Admin',
       })
 
       onSaved()
@@ -272,20 +262,7 @@ function EditarFechaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () 
     setGuardando(true)
     setErrorMsg('')
     try {
-      const sb = getSupabaseBrowserClient()
-      const { error } = await sb
-        .from('viajes')
-        .update({ fecha_programada: fecha, hora_programada: hora })
-        .eq('id', trip.dbId)
-      if (error) throw error
-
-      await sb.from('timeline_viaje').insert({
-        viaje_id: trip.dbId,
-        evento: 'Fecha y hora actualizadas',
-        actor: 'Admin',
-        actor_tipo: 'admin',
-      })
-
+      await actualizarFechaViaje(trip.dbId, fecha, hora)
       onSaved()
       onClose()
     } catch (e) {
@@ -432,14 +409,7 @@ function NotaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () => void
     setGuardando(true)
     setErrorMsg('')
     try {
-      const sb = getSupabaseBrowserClient()
-      const { error } = await sb.from('notas_internas').insert({
-        entidad_tipo: 'viaje',
-        entidad_id: trip.dbId,
-        texto: texto.trim(),
-        autor_nombre: 'Admin',
-      })
-      if (error) throw error
+      await agregarNota(trip.dbId, texto.trim())
       onSaved()
       onClose()
     } catch (e) {
@@ -531,28 +501,24 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
 
   useEffect(() => {
     const cargarExtras = async () => {
-      const sb = getSupabaseBrowserClient()
-      const [notasRes, timelineRes] = await Promise.all([
-        sb.from('notas_internas').select('autor_nombre, texto, created_at')
-          .eq('entidad_tipo', 'viaje').eq('entidad_id', trip.dbId)
-          .order('created_at', { ascending: true }),
-        sb.from('timeline_viaje').select('evento, actor, created_at')
-          .eq('viaje_id', trip.dbId)
-          .order('created_at', { ascending: true }),
-      ])
-      if (notasRes.data) {
-        setNotes(notasRes.data.map((n: Record<string, unknown>) => ({
-          autor: String(n.autor_nombre ?? 'Admin'),
-          texto: String(n.texto ?? ''),
-          hora: n.created_at ? new Date(String(n.created_at)).toLocaleString('es-MX') : '—',
-        })))
-      }
-      if (timelineRes.data) {
-        setTimeline(timelineRes.data.map((t: Record<string, unknown>) => ({
-          evento: String(t.evento ?? ''),
-          actor: String(t.actor ?? ''),
-          hora: t.created_at ? new Date(String(t.created_at)).toLocaleString('es-MX') : '—',
-        })))
+      try {
+        const data = await getViaje(trip.dbId) as { notas_internas?: Record<string, unknown>[]; timeline_viaje?: Record<string, unknown>[] }
+        if (data.notas_internas) {
+          setNotes(data.notas_internas.map((n) => ({
+            autor: String(n.autor_nombre ?? 'Admin'),
+            texto: String(n.texto ?? ''),
+            hora: n.created_at ? new Date(String(n.created_at)).toLocaleString('es-MX') : '—',
+          })))
+        }
+        if (data.timeline_viaje) {
+          setTimeline(data.timeline_viaje.map((t) => ({
+            evento: String(t.evento ?? ''),
+            actor: String(t.actor ?? ''),
+            hora: t.created_at ? new Date(String(t.created_at)).toLocaleString('es-MX') : '—',
+          })))
+        }
+      } catch (e) {
+        console.error('Error cargando detalle del viaje:', e)
       }
       setCargandoExtras(false)
     }
@@ -564,16 +530,10 @@ function TripDetail({ trip, onClose }: { trip: Trip; onClose: () => void }) {
     setGuardandoNota(true)
     setErrorNota('')
     try {
-      const sb = getSupabaseBrowserClient()
       const texto = newNote.trim()
-      const { error } = await sb.from('notas_internas').insert({
-        entidad_tipo: 'viaje',
-        entidad_id: trip.dbId,
-        texto,
-        autor_nombre: 'Admin',
-      })
-      if (error) throw error
-      setNotes([...notes, { autor: 'Admin', texto, hora: 'Ahora' }])
+      const creada = await agregarNota(trip.dbId, texto) as { autor_nombre?: string; created_at?: string }
+      const hora = creada.created_at ? new Date(creada.created_at).toLocaleString('es-MX') : 'Ahora'
+      setNotes([...notes, { autor: creada.autor_nombre ?? 'Admin', texto, hora }])
       setNewNote('')
     } catch (e) {
       console.error('Error agregando nota:', e)
@@ -1012,11 +972,11 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   useEffect(() => {
     const cargarCatalogos = async () => {
       const sb = getSupabaseBrowserClient()
-      const [tsRes, empRes, usrRes, condRes, vehRes, tiposVehRes] = await Promise.all([
+      const [tsRes, empRes, usrRes, condData, vehRes, tiposVehRes] = await Promise.all([
         sb.from('tipos_servicio').select('id, nombre').eq('activo', true).order('nombre'),
         sb.from('empresas').select('id, nombre_comercial').eq('estatus', 'Activa').order('nombre_comercial'),
         sb.from('usuarios').select('id, nombre, apellido, telefono, email').order('nombre'),
-        sb.from('conductores').select('id, nombre, apellido').order('nombre'),
+        getConductores().catch(() => []),
         sb.from('vehiculos').select(`
           id, marca, modelo, placas, anio, color, vin, transmision,
           tipo_vehiculo, alias, observaciones,
@@ -1027,7 +987,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       if (tsRes.data) setTiposServicio(tsRes.data.map((t: Record<string, unknown>) => ({ id: String(t.id), nombre: String(t.nombre ?? '') })))
       if (empRes.data) setEmpresasLista(empRes.data.map((e: Record<string, unknown>) => ({ id: String(e.id), nombre: String(e.nombre_comercial ?? '') })))
       if (usrRes.data) setUsuariosLista(usrRes.data.map((u: Record<string, unknown>) => ({ id: String(u.id), nombre: String(u.nombre ?? ''), apellido: String(u.apellido ?? ''), telefono: u.telefono ? String(u.telefono) : null, email: String(u.email ?? '') })))
-      if (condRes.data) setConductoresLista(condRes.data.map((c: Record<string, unknown>) => ({ id: String(c.id), nombre: String(c.nombre ?? ''), apellido: String(c.apellido ?? '') })))
+      if (condData) setConductoresLista((condData as Record<string, unknown>[]).map((c) => ({ id: String(c.id), nombre: String(c.nombre ?? ''), apellido: String(c.apellido ?? '') })))
       if (vehRes.data) setVehiculosLista(vehRes.data.map((v: Record<string, unknown>) => ({
         id: String(v.id), marca: String(v.marca ?? ''), modelo: String(v.modelo ?? ''), placas: String(v.placas ?? ''),
         anio: v.anio ? String(v.anio) : null, color: v.color ? String(v.color) : null, vin: v.vin ? String(v.vin) : null,
@@ -1183,7 +1143,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 .filter(Boolean).join(', ').toUpperCase()
             : null
 
-          const { error: uError } = await sb.from('usuarios').insert({
+          const { data: usrCreado, error: uError } = await sb.from('usuarios').insert({
             nombre: form.usuarioNombre.toUpperCase(),
             apellido: form.usuarioApellido.toUpperCase(),
             curp: form.usuarioCurp.toUpperCase() || null,
@@ -1202,27 +1162,15 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
             regimen_fiscal: form.requiereFactura ? form.regimenFiscal : null,
             cfdi: form.requiereFactura ? form.cfdi : null,
             domicilio_fiscal: domicilioFiscalNuevo,
-          })
+          }).select('id').single()
           if (uError) throw uError
-
-          // No encadenamos .select().single() al insert (ver nota arriba sobre
-          // vehículos): buscamos la fila aparte por un criterio que sabemos
-          // único en este momento (email si lo capturaron, si no la
-          // combinación nombre+apellido+teléfono más reciente).
-          let usuarioQuery = sb.from('usuarios').select('id').order('created_at', { ascending: false }).limit(1)
-          usuarioQuery = form.email
-            ? usuarioQuery.eq('email', form.email.toLowerCase())
-            : usuarioQuery.eq('nombre', form.usuarioNombre.toUpperCase()).eq('apellido', form.usuarioApellido.toUpperCase())
-          const { data: usrCreado, error: uLecturaError } = await usuarioQuery.maybeSingle()
-          if (uLecturaError) throw uLecturaError
-          if (!usrCreado) throw new Error('El usuario se registró pero no se pudo recuperar su id. Verifica en la sección Usuarios.')
           usuarioId = usrCreado.id
         } else {
           usuarioId = form.clienteId
         }
       } else if (form.clienteTipo === 'empresa') {
         if (form.clienteId === 'nuevo') {
-          const { error: eError } = await sb.from('empresas').insert({
+          const { data: empCreada, error: eError } = await sb.from('empresas').insert({
             tipo: form.empresaTipo,
             razon_social: form.empresaRazonSocial.toUpperCase(),
             nombre_comercial: form.empresaNombreComercial.toUpperCase() || form.empresaRazonSocial.toUpperCase(),
@@ -1237,18 +1185,8 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
             credito_dias: parseInt(form.empresaCreditoDias) || 0,
             limite_credito: parseFloat(form.empresaLimiteCredito) || 0,
             estatus: 'Activa',
-          })
+          }).select('id').single()
           if (eError) throw eError
-
-          const { data: empCreada, error: eLecturaError } = await sb
-            .from('empresas')
-            .select('id')
-            .eq('rfc', form.empresaRfc.toUpperCase())
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          if (eLecturaError) throw eLecturaError
-          if (!empCreada) throw new Error('La empresa se registró pero no se pudo recuperar su id. Verifica en la sección Empresas.')
           empresaId = empCreada.id
         } else {
           empresaId = form.clienteId
@@ -1294,57 +1232,39 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       const conductorId: string | null = form.conductorId || null
 
       // 4. Crear el viaje
-      const { data: viaje, error } = await sb
-        .from('viajes')
-        .insert({
-          usuario_id: usuarioId,
-          empresa_id: empresaId,
-          conductor_id: conductorId,
-          vehiculo_id: vehiculoId,
-          tipo_servicio_id: form.tipoServicioId || null,
-          origen_calle: form.origenCalle.toUpperCase() || null,
-          origen_numero: form.origenNumero.toUpperCase() || null,
-          origen_colonia: form.origenColonia.toUpperCase() || null,
-          origen_estado: [form.origenMunicipio, form.origenEstado].filter(Boolean).join(', ').toUpperCase() || null,
-          origen_cp: form.origenCp || null,
-          origen_contacto: form.origenContactoNombre.toUpperCase() || null,
-          origen_telefono: form.origenContactoTel || null,
-          destino_calle: form.destinoCalle.toUpperCase() || null,
-          destino_numero: form.destinoNumero.toUpperCase() || null,
-          destino_colonia: form.destinoColonia.toUpperCase() || null,
-          destino_estado: [form.destinoMunicipio, form.destinoEstado].filter(Boolean).join(', ').toUpperCase() || null,
-          destino_cp: form.destinoCp || null,
-          destino_contacto: form.destinoContactoNombre.toUpperCase() || null,
-          destino_telefono: form.destinoContactoTel || null,
-          referencias: form.referencias || null,
-          instrucciones: form.instrucciones || null,
-          fecha_programada: form.fecha || null,
-          hora_programada: form.hora || null,
-          status: conductorId ? 'Conductor asignado' : 'Pendiente de asignación',
-          tarifa_cliente: parseFloat(form.tarifaCliente) || 0,
-          pago_conductor: parseFloat(form.pagoConductor) || 0,
-          gastos_autorizados: parseFloat(form.gastosAutorizados) || 0,
-        })
-        .select('id')
-        .single()
+      const viaje = await createViaje({
+        usuario_id: usuarioId,
+        empresa_id: empresaId,
+        conductor_id: conductorId,
+        vehiculo_id: vehiculoId,
+        tipo_servicio_id: form.tipoServicioId || null,
+        origen_calle: form.origenCalle.toUpperCase() || null,
+        origen_numero: form.origenNumero.toUpperCase() || null,
+        origen_colonia: form.origenColonia.toUpperCase() || null,
+        origen_estado: [form.origenMunicipio, form.origenEstado].filter(Boolean).join(', ').toUpperCase() || null,
+        origen_cp: form.origenCp || null,
+        origen_contacto: form.origenContactoNombre.toUpperCase() || null,
+        origen_telefono: form.origenContactoTel || null,
+        destino_calle: form.destinoCalle.toUpperCase() || null,
+        destino_numero: form.destinoNumero.toUpperCase() || null,
+        destino_colonia: form.destinoColonia.toUpperCase() || null,
+        destino_estado: [form.destinoMunicipio, form.destinoEstado].filter(Boolean).join(', ').toUpperCase() || null,
+        destino_cp: form.destinoCp || null,
+        destino_contacto: form.destinoContactoNombre.toUpperCase() || null,
+        destino_telefono: form.destinoContactoTel || null,
+        referencias: form.referencias || null,
+        instrucciones: form.instrucciones || null,
+        fecha_programada: form.fecha || null,
+        hora_programada: form.hora || null,
+        status: conductorId ? 'Conductor asignado' : 'Pendiente de asignación',
+        tarifa_cliente: parseFloat(form.tarifaCliente) || 0,
+        pago_conductor: parseFloat(form.pagoConductor) || 0,
+        gastos_autorizados: parseFloat(form.gastosAutorizados) || 0,
+      }, { evento: 'Viaje registrado por operaciones' })
 
-      if (error) throw error
-
-      // 5. Timeline y nota interna
-      await sb.from('timeline_viaje').insert({
-        viaje_id: viaje.id,
-        evento: 'Viaje registrado por operaciones',
-        actor: 'Admin',
-        actor_tipo: 'admin',
-      })
-
+      // 5. Nota interna (si se capturó una)
       if (form.notaInterna) {
-        await sb.from('notas_internas').insert({
-          entidad_tipo: 'viaje',
-          entidad_id: viaje.id,
-          texto: form.notaInterna,
-          autor_nombre: 'Admin',
-        })
+        await agregarNota(viaje.id, form.notaInterna)
       }
 
       onSave()
@@ -2155,34 +2075,11 @@ export default function ViajesView() {
   const [cargando, setCargando] = useState(true)
 
   const cargarViajes = async () => {
-    const sb = getSupabaseBrowserClient()
-    const { data, error } = await sb
-      .from('viajes')
-      .select(`
-        id, folio, status, fecha_programada, hora_programada,
-        conductor_id, usuario_id, empresa_id, vehiculo_id,
-        origen_calle, origen_numero, origen_colonia, origen_estado, origen_cp, origen_contacto, origen_telefono,
-        destino_calle, destino_numero, destino_colonia, destino_estado, destino_cp, destino_contacto, destino_telefono,
-        referencias, instrucciones,
-        tarifa_cliente, pago_conductor, gastos_extra, gastos_autorizados, ajustes,
-        observaciones_conductor, revision_admin,
-        conductores(nombre, apellido),
-        usuarios(nombre, apellido),
-        empresas(nombre_comercial),
-        vehiculos(marca, modelo, placas, anio, color, vin, transmision, tipo_vehiculo, alias, observaciones),
-        tipos_servicio(nombre)
-      `)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error cargando viajes:', error)
-    }
-    if (!error && data) {
-      // Diagnóstico temporal: confirma en la consola del navegador (F12) si
-      // los joins de usuario/empresa/conductor/vehículo realmente resuelven.
-      // Puedes quitar este console.log una vez confirmado.
-      console.log('[Viajes] muestra de datos crudos recibidos de Supabase:', data.slice(0, 3))
+    try {
+      const data = await getViajes()
       setTrips((data as ViajeDB[]).map(viajeDBaTrip))
+    } catch (e) {
+      console.error('Error cargando viajes:', e)
     }
     setCargando(false)
   }
@@ -2283,12 +2180,7 @@ export default function ViajesView() {
           color="green"
           onClose={() => { setActiveAction(null); setActionTrip(null) }}
           onConfirm={async () => {
-            const sb = getSupabaseBrowserClient()
-            const { error } = await sb.from('viajes').update({ status: 'Finalizado' }).eq('id', actionTrip.dbId)
-            if (error) throw error
-            await sb.from('timeline_viaje').insert({
-              viaje_id: actionTrip.dbId, evento: 'Viaje cerrado', actor: 'Admin', actor_tipo: 'admin',
-            })
+            await updateViajeStatus(actionTrip.dbId, 'Finalizado', { evento: 'Viaje cerrado' })
             setActiveAction(null)
             setActionTrip(null)
             cargarViajes()
@@ -2303,12 +2195,7 @@ export default function ViajesView() {
           color="red"
           onClose={() => { setActiveAction(null); setActionTrip(null) }}
           onConfirm={async () => {
-            const sb = getSupabaseBrowserClient()
-            const { error } = await sb.from('viajes').update({ status: 'Cancelado' }).eq('id', actionTrip.dbId)
-            if (error) throw error
-            await sb.from('timeline_viaje').insert({
-              viaje_id: actionTrip.dbId, evento: 'Viaje cancelado', actor: 'Admin', actor_tipo: 'admin',
-            })
+            await updateViajeStatus(actionTrip.dbId, 'Cancelado', { evento: 'Viaje cancelado' })
             setActiveAction(null)
             setActionTrip(null)
             cargarViajes()

@@ -18,7 +18,8 @@ export async function getViajes(filtros?: {
       conductores(id, nombre, apellido, telefono),
       usuarios(id, nombre, apellido, email, telefono),
       empresas(id, nombre_comercial),
-      vehiculos(id, marca, modelo, placas, transmision)
+      vehiculos(id, marca, modelo, placas, anio, color, vin, transmision, tipo_vehiculo, alias, observaciones),
+      tipos_servicio(nombre)
     `)
     .order('created_at', { ascending: false })
 
@@ -39,13 +40,16 @@ export async function getViaje(id: string) {
       conductores(id, nombre, apellido, telefono, calificacion, certificacion),
       usuarios(id, nombre, apellido, email, telefono),
       empresas(id, nombre_comercial, rfc),
-      vehiculos(id, marca, modelo, anio, color, placas, vin, transmision, observaciones),
+      vehiculos(id, marca, modelo, anio, color, placas, vin, transmision, tipo_vehiculo, alias, observaciones),
+      tipos_servicio(nombre),
       evidencias(*),
       incidencias(*),
       timeline_viaje(evento, actor, actor_tipo, created_at),
       notas_internas(autor_nombre, texto, created_at)
     `)
     .eq('id', id)
+    .order('created_at', { ascending: true, foreignTable: 'timeline_viaje' })
+    .order('created_at', { ascending: true, foreignTable: 'notas_internas' })
     .single()
 
   if (error) throw error
@@ -55,34 +59,41 @@ export async function getViaje(id: string) {
 // ── CREAR ───────────────────────────────────────────────────
 
 export async function createViaje(payload: {
-  usuario_id?: string
-  empresa_id?: string
-  vehiculo_id?: string
-  origen_calle: string
-  origen_numero?: string
-  origen_colonia?: string
-  origen_estado?: string
-  origen_cp?: string
-  origen_contacto?: string
-  origen_telefono?: string
-  destino_calle: string
-  destino_numero?: string
-  destino_colonia?: string
-  destino_estado?: string
-  destino_cp?: string
-  destino_contacto?: string
-  destino_telefono?: string
-  referencias?: string
-  instrucciones?: string
-  fecha_programada?: string
-  hora_programada?: string
+  usuario_id?: string | null
+  empresa_id?: string | null
+  conductor_id?: string | null
+  vehiculo_id?: string | null
+  tipo_servicio_id?: string | null
+  origen_calle: string | null
+  origen_numero?: string | null
+  origen_colonia?: string | null
+  origen_estado?: string | null
+  origen_cp?: string | null
+  origen_contacto?: string | null
+  origen_telefono?: string | null
+  destino_calle: string | null
+  destino_numero?: string | null
+  destino_colonia?: string | null
+  destino_estado?: string | null
+  destino_cp?: string | null
+  destino_contacto?: string | null
+  destino_telefono?: string | null
+  referencias?: string | null
+  instrucciones?: string | null
+  fecha_programada?: string | null
+  hora_programada?: string | null
   tarifa_cliente?: number
   pago_conductor?: number
   gastos_autorizados?: number
-}) {
+  // No hay un default razonable aquí: el admin crea viajes que pueden
+  // arrancar directo en "Pendiente de asignación" (o "Conductor asignado"
+  // si ya eligió conductor), mientras que la solicitud de un usuario final
+  // siempre arranca en "Solicitud recibida". Cada llamador decide.
+  status: EstatusViaje
+}, opts?: { evento?: string; actor?: string }) {
   const { data, error } = await supabase
     .from('viajes')
-    .insert({ ...payload, status: 'Solicitud recibida' })
+    .insert(payload)
     .select()
     .single()
 
@@ -91,8 +102,8 @@ export async function createViaje(payload: {
   // Registrar en timeline
   await supabase.from('timeline_viaje').insert({
     viaje_id: data.id,
-    evento: 'Solicitud creada',
-    actor: 'Admin',
+    evento: opts?.evento ?? 'Solicitud creada',
+    actor: opts?.actor ?? 'Admin',
     actor_tipo: 'admin',
   })
 
@@ -101,7 +112,11 @@ export async function createViaje(payload: {
 
 // ── ACTUALIZAR ──────────────────────────────────────────────
 
-export async function updateViajeStatus(id: string, status: EstatusViaje, actor = 'Admin') {
+export async function updateViajeStatus(
+  id: string,
+  status: EstatusViaje,
+  opts?: { actor?: string; evento?: string }
+) {
   const { data, error } = await supabase
     .from('viajes')
     .update({ status })
@@ -111,21 +126,38 @@ export async function updateViajeStatus(id: string, status: EstatusViaje, actor 
 
   if (error) throw error
 
-  // Registrar en timeline
+  // Registrar en timeline. Si no se pasa un evento explícito, se usa el
+  // texto genérico — pero la mayoría de los llamadores (finalizar,
+  // cancelar) sí pasan su propio texto para que el historial sea legible.
   await supabase.from('timeline_viaje').insert({
     viaje_id: id,
-    evento: `Estatus cambiado a: ${status}`,
-    actor,
+    evento: opts?.evento ?? `Estatus cambiado a: ${status}`,
+    actor: opts?.actor ?? 'Admin',
     actor_tipo: 'admin',
   })
 
   return data
 }
 
-export async function asignarConductor(viajeId: string, conductorId: string) {
+export async function asignarConductor(
+  viajeId: string,
+  conductorId: string,
+  opts: { statusActual: EstatusViaje; teniaConductorPrevio: boolean; actorNombre?: string }
+) {
+  // Solo se fuerza el estatus a "Conductor asignado" si el viaje todavía
+  // no había avanzado operativamente. Si ya estaba en curso (reasignación
+  // a mitad de viaje), se conserva el estatus actual para no retroceder
+  // el progreso ya hecho.
+  const estatusesTempranos: EstatusViaje[] = [
+    'Solicitud recibida', 'Pendiente de revisión', 'Pendiente de asignación',
+  ]
+  const nuevoStatus: EstatusViaje = estatusesTempranos.includes(opts.statusActual)
+    ? 'Conductor asignado'
+    : opts.statusActual
+
   const { data, error } = await supabase
     .from('viajes')
-    .update({ conductor_id: conductorId, status: 'Conductor asignado' })
+    .update({ conductor_id: conductorId, status: nuevoStatus })
     .eq('id', viajeId)
     .select()
     .single()
@@ -134,8 +166,28 @@ export async function asignarConductor(viajeId: string, conductorId: string) {
 
   await supabase.from('timeline_viaje').insert({
     viaje_id: viajeId,
-    evento: 'Conductor asignado',
-    actor: 'Admin',
+    evento: opts.teniaConductorPrevio ? 'Conductor reasignado' : 'Conductor asignado',
+    actor: opts.actorNombre ?? 'Admin',
+    actor_tipo: 'admin',
+  })
+
+  return data
+}
+
+export async function actualizarFechaViaje(id: string, fecha: string, hora: string, actor = 'Admin') {
+  const { data, error } = await supabase
+    .from('viajes')
+    .update({ fecha_programada: fecha, hora_programada: hora })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  await supabase.from('timeline_viaje').insert({
+    viaje_id: id,
+    evento: 'Fecha y hora actualizadas',
+    actor,
     actor_tipo: 'admin',
   })
 
