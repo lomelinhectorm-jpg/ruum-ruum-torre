@@ -548,13 +548,14 @@ export default function EvidenciaView() {
     const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('evidencias')
-      .select(`id, estatus, km_inicial, km_final, combustible_inicial, combustible_final, danos_iniciales, danos_finales, nota_aclaracion, created_at, foto_frente_i, foto_piloto_i, foto_copiloto_i, foto_trasera_i, foto_tablero_i, foto_frente_f, foto_piloto_f, foto_copiloto_f, foto_trasera_f, foto_tablero_f, viajes(folio, fecha_programada), conductores(nombre,apellido), vehiculos(marca,modelo,placas)`)
+      .select(`id, estatus, km_inicial, km_final, combustible_inicial, combustible_final, danos_iniciales, danos_finales, nota_aclaracion, created_at, foto_frente_i, foto_piloto_i, foto_copiloto_i, foto_trasera_i, foto_tablero_i, foto_frente_f, foto_piloto_f, foto_copiloto_f, foto_trasera_f, foto_tablero_f, viajes(folio, fecha_programada, vehiculos(marca,modelo,placas)), conductores(nombre,apellido)`)
       .order('created_at', { ascending: false })
+    if (error) console.error('Error cargando evidencias:', error)
     if (!error && data) {
       setEvidencias((data as Record<string,unknown>[]).map(e => {
         const v = e.viajes as Record<string,string>|null
         const c = e.conductores as Record<string,string>|null
-        const vh = e.vehiculos as Record<string,string>|null
+        const vh = v?.vehiculos as unknown as Record<string,string>|null
         return {
           _id: String(e.id??''),
           id: String(e.id??'').slice(0,8).toUpperCase(),
