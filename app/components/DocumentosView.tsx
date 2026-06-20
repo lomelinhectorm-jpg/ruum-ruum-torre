@@ -63,6 +63,23 @@ const TODOS_ESTATUS: EstatusDoc[] = ['Pendiente','En revisión','Vigente','Recha
 const TIPOS_DOC: TipoDoc[] = ['Licencia','INE / Pasaporte','Comprobante domicilio','Alta SAT / CIF','Tarjeta circulación','Verificación','Seguro vehicular','Contrato','Otro']
 const TIPOS_ENTIDAD: TipoEntidad[] = ['Conductor','Usuario','Empresa','Vehículo']
 
+function normalizarTipoDoc(valor: string): TipoDoc {
+  const mapa: Record<string, TipoDoc> = {
+    'Licencia de conducir': 'Licencia',
+    'Identificación oficial': 'INE / Pasaporte',
+    'Comprobante de domicilio': 'Comprobante domicilio',
+  }
+  return mapa[valor] ?? (TIPOS_DOC.includes(valor as TipoDoc) ? valor as TipoDoc : 'Otro')
+}
+
+function normalizarEstatusDoc(valor: string): EstatusDoc {
+  const mapa: Record<string, EstatusDoc> = {
+    'Pendiente de carga': 'Pendiente',
+    Aprobado: 'Vigente',
+  }
+  return mapa[valor] ?? (TODOS_ESTATUS.includes(valor as EstatusDoc) ? valor as EstatusDoc : 'Pendiente')
+}
+
 const entidadIcon: Record<TipoEntidad, React.ReactNode> = {
   Conductor: <TruckIcon className="w-3.5 h-3.5" />,
   Usuario:   <IdentificationIcon className="w-3.5 h-3.5" />,
@@ -427,12 +444,12 @@ export default function DocumentosView() {
       return {
         _id: r.id as string,
         id: `DOC-${String(i+1).padStart(4, '0')}`,
-        tipo: (r.tipo_doc as TipoDoc) || 'Otro',
+        tipo: normalizarTipoDoc(String(r.tipo_doc ?? 'Otro')),
         entidad: (r.entidad_tipo as TipoEntidad) || 'Conductor',
         entidadNombre: (r.entidad_id as string) || '—',
         folio: (r.folio as string) || '—',
         vigencia: fmt(r.fecha_vencimiento as string),
-        estatus: (r.estatus as EstatusDoc) || 'Pendiente',
+        estatus: normalizarEstatusDoc(String(r.estatus ?? 'Pendiente')),
         fechaCarga: fmt(r.created_at as string),
         revisadoPor: (r.revisado_por as string) || '—',
         notas: (r.nota_rechazo as string) || '',
