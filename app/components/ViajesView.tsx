@@ -990,6 +990,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
+  const [credencialesUsuarioNuevo, setCredencialesUsuarioNuevo] = useState<{ email: string; password: string } | null>(null)
 
   // ── Catálogos reales desde Supabase ──────────────────────────────────────
   const [tiposServicio, setTiposServicio] = useState<{ id: string; nombre: string }[]>([])
@@ -1168,6 +1169,7 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
 
     try {
     const sb = getSupabaseBrowserClient()
+    let credencialesGeneradas: { email: string; password: string } | null = null
 
       // 1. Usuario / Empresa: resolver primero el cliente real para vincular vehículo y viaje.
       let usuarioId: string | null = null
@@ -1179,28 +1181,40 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
                 .filter(Boolean).join(', ').toUpperCase()
             : null
 
-          const { data: usrCreado, error: uError } = await sb.from('usuarios').insert({
-            nombre: form.usuarioNombre.toUpperCase(),
-            apellido: form.usuarioApellido.toUpperCase(),
-            curp: form.usuarioCurp.toUpperCase() || null,
-            telefono: form.telefono || null,
-            email: form.email.toLowerCase() || null,
-            tipo: form.usuarioTipo || 'Personal',
-            estatus: 'Activo',
-            calle: form.usuarioCalle.toUpperCase() || null,
-            numero: form.usuarioNumero.toUpperCase() || null,
-            colonia: form.usuarioColonia.toUpperCase() || null,
-            municipio: form.usuarioMunicipio.toUpperCase() || null,
-            estado_geo: form.usuarioEstado.toUpperCase() || null,
-            codigo_postal: form.usuarioCp || null,
-            razon_social: form.requiereFactura ? form.razonSocial.toUpperCase() : null,
-            rfc: form.requiereFactura ? form.rfc.toUpperCase() : null,
-            regimen_fiscal: form.requiereFactura ? form.regimenFiscal : null,
-            cfdi: form.requiereFactura ? form.cfdi : null,
-            domicilio_fiscal: domicilioFiscalNuevo,
-          }).select('id').single()
-          if (uError) throw uError
-          usuarioId = usrCreado.id
+          const respUsuario = await fetch('/api/crear-usuario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              perfil: {
+                nombre: form.usuarioNombre.toUpperCase(),
+                apellido: form.usuarioApellido.toUpperCase(),
+                curp: form.usuarioCurp.toUpperCase() || null,
+                telefono: form.telefono || null,
+                email: form.email.toLowerCase(),
+                tipo: form.usuarioTipo || 'Personal',
+                estatus: 'Activo',
+                calle: form.usuarioCalle.toUpperCase() || null,
+                numero: form.usuarioNumero.toUpperCase() || null,
+                colonia: form.usuarioColonia.toUpperCase() || null,
+                municipio: form.usuarioMunicipio.toUpperCase() || null,
+                estado_geo: form.usuarioEstado.toUpperCase() || null,
+                codigo_postal: form.usuarioCp || null,
+                razon_social: form.requiereFactura ? form.razonSocial.toUpperCase() : null,
+                rfc: form.requiereFactura ? form.rfc.toUpperCase() : null,
+                regimen_fiscal: form.requiereFactura ? form.regimenFiscal : null,
+                cfdi: form.requiereFactura ? form.cfdi : null,
+                domicilio_fiscal: domicilioFiscalNuevo,
+              },
+            }),
+          })
+          const dataUsuario = await respUsuario.json().catch(() => null) as { error?: string; userId?: string; password?: string } | null
+          if (!respUsuario.ok || !dataUsuario?.userId) {
+            throw new Error(dataUsuario?.error ?? 'No se pudo crear el usuario.')
+          }
+          usuarioId = dataUsuario.userId
+          if (dataUsuario.password) {
+            credencialesGeneradas = { email: form.email.toLowerCase(), password: dataUsuario.password }
+          }
         } else {
           usuarioId = form.clienteId
         }
@@ -1304,7 +1318,14 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
       }
 
       onSave()
-      onClose()
+      if (credencialesGeneradas) {
+        // No cerramos todavía: el admin debe ver y copiar la contraseña
+        // provisional antes de perder la oportunidad (no se vuelve a
+        // mostrar). onClose() ocurre cuando confirme desde esa pantalla.
+        setCredencialesUsuarioNuevo(credencialesGeneradas)
+      } else {
+        onClose()
+      }
 
     } catch (e: unknown) {
       console.error('Error guardando viaje:', e)
@@ -1337,6 +1358,46 @@ function NuevoViajeForm({ onClose, onSave }: { onClose: () => void; onSave: () =
   )
 
   const margen = (parseFloat(form.tarifaCliente) || 0) - (parseFloat(form.pagoConductor) || 0) - (parseFloat(form.gastosAutorizados) || 0)
+
+  // ── Pantalla de credenciales (se muestra si el paso 1 creó un usuario nuevo) ──
+  if (credencialesUsuarioNuevo) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="px-6 py-5 border-b border-slate-200 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-xl">✓</div>
+            <div>
+              <h2 className="font-bold text-slate-800 text-lg">Viaje y usuario creados</h2>
+              <p className="text-xs text-slate-400">Comparte estas credenciales con el cliente de forma segura</p>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Correo</p>
+                <p className="text-sm font-medium text-slate-800">{credencialesUsuarioNuevo.email}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Contraseña temporal</p>
+                <p className="text-lg font-mono font-bold text-slate-800 tracking-wide">{credencialesUsuarioNuevo.password}</p>
+              </div>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">
+              ⚠️ Esta contraseña no se mostrará de nuevo. El cliente deberá cambiarla en su primer inicio de sesión dentro de la app.
+            </p>
+            <button onClick={() => { navigator.clipboard.writeText(`Correo: ${credencialesUsuarioNuevo.email}\nContraseña temporal: ${credencialesUsuarioNuevo.password}`) }}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg text-sm transition-colors">
+              Copiar credenciales
+            </button>
+            <button onClick={onClose}
+              className="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-lg text-sm transition-colors">
+              Listo, ya las anoté
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
