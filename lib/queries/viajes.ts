@@ -19,7 +19,9 @@ export async function getViajes(filtros?: {
       usuarios(id, nombre, apellido, email, telefono),
       empresas(id, nombre_comercial),
       vehiculos(id, marca, modelo, placas, anio, color, vin, transmision, tipo_vehiculo, alias, observaciones),
-      tipos_servicio(nombre)
+      tipos_servicio(nombre),
+      evidencias(id, estatus),
+      incidencias(id, estatus)
     `)
     .order('created_at', { ascending: false })
 
@@ -155,35 +157,19 @@ export async function updateViajeStatus(
 export async function asignarConductor(
   viajeId: string,
   conductorId: string,
-  opts: { statusActual: EstatusViaje; teniaConductorPrevio: boolean; actorNombre?: string }
+  opts: { statusActual: EstatusViaje; teniaConductorPrevio: boolean; actorNombre?: string; motivo?: string }
 ) {
-  // Solo se fuerza el estatus a "Conductor asignado" si el viaje todavía
-  // no había avanzado operativamente. Si ya estaba en curso (reasignación
-  // a mitad de viaje), se conserva el estatus actual para no retroceder
-  // el progreso ya hecho.
-  const estatusesTempranos: EstatusViaje[] = [
-    'Solicitud recibida', 'Pendiente de revisión', 'Pendiente de asignación',
-  ]
-  const nuevoStatus: EstatusViaje = estatusesTempranos.includes(opts.statusActual)
-    ? 'Conductor asignado'
-    : opts.statusActual
-
-  const { data, error } = await supabase
-    .from('viajes')
-    .update({ conductor_id: conductorId, status: nuevoStatus })
-    .eq('id', viajeId)
-    .select()
-    .single()
-
-  if (error) throw error
-
-  await supabase.from('timeline_viaje').insert({
-    viaje_id: viajeId,
-    evento: opts.teniaConductorPrevio ? 'Conductor reasignado' : 'Conductor asignado',
-    actor: opts.actorNombre ?? 'Admin',
-    actor_tipo: 'admin',
+  // La función SQL valida el estado real bajo bloqueo de fila. En estados
+  // operativos también registra conductor anterior/nuevo y motivo antes de
+  // cambiar la asignación, sin modificar evidencia ni pagos históricos.
+  const { data, error } = await supabase.rpc('asignar_conductor_admin', {
+    p_viaje_id: viajeId,
+    p_conductor_nuevo: conductorId,
+    p_motivo: opts.motivo ?? null,
+    p_actor_nombre: opts.actorNombre ?? 'Admin',
   })
 
+  if (error) throw error
   return data
 }
 

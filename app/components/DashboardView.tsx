@@ -72,7 +72,6 @@ const alertDot: Record<string, string> = {
 
 const statusStyle: Record<string, string> = {
   'Solicitud recibida':         'bg-slate-100 text-slate-600',
-  'Pendiente de revisión':      'bg-slate-100 text-slate-600',
   'Pendiente de asignación':    'bg-amber-100 text-amber-700',
   'Conductor asignado':         'bg-[#E8EFFF] text-rr-traceDeep',
   'Conductor en camino':        'bg-[#E8EFFF] text-rr-traceDeep',

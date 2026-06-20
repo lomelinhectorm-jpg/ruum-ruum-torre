@@ -27,7 +27,6 @@ type TabId = 'todos' | 'pendientes' | 'programados' | 'en-curso' | 'finalizados'
 
 type StatusKey =
   | 'Solicitud recibida'
-  | 'Pendiente de revisión'
   | 'Pendiente de asignación'
   | 'Conductor asignado'
   | 'Conductor en camino'
@@ -90,7 +89,7 @@ interface Trip {
 
 const tabStatusMap: Record<TabId, StatusKey[]> = {
   todos: [],
-  pendientes: ['Solicitud recibida', 'Pendiente de revisión', 'Pendiente de asignación'],
+  pendientes: ['Solicitud recibida', 'Pendiente de asignación'],
   programados: ['Conductor asignado'],
   'en-curso': ['Conductor en camino', 'Recolección en proceso', 'Evidencia inicial pendiente', 'Traslado en curso', 'Entrega en proceso', 'Evidencia final pendiente'],
   finalizados: ['Finalizado'],
@@ -100,7 +99,6 @@ const tabStatusMap: Record<TabId, StatusKey[]> = {
 
 const statusStyle: Record<string, string> = {
   'Solicitud recibida': 'bg-slate-100 text-slate-600',
-  'Pendiente de revisión': 'bg-slate-100 text-slate-600',
   'Pendiente de asignación': 'bg-amber-100 text-amber-700',
   'Conductor asignado': 'bg-[#E8EFFF] text-rr-traceDeep',
   'Conductor en camino': 'bg-[#E8EFFF] text-rr-traceDeep',
@@ -120,12 +118,10 @@ const evidenciaStyle: Record<string, string> = {
   Pendiente: 'bg-slate-100 text-slate-500',
 }
 
-// ─── ALL STATUS OPTIONS ───────────────────────────────────────────────────────
-const ALL_STATUSES: StatusKey[] = [
-  'Solicitud recibida', 'Pendiente de revisión', 'Pendiente de asignación',
-  'Conductor asignado', 'Conductor en camino', 'Recolección en proceso',
-  'Evidencia inicial pendiente', 'Traslado en curso', 'Entrega en proceso',
-  'Evidencia final pendiente', 'Finalizado', 'Cancelado', 'En revisión por incidencia',
+const TERMINAL_STATUSES: StatusKey[] = ['Finalizado', 'Cancelado']
+const REASSIGNABLE_STATUSES: StatusKey[] = [
+  'Conductor en camino', 'Recolección en proceso', 'Evidencia inicial pendiente',
+  'Traslado en curso', 'Entrega en proceso', 'Evidencia final pendiente',
 ]
 
 // ─── ACTION TYPES ─────────────────────────────────────────────────────────────
@@ -135,15 +131,17 @@ type ActionId =
 
 // ─── MODAL COMPONENTS ─────────────────────────────────────────────────────────
 function ActionMenu({ trip, onClose, onAction }: { trip: Trip; onClose: () => void; onAction: (a: ActionId) => void }) {
+  const terminal = TERMINAL_STATUSES.includes(trip.status)
+  const puedeCambiarConductor = !trip.conductorId || trip.status === 'Conductor asignado' || REASSIGNABLE_STATUSES.includes(trip.status)
   const actions: { id: ActionId; icon: typeof EyeIcon; label: string; color: string; hidden?: boolean }[] = [
     { id: 'detalle', icon: EyeIcon, label: 'Ver detalle completo', color: 'blue' },
-    { id: 'asignar-conductor', icon: UserPlusIcon, label: 'Asignar conductor', color: 'indigo', hidden: !!trip.conductorId },
-    { id: 'asignar-conductor', icon: ArrowsRightLeftIcon, label: 'Cambiar conductor', color: 'indigo', hidden: !trip.conductorId },
-    { id: 'editar-fecha', icon: CalendarDaysIcon, label: 'Editar fecha y hora', color: 'slate' },
-    { id: 'incidencia', icon: ExclamationTriangleIcon, label: 'Registrar incidencia', color: 'amber' },
-    { id: 'finalizar', icon: CheckCircleIcon, label: 'Marcar como finalizado', color: 'green', hidden: trip.status === 'Finalizado' || trip.status === 'Cancelado' },
-    { id: 'nota', icon: DocumentTextIcon, label: 'Agregar nota interna', color: 'slate' },
-    { id: 'cancelar', icon: XCircleIcon, label: 'Cancelar viaje', color: 'red', hidden: trip.status === 'Finalizado' || trip.status === 'Cancelado' },
+    { id: 'asignar-conductor', icon: UserPlusIcon, label: 'Asignar conductor', color: 'indigo', hidden: terminal || !!trip.conductorId },
+    { id: 'asignar-conductor', icon: ArrowsRightLeftIcon, label: 'Cambiar conductor', color: 'indigo', hidden: terminal || !trip.conductorId || !puedeCambiarConductor },
+    { id: 'editar-fecha', icon: CalendarDaysIcon, label: 'Editar fecha y hora', color: 'slate', hidden: terminal },
+    { id: 'incidencia', icon: ExclamationTriangleIcon, label: 'Registrar incidencia', color: 'amber', hidden: terminal },
+    { id: 'finalizar', icon: CheckCircleIcon, label: 'Marcar como finalizado', color: 'green', hidden: terminal },
+    { id: 'nota', icon: DocumentTextIcon, label: 'Agregar nota interna', color: 'slate', hidden: terminal },
+    { id: 'cancelar', icon: XCircleIcon, label: 'Cancelar viaje', color: 'red', hidden: terminal },
   ]
   const colorCls: Record<string, string> = {
     blue: 'text-rr-trace hover:bg-[#E8EFFF]', indigo: 'text-indigo-600 hover:bg-indigo-50',
@@ -182,6 +180,18 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
   const [seleccionado, setSeleccionado] = useState(trip.conductorId ?? '')
   const [guardando, setGuardando] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [motivo, setMotivo] = useState('')
+  const esReasignacion = !!trip.conductorId && REASSIGNABLE_STATUSES.includes(trip.status)
+  const conductoresOrdenados = [...conductores].sort((a, b) => {
+    const prioridadA = a.disponibilidad === 'Disponible' ? 0 : 1
+    const prioridadB = b.disponibilidad === 'Disponible' ? 0 : 1
+    if (prioridadA !== prioridadB) return prioridadA - prioridadB
+    return `${a.nombre} ${a.apellido}`.localeCompare(`${b.nombre} ${b.apellido}`, 'es')
+  })
+  const conductorSeleccionado = conductores.find(c => c.id === seleccionado)
+  const disponibilidadAdvertida = conductorSeleccionado && ['No disponible', 'En viaje'].includes(conductorSeleccionado.disponibilidad)
+    ? conductorSeleccionado.disponibilidad
+    : null
 
   useEffect(() => {
     const cargar = async () => {
@@ -198,6 +208,8 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
 
   const guardar = async () => {
     if (!seleccionado) { setErrorMsg('Selecciona un conductor'); return }
+    if (seleccionado === trip.conductorId) { setErrorMsg('Selecciona un conductor diferente'); return }
+    if (esReasignacion && !motivo.trim()) { setErrorMsg('Indica el motivo de la reasignación'); return }
     setGuardando(true)
     setErrorMsg('')
     try {
@@ -206,6 +218,7 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
         statusActual: trip.status,
         teniaConductorPrevio: !!trip.conductorId,
         actorNombre: conductor ? `${conductor.nombre} ${conductor.apellido}` : 'Admin',
+        motivo: esReasignacion ? motivo.trim() : undefined,
       })
 
       onSaved()
@@ -229,10 +242,28 @@ function AsignarConductorModal({ trip, onClose, onSaved }: { trip: Trip; onClose
           <select value={seleccionado} onChange={e => setSeleccionado(e.target.value)} disabled={cargando}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route bg-white">
             <option value="">{cargando ? 'Cargando...' : 'Seleccionar conductor...'}</option>
-            {conductores.map(c => (
+            {conductoresOrdenados.map(c => (
               <option key={c.id} value={c.id}>{c.nombre} {c.apellido} · {c.disponibilidad}</option>
             ))}
           </select>
+          {disponibilidadAdvertida && (
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0" />
+              <p>
+                Este conductor está <strong>{disponibilidadAdvertida.toLowerCase()}</strong>.
+                Puedes continuar si existe una razón operativa.
+              </p>
+            </div>
+          )}
+          {esReasignacion && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Motivo de la reasignación</label>
+              <textarea value={motivo} onChange={e => setMotivo(e.target.value)} rows={3}
+                placeholder="Ej. incapacidad médica del conductor original"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route resize-none" />
+              <p className="text-xs text-slate-400 mt-1">La evidencia y los pagos existentes conservarán al conductor original.</p>
+            </div>
+          )}
           {!cargando && conductores.length === 0 && (
             <p className="text-xs text-amber-500">No hay conductores capturados.</p>
           )}
@@ -1996,6 +2027,19 @@ interface ViajeDB {
   empresas: JoinOne<{ nombre_comercial: string }>
   vehiculos: JoinOne<{ marca: string; modelo: string; placas: string; anio: string | null; color: string | null; vin: string | null; transmision: string | null; tipo_vehiculo: string | null; alias: string | null; observaciones: string | null }>
   tipos_servicio: JoinOne<{ nombre: string }>
+  evidencias: { id: string; estatus: string | null }[] | null
+  incidencias: { id: string; estatus: string | null }[] | null
+}
+
+function resumenEvidencias(evidencias: ViajeDB['evidencias']): Trip['evidencia'] {
+  if (!evidencias?.length) return 'Pendiente'
+
+  const estatuses = evidencias.map(e => e.estatus ?? 'Pendiente')
+  if (estatuses.some(e => ['Incompleta', 'Rechazada', 'Relacionada con incidencia'].includes(e))) {
+    return 'Incompleta'
+  }
+  if (estatuses.every(e => ['Completa', 'Aprobada'].includes(e))) return 'Completa'
+  return 'Pendiente'
 }
 
 function viajeDBaTrip(v: ViajeDB): Trip {
@@ -2059,8 +2103,8 @@ function viajeDBaTrip(v: ViajeDB): Trip {
     gastosExtra: v.gastos_extra ?? 0,
     gastosAutorizados: v.gastos_autorizados ?? 0,
     ajustes: v.ajustes ?? 0,
-    evidencia: 'Pendiente',
-    incidencias: 0,
+    evidencia: resumenEvidencias(v.evidencias),
+    incidencias: v.incidencias?.length ?? 0,
     tipoServicio: tipoServicio?.nombre ?? '—',
     timeline: [], notas: [],
     observacionesConductor: v.observaciones_conductor ?? '',

@@ -39,23 +39,38 @@ create trigger trg_estados_viaje_updated_at
 before update on public.estados_viaje
 for each row execute function public.set_updated_at();
 
--- ─── Seed: los 13 estados exactos del ciclo de vida de un viaje ───────────
+-- ─── Migración + seed: los 12 estados del ciclo de vida de un viaje ───────
+-- Los viajes históricos en el estado retirado continúan por el siguiente
+-- paso operativo útil.
+update public.viajes
+set status = 'Pendiente de asignación'
+where status = 'Pendiente de revisión';
+
+delete from public.estados_viaje where nombre = 'Pendiente de revisión';
+
+-- Evita colisiones temporales con el índice único de `orden` al reenumerar.
+update public.estados_viaje set orden = orden + 100 where orden < 100;
+
 insert into public.estados_viaje (orden, nombre, siguiente, color, auto, activo)
 values
-  (1,  'Solicitud recibida',          'Pendiente de revisión',        'slate',  true,  true),
-  (2,  'Pendiente de revisión',       'Pendiente de asignación',      'slate',  false, true),
-  (3,  'Pendiente de asignación',     'Conductor asignado',           'amber',  false, true),
-  (4,  'Conductor asignado',          'Conductor en camino',          'blue',   false, true),
-  (5,  'Conductor en camino',         'Recolección en proceso',       'blue',   false, true),
-  (6,  'Recolección en proceso',      'Evidencia inicial pendiente',  'indigo', false, true),
-  (7,  'Evidencia inicial pendiente', 'Traslado en curso',            'orange', false, true),
-  (8,  'Traslado en curso',           'Entrega en proceso',           'purple', false, true),
-  (9,  'Entrega en proceso',          'Evidencia final pendiente',    'violet', false, true),
-  (10, 'Evidencia final pendiente',   'Finalizado',                   'orange', false, true),
-  (11, 'Finalizado',                  '—',                            'green',  false, true),
-  (12, 'Cancelado',                   '—',                            'red',    false, true),
-  (13, 'En revisión por incidencia',  'Finalizado / Cancelado',       'rose',   false, true)
-on conflict (nombre) do nothing;
+  (1,  'Solicitud recibida',          'Pendiente de asignación',      'slate',  true,  true),
+  (2,  'Pendiente de asignación',     'Conductor asignado',           'amber',  false, true),
+  (3,  'Conductor asignado',          'Conductor en camino',          'blue',   false, true),
+  (4,  'Conductor en camino',         'Recolección en proceso',       'blue',   false, true),
+  (5,  'Recolección en proceso',      'Evidencia inicial pendiente',  'indigo', false, true),
+  (6,  'Evidencia inicial pendiente', 'Traslado en curso',            'orange', false, true),
+  (7,  'Traslado en curso',           'Entrega en proceso',           'purple', false, true),
+  (8,  'Entrega en proceso',          'Evidencia final pendiente',    'violet', false, true),
+  (9,  'Evidencia final pendiente',   'Finalizado',                   'orange', false, true),
+  (10, 'Finalizado',                  '—',                            'green',  false, true),
+  (11, 'Cancelado',                   '—',                            'red',    false, true),
+  (12, 'En revisión por incidencia',  'Finalizado / Cancelado',       'rose',   false, true)
+on conflict (nombre) do update set
+  orden = excluded.orden,
+  siguiente = excluded.siguiente,
+  color = excluded.color,
+  auto = excluded.auto,
+  activo = excluded.activo;
 
 -- ─── RLS: mismo patrón que el resto del proyecto (is_admin()) ─────────────
 -- Requiere que la función public.is_admin() ya exista (ver docs/security-rls-checklist.md).
