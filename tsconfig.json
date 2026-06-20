@@ -34,7 +34,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "../ruum-ruum-usuario/components/views/ViewPasswoordObligatorio.tsx"  ],
   "exclude": [
     "node_modules"
   ]

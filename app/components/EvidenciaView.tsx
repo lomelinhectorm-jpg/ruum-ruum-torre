@@ -28,6 +28,9 @@ type EstatusEvidencia =
 
 interface FotoItem {
   label: string
+  columna: string
+  pathInicial: string | null
+  pathFinal: string | null
   inicial: boolean
   final: boolean
 }
@@ -62,11 +65,11 @@ interface EvidenciaViaje {
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const FOTOS_BASE: FotoItem[] = [
-  { label: 'Frente',   inicial: false, final: false },
-  { label: 'Lado piloto',   inicial: false, final: false },
-  { label: 'Lado copiloto', inicial: false, final: false },
-  { label: 'Trasera',  inicial: false, final: false },
-  { label: 'Tablero',  inicial: false, final: false },
+  { label: 'Frente',       columna: 'frente',   inicial: false, final: false, pathInicial: null, pathFinal: null },
+  { label: 'Lado piloto',  columna: 'piloto',   inicial: false, final: false, pathInicial: null, pathFinal: null },
+  { label: 'Lado copiloto',columna: 'copiloto', inicial: false, final: false, pathInicial: null, pathFinal: null },
+  { label: 'Trasera',      columna: 'trasera',  inicial: false, final: false, pathInicial: null, pathFinal: null },
+  { label: 'Tablero',      columna: 'tablero',  inicial: false, final: false, pathInicial: null, pathFinal: null },
 ]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -106,20 +109,21 @@ function CombustibleBar({ nivel }: { nivel: string }) {
   )
 }
 
-function FotoGrid({ fotos, tipo }: { fotos: FotoItem[]; tipo: 'inicial' | 'final' }) {
+function FotoGrid({ fotos, tipo, urls }: { fotos: FotoItem[]; tipo: 'inicial' | 'final'; urls: Record<string, string> }) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
       {fotos.map((f, i) => {
-        const ok = tipo === 'inicial' ? f.inicial : f.final
+        const path = tipo === 'inicial' ? f.pathInicial : f.pathFinal
+        const url = path ? urls[`${f.columna}_${tipo}`] : null
         return (
-          <div key={i} className={`rounded-xl border-2 flex flex-col items-center justify-center aspect-square cursor-pointer transition-all ${
-            ok ? 'border-slate-200 bg-slate-100 hover:bg-slate-200' : 'border-dashed border-slate-300 bg-slate-50'
+          <a key={i} href={url ?? undefined} target="_blank" rel="noreferrer"
+            className={`relative rounded-xl border-2 flex flex-col items-center justify-center aspect-square overflow-hidden transition-all ${
+            url ? 'border-slate-200 hover:opacity-90 cursor-pointer' : 'border-dashed border-slate-300 bg-slate-50 cursor-default'
           }`}>
-            {ok ? (
+            {url ? (
               <>
-                <CameraIcon className="w-6 h-6 text-slate-400 mb-1" />
-                <span className="text-xs text-slate-500 font-medium text-center leading-tight px-1">{f.label}</span>
-                <span className="text-xs text-green-600 mt-0.5">✓</span>
+                <img src={url} alt={f.label} className="absolute inset-0 w-full h-full object-cover" />
+                <span className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-[10px] font-medium text-center py-0.5 px-1 truncate">{f.label}</span>
               </>
             ) : (
               <>
@@ -128,7 +132,7 @@ function FotoGrid({ fotos, tipo }: { fotos: FotoItem[]; tipo: 'inicial' | 'final
                 <span className="text-xs text-slate-300 mt-0.5">—</span>
               </>
             )}
-          </div>
+          </a>
         )
       })}
     </div>
@@ -164,6 +168,27 @@ function EvidenciaDetalle({
   const [historial, setHistorial] = useState(ev.historial)
   const [vista, setVista] = useState<'comparar' | 'inicial' | 'final'>('comparar')
   const [guardando, setGuardando] = useState(false)
+  const [urlsFotos, setUrlsFotos] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    const cargarUrls = async () => {
+      const sb = getSupabaseBrowserClient()
+      const pares: { key: string; path: string }[] = []
+      ev.fotos.forEach(f => {
+        if (f.pathInicial) pares.push({ key: `${f.columna}_inicial`, path: f.pathInicial })
+        if (f.pathFinal) pares.push({ key: `${f.columna}_final`, path: f.pathFinal })
+      })
+      const resultados = await Promise.all(
+        pares.map(p => sb.storage.from('evidencias-viaje').createSignedUrl(p.path, 3600))
+      )
+      const nuevas: Record<string, string> = {}
+      resultados.forEach((r, i) => {
+        if (r.data?.signedUrl) nuevas[pares[i].key] = r.data.signedUrl
+      })
+      setUrlsFotos(nuevas)
+    }
+    cargarUrls()
+  }, [ev.fotos])
 
   const addHistorial = (evento: string) =>
     setHistorial(h => [...h, { evento, hora: 'Ahora', actor: 'Admin' }])
@@ -274,14 +299,14 @@ function EvidenciaDetalle({
                     <p className="text-sm font-semibold text-slate-700">📸 Evidencia Inicial</p>
                     <span className="text-xs text-slate-400">{ev.fotos.filter(f=>f.inicial).length}/{ev.fotos.length} fotos</span>
                   </div>
-                  <FotoGrid fotos={ev.fotos} tipo="inicial" />
+                  <FotoGrid fotos={ev.fotos} tipo="inicial" urls={urlsFotos} />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-semibold text-slate-700">📸 Evidencia Final</p>
                     <span className="text-xs text-slate-400">{ev.fotos.filter(f=>f.final).length}/{ev.fotos.length} fotos</span>
                   </div>
-                  <FotoGrid fotos={ev.fotos} tipo="final" />
+                  <FotoGrid fotos={ev.fotos} tipo="final" urls={urlsFotos} />
                 </div>
               </div>
             ) : (
@@ -292,7 +317,7 @@ function EvidenciaDetalle({
                     {vista === 'inicial' ? ev.fotos.filter(f=>f.inicial).length : ev.fotos.filter(f=>f.final).length}/{ev.fotos.length} fotos
                   </span>
                 </p>
-                <FotoGrid fotos={ev.fotos} tipo={vista as 'inicial'|'final'} />
+                <FotoGrid fotos={ev.fotos} tipo={vista as 'inicial'|'final'} urls={urlsFotos} />
               </div>
             )}
           </div>
@@ -523,7 +548,7 @@ export default function EvidenciaView() {
     const sb = getSupabaseBrowserClient()
     const { data, error } = await sb
       .from('evidencias')
-      .select(`id, estatus, km_inicial, km_final, combustible_inicial, combustible_final, danos_iniciales, danos_finales, nota_aclaracion, created_at, viajes(folio, fecha_programada), conductores(nombre,apellido), vehiculos(marca,modelo,placas)`)
+      .select(`id, estatus, km_inicial, km_final, combustible_inicial, combustible_final, danos_iniciales, danos_finales, nota_aclaracion, created_at, foto_frente_i, foto_piloto_i, foto_copiloto_i, foto_trasera_i, foto_tablero_i, foto_frente_f, foto_piloto_f, foto_copiloto_f, foto_trasera_f, foto_tablero_f, viajes(folio, fecha_programada), conductores(nombre,apellido), vehiculos(marca,modelo,placas)`)
       .order('created_at', { ascending: false })
     if (!error && data) {
       setEvidencias((data as Record<string,unknown>[]).map(e => {
@@ -539,7 +564,11 @@ export default function EvidenciaView() {
           placas: vh?.placas??'—',
           fecha: String((e.created_at as string)?.slice(0,10)??''),
           estatus: (e.estatus as EstatusEvidencia)??'Pendiente',
-          fotos: [...FOTOS_BASE],
+          fotos: FOTOS_BASE.map(f => {
+            const pathInicial = (e[`foto_${f.columna}_i`] as string) ?? null
+            const pathFinal = (e[`foto_${f.columna}_f`] as string) ?? null
+            return { ...f, pathInicial, pathFinal, inicial: !!pathInicial, final: !!pathFinal }
+          }),
           kmInicial: e.km_inicial as number|null,
           kmFinal: e.km_final as number|null,
           combustibleInicial: String(e.combustible_inicial??''),
