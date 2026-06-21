@@ -31,7 +31,6 @@ Use this checklist before exposing the admin panel outside the internal team.
 - `rutas_frecuentes`
 - `zonas`
 - `tipos_servicio`
-- `tipos_vehiculo`
 - `plantillas_notificacion`
 - `metodos_pago`
 - `configuracion`
@@ -41,6 +40,11 @@ Use this checklist before exposing the admin panel outside the internal team.
 - `roles`
 - `estados_viaje`
 - `bitacora`
+- `profiles`
+- `reasignaciones`
+
+`tipos_vehiculo` no es una tabla: actualmente vive en `configuracion.valor`
+bajo la clave `tipos_vehiculo`.
 
 ## Suggested helper
 
@@ -101,3 +105,25 @@ with check (public.is_admin());
 - Admin user can create a viaje.
 - Admin user can update document/payment status.
 - A direct Supabase request using the anon key and no session returns no business data.
+
+## Automated read-only probe
+
+The repository includes `scripts/rls-readonly.mjs`. It never performs inserts,
+updates, deletes, uploads, or mutating RPC calls.
+
+Anonymous baseline:
+
+```bash
+npm run test:rls:anon
+```
+
+Full role matrix (dedicated staging identities only):
+
+```bash
+copy .env.rls.example .env.rls.local
+npm run test:rls
+```
+
+An empty table is reported as `INCONCLUSIVE`, because a zero-row response alone
+cannot prove that its RLS policy is restrictive. Cross-role checks require two
+different Usuario accounts and two different Conductor accounts.

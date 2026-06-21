@@ -1,0 +1,59 @@
+{
+  "version": "2026-06-21",
+  "states": [
+    "Solicitud recibida",
+    "Pendiente de asignación",
+    "Conductor asignado",
+    "Conductor en camino",
+    "Recolección en proceso",
+    "Evidencia inicial pendiente",
+    "Traslado en curso",
+    "Entrega en proceso",
+    "Evidencia final pendiente",
+    "Finalizado",
+    "Cancelado",
+    "En revisión por incidencia"
+  ],
+  "rpcs": {
+    "asignar_conductor_admin": {
+      "consumer": "admin",
+      "file": "lib/queries/viajes.ts",
+      "required": ["p_viaje_id", "p_conductor_nuevo"],
+      "optional": ["p_actor_nombre", "p_motivo"]
+    },
+    "aceptar_viaje_conductor": {
+      "consumer": "conductor",
+      "file": "lib/queries/conductor.ts",
+      "required": ["p_viaje_id", "p_conductor_id", "p_actor_nombre"],
+      "optional": []
+    },
+    "cerrar_viaje_conductor": {
+      "consumer": "conductor",
+      "file": "lib/queries/conductor.ts",
+      "required": ["p_viaje_id", "p_conductor_id", "p_actor_nombre"],
+      "optional": []
+    },
+    "cancelar_viaje_usuario": {
+      "consumer": "usuario",
+      "file": "lib/queries/usuario.ts",
+      "required": ["p_viaje_id"],
+      "optional": []
+    },
+    "guardar_evidencia_conductor": {
+      "consumer": "conductor",
+      "file": "lib/queries/conductor.ts",
+      "required": ["p_viaje_id", "p_conductor_id", "p_tipo", "p_actor_nombre"],
+      "optional": [
+        "p_km",
+        "p_combustible",
+        "p_danos",
+        "p_llaves",
+        "p_foto_frente",
+        "p_foto_piloto",
+        "p_foto_copiloto",
+        "p_foto_trasera",
+        "p_foto_tablero"
+      ]
+    }
+  }
+}

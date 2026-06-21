@@ -12,7 +12,6 @@ import {
   BanknotesIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XCircleIcon,
   ShieldCheckIcon,
   DocumentTextIcon,
   PencilSquareIcon,
@@ -393,14 +392,7 @@ function ConductorDetalle({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-700">Documentos del conductor</p>
-                <div className="flex gap-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-                    <CheckCircleIcon className="w-3.5 h-3.5" />Aprobar todos
-                  </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                    <XCircleIcon className="w-3.5 h-3.5" />Rechazar
-                  </button>
-                </div>
+                <p className="text-xs text-slate-400">Para aprobar o rechazar, usa la sección Documentos del menú principal</p>
               </div>
               {cargandoRelacionados ? (
                 <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
@@ -575,13 +567,11 @@ function AccionesMenu({
   const acciones: { label: string; color: string; tab?: DetailTab }[] = [
     { label: 'Ver perfil completo',          color: 'blue',   tab: 'perfil' },
     { label: 'Validar conductor',            color: 'green',  tab: 'perfil' },
-    { label: 'Aprobar documentos',           color: 'green',  tab: 'documentos' },
-    { label: 'Rechazar documentos',          color: 'red',    tab: 'documentos' },
+    { label: 'Ver documentos',               color: 'slate',  tab: 'documentos' },
     { label: 'Ver historial de viajes',      color: 'slate',  tab: 'viajes' },
     { label: 'Ver ganancias',                color: 'emerald',tab: 'ganancias' },
     { label: 'Ver incidencias',              color: 'amber',  tab: 'incidencias' },
     { label: 'Agregar nota interna',         color: 'amber',  tab: 'notas' },
-    { label: 'Asignar viaje',                color: 'indigo', tab: 'viajes' },
     { label: conductor.certificacion === 'Suspendido' ? 'Reactivar conductor' : 'Suspender conductor',
       color: conductor.certificacion === 'Suspendido' ? 'green' : 'red', tab: 'perfil' },
   ]

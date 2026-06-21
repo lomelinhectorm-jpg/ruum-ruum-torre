@@ -407,7 +407,6 @@ function IncidenciaDetalle({ inc, onClose, onUpdate }: { inc: Incidencia; onClos
               {docs.map((d, i) => (
                 <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                   <span className="text-sm text-slate-700">📎 {d}</span>
-                  <button className="text-xs text-rr-trace hover:underline">Ver</button>
                 </div>
               ))}
             </div>

@@ -1,222 +1,42 @@
-// app/api/crear-usuario/route.ts — admin-web
-// Crea un Usuario (cliente) con cuenta de acceso real en Supabase Auth.
-// Solo lo puede ejecutar un integrante activo del equipo interno con rol autorizado.
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+-- MIGRACIÓN BLOQUEADA: NO APLICAR.
+--
+-- Este archivo fue sobrescrito accidentalmente con TypeScript antes del
+-- 21-06-2026. Las funciones siguen activas en Supabase, pero sus cuerpos no
+-- son recuperables desde PostgREST/OpenAPI. El contrato vivo de argumentos
+-- quedó registrado en docs/contracts/viaje.contract.json.
+--
+-- Faltan las definiciones versionadas de:
+--   public.asignar_conductor_admin
+--   public.aceptar_viaje_conductor
+--   public.cerrar_viaje_conductor
+--   public.cancelar_viaje_usuario
+--
+-- Recuperación requerida desde una conexión PostgreSQL autorizada:
+--
+-- select pg_get_functiondef(p.oid)
+-- from pg_proc p
+-- join pg_namespace n on n.oid = p.pronamespace
+-- where n.nspname = 'public'
+--   and p.proname in (
+--     'asignar_conductor_admin',
+--     'aceptar_viaje_conductor',
+--     'cerrar_viaje_conductor',
+--     'cancelar_viaje_usuario'
+--   )
+-- order by p.proname, pg_get_function_identity_arguments(p.oid);
+--
+-- Después de recuperar cada cuerpo se deben añadir explícitamente:
+--   * SECURITY INVOKER salvo necesidad demostrada de DEFINER;
+--   * search_path fijo si se usa SECURITY DEFINER;
+--   * validación de auth.uid() y del rol/propietario;
+--   * bloqueo de fila y transición de estado válida;
+--   * idempotencia ante reintentos;
+--   * timeline/auditoría dentro de la misma transacción;
+--   * REVOKE FROM PUBLIC y GRANT mínimo a authenticated.
 
-type PerfilUsuario = {
-  nombre: string
-  apellido: string
-  curp: string | null
-  email: string
-  telefono: string
-  tipo: string
-  estatus: string
-  calle: string | null
-  numero: string | null
-  colonia: string | null
-  municipio: string | null
-  estado_geo: string | null
-  codigo_postal: string | null
-  razon_social: string | null
-  rfc: string | null
-  regimen_fiscal: string | null
-  cfdi: string | null
-  domicilio_fiscal: string | null
-}
-
-function badRequest(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status })
-}
-
-const PALABRAS_PASSWORD = [
-  'tigre', 'leon', 'oso', 'lobo', 'zorro', 'aguila', 'conejo', 'tortuga',
-  'jaguar', 'puma', 'venado', 'caballo', 'toro', 'gallo', 'pavo', 'sapo',
-  'rana', 'pulpo', 'ballena', 'foca', 'lince', 'nutria', 'mapache', 'sol',
-  'luna', 'estrella', 'nube', 'rio', 'mar', 'monte', 'valle', 'bosque',
-  'piedra', 'arena', 'viento', 'fuego', 'lluvia', 'nieve', 'hielo', 'roca',
-  'isla', 'playa', 'selva', 'mango', 'limon', 'naranja', 'platano', 'manzana',
-  'durazno', 'melon', 'coco', 'trueno', 'rayo', 'cometa', 'planeta', 'faro',
-  'puente', 'torre', 'barco', 'avion', 'tren', 'motor', 'rueda', 'ancla',
-  'vela', 'remo',
-]
-
-// Contraseña temporal pensada para dictarse por teléfono o anotarse a mano:
-// dos palabras comunes distintas + 3 dígitos (ej. "tigre-sol-472"). Es
-// deliberadamente de baja entropía comparada con una contraseña real —
-// se compensa con que es de un solo uso y de vida corta (la cuenta exige
-// cambiarla en el primer ingreso, ver requiere_cambio_password), no con
-// que sea difícil de adivinar a fuerza bruta.
-function generarPasswordTemporal(): string {
-  const i = Math.floor(Math.random() * PALABRAS_PASSWORD.length)
-  let j = Math.floor(Math.random() * PALABRAS_PASSWORD.length)
-  while (j === i) j = Math.floor(Math.random() * PALABRAS_PASSWORD.length)
-  const numero = Math.floor(100 + Math.random() * 900) // 100–999
-  return `${PALABRAS_PASSWORD[i]}-${PALABRAS_PASSWORD[j]}-${numero}`
-}
-
-const ROLES_AUTORIZADOS = new Set([
-  'Super Administrador',
-  'Coordinador Operativo',
-  'Analista Financiero',
-  'Validador Documental',
-])
-
-export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    return badRequest('Falta configurar Supabase en el servidor.', 500)
-  }
-
-  const cookieStore = await cookies()
-  const supabaseAuth = createServerClient(supabaseUrl, anonKey, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll() {},
-    },
-  })
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return badRequest('No autenticado.', 401)
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-  const { data: usuarioInterno, error: adminCheckError } = await admin
-    .from('usuarios_internos')
-    .select('activo, roles(nombre, activo)')
-    .eq('auth_id', user.id)
-    .maybeSingle()
-  const rol = usuarioInterno?.roles as unknown as { nombre?: string; activo?: boolean } | null
-  const autorizado = Boolean(
-    usuarioInterno?.activo && rol?.activo && rol.nombre && ROLES_AUTORIZADOS.has(rol.nombre)
-  )
-  if (adminCheckError || !autorizado) return badRequest('No autorizado.', 403)
-
-  const { data, error } = await admin
-    .from('usuarios')
-    .select('id, nombre, apellido, curp, email, telefono, tipo, estatus, calle, numero, colonia, municipio, estado_geo, codigo_postal, razon_social, rfc, regimen_fiscal, domicilio_fiscal, cfdi, requiere_cambio_password, created_at')
-    .order('created_at', { ascending: false })
-
-  if (error) return badRequest(error.message, 500)
-  return NextResponse.json({ usuarios: data ?? [] })
-}
-
-export async function POST(request: Request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    return badRequest('Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor.', 500)
-  }
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-
-  // ── 1. Verificar que quien llama es un admin con sesión válida ────────────
-  const cookieStore = await cookies()
-  const supabaseAuth = createServerClient(supabaseUrl, anonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll() {
-        // No necesitamos escribir cookies en este endpoint.
-      },
-    },
-  })
-
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return badRequest('No autenticado.', 401)
-
-  const { data: usuarioInterno, error: adminCheckError } = await admin
-    .from('usuarios_internos')
-    .select('id, activo, roles(nombre, activo)')
-    .eq('auth_id', user.id)
-    .maybeSingle()
-
-  const rol = usuarioInterno?.roles as unknown as { nombre?: string; activo?: boolean } | null
-  const esAdmin = Boolean(
-    usuarioInterno?.activo &&
-    rol?.activo &&
-    rol.nombre &&
-    ROLES_AUTORIZADOS.has(rol.nombre)
-  )
-
-  if (adminCheckError || !esAdmin) {
-    console.error('Chequeo de administrador falló:', {
-      userId: user.id,
-      email: user.email,
-      adminCheckError,
-      usuarioInternoId: usuarioInterno?.id ?? null,
-      usuarioInternoActivo: usuarioInterno?.activo ?? null,
-      rol: rol?.nombre ?? null,
-      rolActivo: rol?.activo ?? null,
-    })
-    return badRequest('No autorizado.', 403)
-  }
-
-  // ── 2. Leer y validar el payload ───────────────────────────────────────────
-  const body = (await request.json().catch(() => null)) as { perfil?: Partial<PerfilUsuario> } | null
-  const perfil = body?.perfil
-
-  if (!perfil?.email || !perfil?.nombre || !perfil?.apellido || !perfil?.tipo) {
-    return badRequest('Datos incompletos: nombre, apellido, tipo y correo son requeridos.')
-  }
-
-  const email = String(perfil.email).toLowerCase().trim()
-  const tempPassword = generarPasswordTemporal()
-
-  // ── 3. Crear la cuenta de autenticación ───────────────────────────────────
-  const { data: authData, error: authError } = await admin.auth.admin.createUser({
-    email,
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { creado_por_admin: true },
-  })
-
-  if (authError || !authData.user) {
-    const msg = authError?.message?.includes('already been registered')
-      ? 'Ya existe una cuenta con ese correo.'
-      : (authError?.message ?? 'No se pudo crear la cuenta de acceso.')
-    return badRequest(msg, 422)
-  }
-
-  // ── 4. Insertar el registro de negocio en `usuarios` ──────────────────────
-  const { error: dbError } = await admin.from('usuarios').insert({
-    auth_id: authData.user.id,
-    nombre: String(perfil.nombre),
-    apellido: String(perfil.apellido),
-    curp: perfil.curp || null,
-    email,
-    telefono: perfil.telefono ? String(perfil.telefono) : null,
-    tipo: String(perfil.tipo),
-    estatus: String(perfil.estatus ?? 'Activo'),
-    calle: perfil.calle || null,
-    numero: perfil.numero || null,
-    colonia: perfil.colonia || null,
-    municipio: perfil.municipio || null,
-    estado_geo: perfil.estado_geo || null,
-    codigo_postal: perfil.codigo_postal || null,
-    razon_social: perfil.razon_social || null,
-    rfc: perfil.rfc || null,
-    regimen_fiscal: perfil.regimen_fiscal || null,
-    cfdi: perfil.cfdi || null,
-    domicilio_fiscal: perfil.domicilio_fiscal || null,
-    requiere_cambio_password: true,
-  })
-
-  if (dbError) {
-    // Si falla el insert de negocio, no dejamos huérfana la cuenta de auth.
-    await admin.auth.admin.deleteUser(authData.user.id).catch(() => undefined)
-    return badRequest(dbError.message, 422)
-  }
-
-  return NextResponse.json({ ok: true, userId: authData.user.id, password: tempPassword })
-}
+do $$
+begin
+  raise exception using
+    message = 'Migración bloqueada: recuperar primero las definiciones RPC vivas con pg_get_functiondef().';
+end;
+$$;

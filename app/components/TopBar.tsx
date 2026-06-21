@@ -35,9 +35,9 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         <h2 className="font-display text-xl font-bold text-rr-asphalt">{title}</h2>
       </div>
       <div className="flex items-center gap-4">
-        <button className="relative p-2 text-rr-steel hover:text-rr-trace transition-colors">
+        <button className="relative p-2 text-rr-steel/50 cursor-not-allowed" disabled
+          title="Notificaciones — próximamente">
           <BellIcon className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-rr-route rounded-full"></span>
         </button>
         <button
           onClick={cerrarSesion}

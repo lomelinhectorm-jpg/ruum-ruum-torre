@@ -467,7 +467,7 @@ function UsuarioDetalle({ usuario, onClose, onUpdate }: { usuario: Usuario; onCl
 function AccionesMenu({
   usuario, onClose, onOpenDetail,
 }: { usuario: Usuario; onClose: () => void; onOpenDetail: (tab: DetailTab) => void }) {
-  const acciones: { label: string; color: string; tab?: DetailTab; action?: () => void }[] = [
+  const acciones: { label: string; color: string; tab?: DetailTab }[] = [
     { label: 'Ver perfil completo',   color: 'blue',   tab: 'perfil' },
     { label: 'Editar datos',          color: 'indigo', tab: 'perfil' },
     { label: 'Ver viajes',            color: 'slate',  tab: 'viajes' },
@@ -475,7 +475,7 @@ function AccionesMenu({
     { label: 'Ver pagos',             color: 'slate',  tab: 'pagos' },
     { label: 'Agregar nota interna',  color: 'amber',  tab: 'notas' },
     { label: usuario.estatus === 'Suspendido' ? 'Reactivar cuenta' : 'Suspender cuenta',
-      color: usuario.estatus === 'Suspendido' ? 'green' : 'red' },
+      color: usuario.estatus === 'Suspendido' ? 'green' : 'red', tab: 'perfil' },
   ]
   const colorCls: Record<string, string> = {
     blue:   'text-rr-trace hover:bg-[#E8EFFF]',

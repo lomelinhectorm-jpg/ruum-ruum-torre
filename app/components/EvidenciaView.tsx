@@ -217,6 +217,24 @@ function EvidenciaDetalle({
   const rechazar = () => guardarEstatus('Rechazada', 'Evidencia rechazada')
   const marcarIncompleta = () => guardarEstatus('Incompleta', 'Marcada como incompleta')
 
+  // Descarga cada foto cargada (inicial + final) como archivo individual.
+  // Se espacían los clics porque los navegadores bloquean descargas
+  // múltiples disparadas en el mismo tick.
+  const descargarFotos = () => {
+    Object.entries(urlsFotos).forEach(([key, url], i) => {
+      setTimeout(() => {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${ev.id}_${key}.jpg`
+        a.target = '_blank'
+        a.rel = 'noreferrer'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }, i * 200)
+    })
+  }
+
   const kmRecorrido = ev.kmInicial && ev.kmFinal ? ev.kmFinal - ev.kmInicial : null
 
   return (
@@ -264,8 +282,8 @@ function EvidenciaDetalle({
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
                 <ChatBubbleLeftEllipsisIcon className="w-3.5 h-3.5" />Solicitar aclaración
               </button>
-              <button
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+              <button onClick={descargarFotos} disabled={Object.keys(urlsFotos).length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
                 <ArrowDownTrayIcon className="w-3.5 h-3.5" />Descargar
               </button>
               <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>

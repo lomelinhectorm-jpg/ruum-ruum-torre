@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "quality": "npm run lint && npm run typecheck && npm run build",
-    "audit": "npm audit --audit-level=moderate"
+    "audit": "npm audit --audit-level=moderate",
+    "test:rls:anon": "node --env-file=.env.local scripts/rls-readonly.mjs",
+    "test:rls": "node --env-file=.env.local --env-file=.env.rls.local scripts/rls-readonly.mjs --require-roles",
+    "test:contract": "node scripts/check-platform-contract.mjs",
+    "test:contract:live": "node --env-file=.env.local scripts/check-platform-contract.mjs --live"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
