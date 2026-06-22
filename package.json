@@ -16,10 +16,17 @@
     "test:contract:live": "node --env-file=.env.local scripts/check-platform-contract.mjs --live"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.2.0",
+    "@fortawesome/free-brands-svg-icons": "^7.2.0",
+    "@fortawesome/free-solid-svg-icons": "^7.2.0",
+    "@fortawesome/react-fontawesome": "^3.3.1",
     "@heroicons/react": "^2.2.0",
+    "@stripe/react-stripe-js": "^6.6.0",
+    "@stripe/stripe-js": "^9.8.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
     "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
     "next": "^16.2.9",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
