@@ -429,6 +429,10 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
     fecha: new Date().toISOString().slice(0,10), notas: '',
   })
 
+  // Resultado del intento de cobro real con Stripe (solo aplica a tipo
+  // 'usuario'). Si viene null, todavía no se intentó cobrar.
+  const [resultadoCobro, setResultadoCobro] = useState<{ ok: boolean; mensaje: string } | null>(null)
+
   // ── Calculadora de tarifa (calcular_tarifa_viaje) ───────────────────────
   // Busca el viaje capturado en "Viaje relacionado" y, si tiene tipo de
   // vehículo y km estimado, deja calcular la tarifa con la misma fórmula
@@ -497,15 +501,39 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
           id: string; usuario_id: string | null; empresa_id: string | null
         } | null
         if (!viaje) throw new Error(`No se encontró el viaje "${form.viaje}".`)
-        const { error: e } = await sb.from('pagos_usuarios').insert({
+        const { data: nuevoPago, error: e } = await sb.from('pagos_usuarios').insert({
           viaje_id: viaje.id,
           usuario_id: viaje.usuario_id,
           empresa_id: viaje.empresa_id,
           tarifa: parseFloat(form.tarifa) || 0, metodo_pago: form.metodoPago,
           requiere_factura: form.factura === 'si', estatus: 'Pendiente',
           fecha_pago: form.fecha || null, notas: form.notas,
-        })
+        }).select('id').single()
         if (e) throw e
+
+        // El registro ya quedó creado (estatus Pendiente); ahora se intenta
+        // cobrar de verdad con la tarjeta predeterminada del usuario en
+        // Stripe. Si el cobro falla, el registro se queda creado para que
+        // el admin lo vea y decida qué hacer -- nunca se revierte el
+        // insert solo porque el cobro no salió.
+        onSave()
+        try {
+          const respCobro = await fetch('/api/stripe/cobrar-pago', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pagoId: nuevoPago.id }),
+          })
+          const resultado = await respCobro.json().catch(() => null) as { ok?: boolean; mensaje?: string; error?: string } | null
+          if (!respCobro.ok) {
+            setResultadoCobro({ ok: false, mensaje: resultado?.error ?? 'No se pudo intentar el cobro.' })
+          } else {
+            setResultadoCobro({ ok: Boolean(resultado?.ok), mensaje: resultado?.mensaje ?? '' })
+          }
+        } catch (cobroErr) {
+          console.error('Error llamando a /api/stripe/cobrar-pago:', cobroErr)
+          setResultadoCobro({ ok: false, mensaje: 'No se pudo contactar el servicio de cobro.' })
+        }
+        return
       } else if (tipo === 'conductor') {
         const { data: conductores, error: conductorError } = await sb
           .from('conductores')
@@ -581,6 +609,31 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
           <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
         </div>
 
+        {resultadoCobro ? (
+          <div className="p-6 space-y-4 text-center">
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto text-2xl ${
+              resultadoCobro.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+            }`}>
+              {resultadoCobro.ok ? '✅' : '⚠️'}
+            </div>
+            <p className="font-semibold text-slate-800">
+              {resultadoCobro.ok ? 'Cobro exitoso' : 'El registro se creó, pero el cobro no se completó'}
+            </p>
+            <p className="text-sm text-slate-500">{resultadoCobro.mensaje}</p>
+            {!resultadoCobro.ok && (
+              <p className="text-xs text-slate-400">
+                El registro de pago quedó guardado en la lista (no se perdió). Puedes reintentar el cobro más adelante o resolverlo manualmente con el usuario.
+              </p>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 transition-colors mt-2"
+            >
+              Cerrar
+            </button>
+          </div>
+        ) : (
+        <>
         <div className="p-6 space-y-5">
           <div className="flex gap-2">
             {([['usuario','💳 Pago usuario'],['conductor','👤 Pago conductor'],['gasto','🧾 Gasto']] as [NuevoPagoTipo, string][]).map(([t, l]) => (
@@ -603,6 +656,10 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
               <div><L c="Facturación" />
                 <select value={form.factura} onChange={e => set('factura', e.target.value)} className={selectCls}><option value="no">No requiere</option><option value="si">Sí requiere</option></select>
               </div>
+
+              <p className="col-span-2 text-[11px] text-slate-400 -mt-1">
+                💳 "Método de pago" es solo informativo para tus registros. Si el usuario tiene una tarjeta predeterminada guardada con Stripe, al guardar este registro se intenta cobrar automáticamente por el monto de la Tarifa.
+              </p>
 
               <div className="col-span-2 border border-dashed border-slate-300 rounded-xl p-3 space-y-3 bg-slate-50">
                 <p className="text-xs font-semibold text-slate-600">🧮 Calcular tarifa con la fórmula de Configuración de Tarifas</p>
@@ -678,6 +735,8 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
             <CheckCircleIcon className="w-4 h-4" />{guardando ? 'Guardando...' : 'Guardar registro'}
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   )
