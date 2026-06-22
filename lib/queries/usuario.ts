@@ -142,6 +142,25 @@ export async function crearPerfilDesdeAuth(user: {
 
 // ── VIAJES ──────────────────────────────────────────────────
 
+// Catálogo dinámico de tipos de vehículo que administra Torre en
+// Configuración → Tipos de vehículo (tabla `configuracion`, clave
+// 'tipos_vehiculo'). Solo se exponen los activos. RLS aditiva: ver
+// docs/sql/solicitar_viaje_tipo_vehiculo_km.sql en torre.
+export async function getCatalogoTiposVehiculo() {
+  const { data, error } = await supabase
+    .from('configuracion')
+    .select('valor')
+    .eq('clave', 'tipos_vehiculo')
+    .maybeSingle()
+
+  if (error) throw error
+  const parsed = data?.valor ? JSON.parse(String(data.valor)) : []
+  if (!Array.isArray(parsed)) return []
+  return (parsed as Record<string, unknown>[])
+    .filter(t => t.activo !== false)
+    .map(t => ({ id: String(t.id ?? ''), nombre: String(t.nombre ?? '') }))
+}
+
 export async function getMisViajes(usuarioId: string) {
   const { data, error } = await supabase
     .from('viajes')
@@ -192,6 +211,7 @@ export async function solicitarViaje(
   payload: {
     marca: string; modelo: string; anio?: string
     color?: string; placas: string; vin?: string; transmision?: string; alias?: string
+    tipoVehiculo?: string; kmEstimado?: number
     origen_calle: string; origen_numero?: string; origen_colonia?: string
     origen_municipio?: string; origen_estado?: string; origen_cp?: string
     origen_contacto?: string; origen_telefono?: string
@@ -221,6 +241,7 @@ export async function solicitarViaje(
       vin: payload.vin?.toUpperCase() || null,
       transmision: payload.transmision ?? null,
       alias: payload.alias?.toUpperCase() || null,
+      tipo_vehiculo: payload.tipoVehiculo || null,
     })
     .select()
     .single()
@@ -249,6 +270,7 @@ export async function solicitarViaje(
       instrucciones: payload.instrucciones ?? null,
       fecha_programada: payload.fecha_programada ?? null,
       hora_programada: payload.hora_programada ?? null,
+      km_estimado: payload.kmEstimado ?? null,
       status: 'Solicitud recibida',
     })
     .select()
@@ -444,6 +466,7 @@ export type MetodoPagoUsuario = {
   alias: string | null
   titular: string | null
   ultimos_digitos: string | null
+  marca: string | null
   predeterminado: boolean
   activo: boolean
   created_at: string
@@ -458,7 +481,7 @@ export async function getMetodosPagoUsuario(usuarioId: string) {
   const { data, error } = await supabase
     .from('metodos_pago_usuario')
     .select(`
-      id, metodo_pago_id, alias, titular, ultimos_digitos,
+      id, metodo_pago_id, alias, titular, ultimos_digitos, marca,
       predeterminado, activo, created_at,
       metodos_pago(nombre, descripcion)
     `)
@@ -471,7 +494,7 @@ export async function getMetodosPagoUsuario(usuarioId: string) {
 }
 
 export async function agregarMetodoPagoUsuario(usuarioId: string, datos: {
-  metodoPagoId: string; alias?: string; titular?: string; ultimosDigitos?: string
+  metodoPagoId: string; alias?: string
 }) {
   const { data, error } = await supabase
     .from('metodos_pago_usuario')
@@ -479,11 +502,9 @@ export async function agregarMetodoPagoUsuario(usuarioId: string, datos: {
       usuario_id: usuarioId,
       metodo_pago_id: datos.metodoPagoId,
       alias: datos.alias?.trim() || null,
-      titular: datos.titular?.trim() || null,
-      ultimos_digitos: datos.ultimosDigitos || null,
     })
     .select(`
-      id, metodo_pago_id, alias, titular, ultimos_digitos,
+      id, metodo_pago_id, alias, titular, ultimos_digitos, marca,
       predeterminado, activo, created_at,
       metodos_pago(nombre, descripcion)
     `)
@@ -493,19 +514,13 @@ export async function agregarMetodoPagoUsuario(usuarioId: string, datos: {
   return data as unknown as MetodoPagoUsuario
 }
 
-export async function actualizarMetodoPagoUsuario(id: string, datos: {
-  alias?: string; titular?: string; ultimosDigitos?: string
-}) {
+export async function actualizarMetodoPagoUsuario(id: string, datos: { alias?: string }) {
   const { data, error } = await supabase
     .from('metodos_pago_usuario')
-    .update({
-      alias: datos.alias?.trim() || null,
-      titular: datos.titular?.trim() || null,
-      ultimos_digitos: datos.ultimosDigitos || null,
-    })
+    .update({ alias: datos.alias?.trim() || null })
     .eq('id', id)
     .select(`
-      id, metodo_pago_id, alias, titular, ultimos_digitos,
+      id, metodo_pago_id, alias, titular, ultimos_digitos, marca,
       predeterminado, activo, created_at,
       metodos_pago(nombre, descripcion)
     `)
@@ -531,6 +546,40 @@ export async function marcarMetodoPagoPredeterminado(metodoId: string) {
     p_metodo_id: metodoId,
   })
   if (error) throw error
+}
+
+export async function crearSetupIntentTarjeta() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Sesión no válida.')
+
+  const res = await fetch('/api/stripe/setup-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null) as { error?: string } | null
+    throw new Error(data?.error ?? 'No se pudo iniciar la captura de la tarjeta.')
+  }
+  return res.json() as Promise<{ clientSecret: string }>
+}
+
+export async function guardarMetodoPagoTarjeta(datos: {
+  setupIntentId: string; metodoPagoId: string; alias?: string
+}) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Sesión no válida.')
+
+  const res = await fetch('/api/stripe/guardar-metodo-pago', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify(datos),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null) as { error?: string } | null
+    throw new Error(data?.error ?? 'No se pudo guardar la tarjeta.')
+  }
+  const data = await res.json() as { ok: true; metodo: MetodoPagoUsuario }
+  return data.metodo
 }
 
 // ── DOCUMENTOS ──────────────────────────────────────────────

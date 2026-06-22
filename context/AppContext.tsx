@@ -76,6 +76,7 @@ interface AppContextType {
 export interface DatosSolicitud {
   marca: string; modelo: string; anio?: string; color?: string
   placas: string; vin?: string; transmision?: string; alias?: string
+  tipoVehiculo?: string; kmEstimado?: number
   origen_calle: string; origen_numero?: string; origen_colonia?: string
   origen_municipio?: string; origen_estado?: string; origen_cp?: string
   origen_contacto?: string; origen_telefono?: string
@@ -84,6 +85,7 @@ export interface DatosSolicitud {
   destino_contacto?: string; destino_telefono?: string
   referencias?: string; instrucciones?: string
   fecha_programada?: string; hora_programada?: string
+
 }
 
 const AppContext = createContext<AppContextType | null>(null)

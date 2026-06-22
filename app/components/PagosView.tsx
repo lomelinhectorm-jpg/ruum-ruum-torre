@@ -88,6 +88,16 @@ const estatusDot: Record<EstatusPago, string> = {
 const TODOS_ESTATUS: EstatusPago[] = ['Pendiente','En revisión','Aprobado','Rechazado','Pagado','Revocado','Ajustado']
 const METODOS = ['Transferencia','SPEI','Tarjeta crédito','Tarjeta débito','Efectivo','Cheque']
 
+// Mismo catálogo fijo que usa el simulador de Configuración de Tarifas
+// (TarifasView.tsx) para poder llamar a la misma función calcular_tarifa_viaje().
+// No es el mismo catálogo dinámico de "tipos_servicio" (Configuración →
+// Servicios) que se usa para reglas de evidencia/firma -- son dos cosas
+// distintas hoy en el sistema, ver docs/sql/tarifas_seed_y_codigo.sql.
+const TIPOS_SERVICIO_TARIFA = [
+  'Traslado local', 'Traslado foráneo', 'Entrega al cliente',
+  'Recolección', 'Largo recorrido', 'Urgente',
+]
+
 type ViajeJoin = { folio?: string | null }
 type PersonaJoin = { nombre?: string | null; apellido?: string | null }
 type EmpresaJoin = { nombre_comercial?: string | null }
@@ -419,6 +429,62 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
     fecha: new Date().toISOString().slice(0,10), notas: '',
   })
 
+  // ── Calculadora de tarifa (calcular_tarifa_viaje) ───────────────────────
+  // Busca el viaje capturado en "Viaje relacionado" y, si tiene tipo de
+  // vehículo y km estimado, deja calcular la tarifa con la misma fórmula
+  // que usa el simulador de Configuración de Tarifas, en vez de que el
+  // admin la escriba a ciegas.
+  const [calc, setCalc] = useState({
+    tipoServicio: TIPOS_SERVICIO_TARIFA[0],
+    nocturno: false, urgente: false, foraneo: false,
+    peaje: false, combustible: false, riesgoAlto: false,
+  })
+  const [calculando, setCalculando] = useState(false)
+  const [errorCalculo, setErrorCalculo] = useState('')
+  const [resultadoCalculo, setResultadoCalculo] = useState<{
+    desglose: { nombre: string; monto: number }[]; sinConfigurar: string[]
+  } | null>(null)
+
+  const calcularTarifa = async () => {
+    setErrorCalculo('')
+    setResultadoCalculo(null)
+    if (!form.viaje.trim()) { setErrorCalculo('Captura primero el viaje relacionado.'); return }
+    setCalculando(true)
+    try {
+      const sb = await getSB()
+      const viaje = await resolverViaje(sb, form.viaje, 'id, km_estimado, vehiculos(tipo_vehiculo)') as {
+        id: string; km_estimado: number | null
+        vehiculos: { tipo_vehiculo: string | null } | { tipo_vehiculo: string | null }[] | null
+      } | null
+      if (!viaje) throw new Error(`No se encontró el viaje "${form.viaje}".`)
+      const vehiculoJoin = Array.isArray(viaje.vehiculos) ? viaje.vehiculos[0] : viaje.vehiculos
+      const tipoVehiculo = vehiculoJoin?.tipo_vehiculo ?? null
+      const km = viaje.km_estimado
+      if (!tipoVehiculo || km == null) {
+        throw new Error('Este viaje no tiene tipo de vehículo o km estimado capturados (son datos que el usuario llena al solicitar el viaje desde la app). Captura la tarifa manualmente.')
+      }
+      const { data, error: e } = await sb.rpc('calcular_tarifa_viaje', {
+        p_tipo_vehiculo: tipoVehiculo,
+        p_tipo_servicio: calc.tipoServicio,
+        p_km: km,
+        p_nocturno: calc.nocturno,
+        p_urgente: calc.urgente,
+        p_foraneo: calc.foraneo,
+        p_peaje: calc.peaje,
+        p_combustible: calc.combustible,
+        p_riesgo_alto: calc.riesgoAlto,
+      })
+      if (e) throw e
+      if (!data?.ok) throw new Error('No hay una tarifa base configurada para ese tipo de vehículo / servicio. Captura la tarifa manualmente.')
+      setForm(f => ({ ...f, tarifa: String(data.tarifa_cliente) }))
+      setResultadoCalculo({ desglose: data.desglose ?? [], sinConfigurar: data.sin_configurar ?? [] })
+    } catch (e) {
+      setErrorCalculo(e instanceof Error ? e.message : 'No se pudo calcular la tarifa.')
+    } finally {
+      setCalculando(false)
+    }
+  }
+
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   async function guardar() {
@@ -427,7 +493,9 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
     try {
       const sb = await getSB()
       if (tipo === 'usuario') {
-        const viaje = await resolverViaje(sb, form.viaje, 'id, usuario_id, empresa_id')
+        const viaje = await resolverViaje(sb, form.viaje, 'id, usuario_id, empresa_id') as unknown as {
+          id: string; usuario_id: string | null; empresa_id: string | null
+        } | null
         if (!viaje) throw new Error(`No se encontró el viaje "${form.viaje}".`)
         const { error: e } = await sb.from('pagos_usuarios').insert({
           viaje_id: viaje.id,
@@ -465,7 +533,9 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
         })
         if (e) throw e
       } else {
-        const viaje = form.viaje ? await resolverViaje(sb, form.viaje, 'id') : null
+        const viaje = form.viaje
+          ? await resolverViaje(sb, form.viaje, 'id') as unknown as { id: string } | null
+          : null
         const { data: conductores, error: conductorError } = await sb
           .from('conductores')
           .select('id, nombre, apellido')
@@ -533,7 +603,51 @@ function NuevoPagoForm({ onClose, onSave }: { onClose: () => void; onSave: () =>
               <div><L c="Facturación" />
                 <select value={form.factura} onChange={e => set('factura', e.target.value)} className={selectCls}><option value="no">No requiere</option><option value="si">Sí requiere</option></select>
               </div>
+
+              <div className="col-span-2 border border-dashed border-slate-300 rounded-xl p-3 space-y-3 bg-slate-50">
+                <p className="text-xs font-semibold text-slate-600">🧮 Calcular tarifa con la fórmula de Configuración de Tarifas</p>
+                <p className="text-[11px] text-slate-400 -mt-2">
+                  Usa el tipo de vehículo y los km estimados que el usuario capturó al solicitar el viaje. Si el viaje no los tiene, captura la tarifa a mano arriba.
+                </p>
+                <div>
+                  <L c="Tipo de servicio (para tarifa)" />
+                  <select value={calc.tipoServicio} onChange={e => setCalc(c => ({ ...c, tipoServicio: e.target.value }))} className={selectCls}>
+                    {TIPOS_SERVICIO_TARIFA.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+                  {([
+                    ['nocturno', '🌙 Nocturno'], ['urgente', '⚡ Urgente'], ['foraneo', '🗺️ Foráneo'],
+                    ['peaje', '🛣️ Peaje'], ['combustible', '⛽ Combustible'], ['riesgoAlto', '⚠️ Alto riesgo'],
+                  ] as [keyof typeof calc, string][]).map(([k, label]) => (
+                    <label key={k} className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={Boolean(calc[k])}
+                        onChange={e => setCalc(c => ({ ...c, [k]: e.target.checked }))}
+                        className="rounded border-slate-300" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <button type="button" onClick={calcularTarifa} disabled={calculando}
+                  className="text-xs font-medium bg-rr-route hover:bg-rr-routeDark disabled:opacity-60 text-rr-asphalt px-3 py-1.5 rounded-lg transition-colors">
+                  {calculando ? 'Calculando...' : 'Calcular tarifa'}
+                </button>
+                {errorCalculo && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5">{errorCalculo}</p>}
+                {resultadoCalculo && (
+                  <div className="text-xs text-slate-500 space-y-0.5">
+                    {resultadoCalculo.desglose.map((d, i) => (
+                      <p key={i}>+ {d.nombre}: ${d.monto.toLocaleString()} MXN</p>
+                    ))}
+                    {resultadoCalculo.sinConfigurar.length > 0 && (
+                      <p className="text-amber-700">
+                        {resultadoCalculo.sinConfigurar.join(', ')} no está configurado (o inactivo) en Recargos — no se aplicó.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </>}
+
             {tipo === 'conductor' && <>
               <div><L c="Conductor" req /><input type="text" placeholder="Nombre" value={form.conductor} onChange={e => set('conductor', e.target.value)} className={inputCls} /></div>
               <div><L c="Semana / Periodo" req /><input type="text" placeholder="01-07 Jun 2025" value={form.semana} onChange={e => set('semana', e.target.value)} className={inputCls} /></div>

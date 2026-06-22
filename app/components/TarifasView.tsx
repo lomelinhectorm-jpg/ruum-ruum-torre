@@ -32,10 +32,11 @@ interface TarifaBase {
 
 interface Recargo {
   id: string
+  codigo: string | null
   nombre: string
   tipo: 'porcentaje' | 'fijo'
   valor: number
-  aplica: string
+  condicion: string
   activo: boolean
 }
 
@@ -149,25 +150,28 @@ function SimuladorTarifa({ tarifas, recargos, pagos }: {
   let total = tarifa ? Math.max(tarifa.tarifaBase + km * tarifa.porKm, tarifa.tarifaMinima) : 0
   let pagoTotal = pago ? pago.pagoBase + km * pago.porKm : 0
   const recargosList: { nombre: string; monto: number }[] = []
+  const sinConfigurar: string[] = []
 
-  if (nocturno && recargos.find(r => r.id === 'RC-001')?.activo) {
-    const v = total * 0.2; recargosList.push({ nombre: 'Recargo nocturno', monto: v }); total += v
+  // Aplica un recargo por su `codigo` de sistema (no por id ni por nombre,
+  // para que el admin pueda renombrar o editar el valor libremente desde
+  // la pestaña Recargos sin romper el cálculo). Si no existe o está
+  // inactivo, no se aplica nada y se avisa en sinConfigurar.
+  const aplicar = (codigo: string, etiqueta: string, incluirEnPago = false) => {
+    const r = recargos.find(r => r.codigo === codigo)
+    if (!r || !r.activo) { sinConfigurar.push(etiqueta); return }
+    const monto = r.tipo === 'porcentaje' ? total * (r.valor / 100) : r.valor
+    recargosList.push({ nombre: r.nombre, monto })
+    total += monto
+    if (incluirEnPago) pagoTotal += monto
   }
-  if (urgente && recargos.find(r => r.id === 'RC-002')?.activo) {
-    const v = total * 0.3; recargosList.push({ nombre: 'Urgencia', monto: v }); total += v
-  }
-  if (foraneo && recargos.find(r => r.id === 'RC-003')?.activo) {
-    const v = total * 0.15; recargosList.push({ nombre: 'Recargo foráneo', monto: v }); total += v
-  }
-  if (peaje) {
-    const v = 150; recargosList.push({ nombre: 'Peaje', monto: v }); total += v; pagoTotal += 150
-  }
-  if (combustible) {
-    const v = 80; recargosList.push({ nombre: 'Combustible extra', monto: v }); total += v
-  }
-  if (riesgo === 'Alto' && recargos.find(r => r.id === 'RC-006')?.activo) {
-    const v = total * 0.25; recargosList.push({ nombre: 'Alto riesgo', monto: v }); total += v
-  }
+
+  if (nocturno) aplicar('nocturno', 'Recargo nocturno')
+  if (urgente) aplicar('urgente', 'Urgencia')
+  if (foraneo) aplicar('foraneo', 'Recargo foráneo')
+  if (peaje) aplicar('peaje', 'Peaje', true)
+  if (combustible) aplicar('combustible', 'Combustible extra')
+  if (riesgo === 'Alto') aplicar('riesgo_alto', 'Alto riesgo')
+
   if (pago) pagoTotal += pago.gastosAutorizados
 
   const margen = total - pagoTotal
@@ -254,6 +258,12 @@ function SimuladorTarifa({ tarifas, recargos, pagos }: {
         </div>
       </div>
       {!tarifa && <p className="text-xs text-amber-300 mt-3 flex items-center gap-1"><ExclamationTriangleIcon className="w-3.5 h-3.5" />Sin tarifa configurada para esta combinación.</p>}
+      {sinConfigurar.length > 0 && (
+        <p className="text-xs text-amber-300 mt-2 flex items-center gap-1">
+          <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+          {sinConfigurar.join(', ')} no está configurado (o está inactivo) en la pestaña Recargos.
+        </p>
+      )}
     </div>
   )
 }
@@ -310,9 +320,9 @@ export default function TarifasView() {
       activa: Boolean(r.activa),
     })))
     if (rc.data) setRecargos(rc.data.map((r: Record<string,unknown>) => ({
-      id: String(r.id), nombre: String(r.nombre ?? ''),
+      id: String(r.id), codigo: r.codigo != null ? String(r.codigo) : null, nombre: String(r.nombre ?? ''),
       tipo: (r.tipo as 'porcentaje' | 'fijo') ?? 'porcentaje',
-      valor: Number(r.valor ?? 0), aplica: String(r.aplica ?? ''), activo: Boolean(r.activo),
+      valor: Number(r.valor ?? 0), condicion: String(r.condicion ?? ''), activo: Boolean(r.activo),
     })))
     if (pc.data) setPagosConductor(pc.data.map((r: Record<string,unknown>) => ({
       id: String(r.id),
@@ -404,7 +414,7 @@ export default function TarifasView() {
 
   const DEFAULTS: Record<MainTab, Record<string, unknown>> = {
     bases: { nombre: 'Nueva tarifa', tipo_vehiculo: 'Todos', tipo_servicio: 'Traslado local', tarifa_base: 0, por_km: 0, tarifa_minima: 0, tiempo_estimado_min: 0, activa: true },
-    recargos: { nombre: 'Nuevo recargo', tipo: 'porcentaje', valor: 0, aplica: '', activo: true },
+    recargos: { nombre: 'Nuevo recargo', tipo: 'porcentaje', valor: 0, condicion: '', activo: true },
     conductores: { tipo_servicio: 'Traslado local', tipo_vehiculo: 'Todos', pago_base: 0, por_km: 0, gastos_autorizados: 0, viaticos: 0, activo: true },
     empresariales: { descuento: 0, tarifa_fija: null, vigencia_desde: new Date().toISOString().slice(0,10), vigencia_hasta: '', servicios_incluidos: [], activa: true },
     rutas: { nombre: 'Nueva ruta', origen: '', destino: '', distancia_km: 0, tarifa_fija: 0, pago_conductor: 0, tiempo_est_min: 0, tipo_vehiculo: 'Todos', activa: true },
@@ -602,8 +612,19 @@ export default function TarifasView() {
               <tbody className="divide-y divide-slate-100">
                 {recargos.map(r => (
                   <tr key={r.id} className={`hover:bg-slate-50 ${!r.activo ? 'opacity-50' : ''}`}>
-                    <td className={tdCls + ' font-medium'}>{E(r.id) ? <InlineInput value={str(editData.nombre)} onChange={v => set('nombre', v)} type="text" /> : r.nombre}</td>
-                    <td className={tdCls + ' text-xs text-slate-500 max-w-[180px]'}>{E(r.id) ? <InlineInput value={str(editData.aplica)} onChange={v => set('aplica', v)} type="text" /> : r.aplica}</td>
+                    <td className={tdCls + ' font-medium'}>
+                      {E(r.id) ? <InlineInput value={str(editData.nombre)} onChange={v => set('nombre', v)} type="text" /> : (
+                        <span className="flex items-center gap-2">
+                          {r.nombre}
+                          {r.codigo && (
+                            <span className="text-[10px] font-semibold uppercase text-rr-traceDeep bg-[#E8EFFF] px-1.5 py-0.5 rounded" title="Conectado al simulador de tarifas — no lo elimines, solo edítalo">
+                              {r.codigo}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    <td className={tdCls + ' text-xs text-slate-500 max-w-[180px]'}>{E(r.id) ? <InlineInput value={str(editData.condicion)} onChange={v => set('condicion', v)} type="text" /> : r.condicion}</td>
                     <td className={tdCls}>
                       {E(r.id) ? (
                         <select value={str(editData.tipo)} onChange={e => set('tipo', e.target.value)} className="border border-rr-trace rounded px-2 py-1 text-sm">

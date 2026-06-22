@@ -4,11 +4,12 @@
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Singleton — una sola instancia en todo el browser
-let _client: ReturnType<typeof createBrowserClient> | null = null
+let _client: SupabaseClient | null = null
 
-export function getSupabaseBrowserClient() {
+export function getSupabaseBrowserClient(): SupabaseClient {
   if (!_client) {
     _client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

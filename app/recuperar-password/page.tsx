@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 const iCls =
@@ -20,11 +21,11 @@ export default function RecuperarPasswordPage() {
   // Supabase detecta el token de recuperación que viene en la URL del correo
   // y, si es válido, dispara el evento PASSWORD_RECOVERY con una sesión temporal.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
       if (event === 'PASSWORD_RECOVERY') setValid(true)
     })
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session) setValid(true)
       setReady(true)
     })

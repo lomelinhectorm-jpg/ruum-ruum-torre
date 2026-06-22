@@ -8,8 +8,11 @@ import {
   getDocumentosUsuario, getUrlDocumento, subirDocumentoUsuario,
   getCatalogoMetodosPago, getMetodosPagoUsuario, agregarMetodoPagoUsuario,
   actualizarMetodoPagoUsuario, eliminarMetodoPagoUsuario, marcarMetodoPagoPredeterminado,
+  crearSetupIntentTarjeta, guardarMetodoPagoTarjeta,
   type MetodoPagoUsuario,
 } from '@/lib/queries/usuario'
+import { getStripeBrowserClient } from '@/lib/stripe-client'
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { REGIMENES_FISCALES, USOS_CFDI } from '@/lib/constants/fiscal'
 import { TRANSMISIONES } from '@/lib/constants/vehiculo'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -744,11 +747,128 @@ function DocumentosSeccion({ onBack }: { onBack: () => void }) {
 // ─── 6. Métodos de pago ──────────────────────────────────────────────────────────
 // El catálogo (qué métodos existen y cuáles están activos) lo define Torre
 // de Control en Configuración → Métodos de pago (tabla `metodos_pago`).
-// Aquí el usuario elige sobre ese catálogo y guarda sus propios datos
-// (alias, titular, terminación de tarjeta) en `metodos_pago_usuario`, con
-// RLS que limita la lectura y escritura a sus propios registros
-// (ver docs/sql/metodos_pago_usuario.sql en torre).
+// Las tarjetas se capturan y tokenizan con Stripe (ver lib/stripe-client.ts
+// y app/api/stripe/*) -- el número de tarjeta nunca pasa por este
+// servidor ni se guarda en Supabase, solo la marca y los últimos 4
+// dígitos que regresa Stripe. Métodos sin tarjeta (Efectivo, Transferencia
+// SPEI) se guardan directo, sin Stripe.
 const esMetodoTarjeta = (nombre?: string | null) => /tarjeta/i.test(nombre ?? '')
+
+const stripeElementOptions = {
+  style: {
+    base: { fontSize: '14px', color: '#1e293b', '::placeholder': { color: '#94a3b8' } },
+    invalid: { color: '#ef4444' },
+  },
+}
+
+// Formulario de alta de una tarjeta nueva. Vive dentro de <Elements> para
+// poder usar useStripe/useElements. El flujo es: 1) pide un SetupIntent al
+// servidor, 2) confirma la tarjeta directo con Stripe.js (stripe.com nunca
+// pasa por nuestro servidor), 3) ya con el SetupIntent confirmado, le pide
+// al servidor que verifique y guarde el resultado.
+function FormularioNuevaTarjeta({ metodoPagoId, onSaved, onCancel }: {
+  metodoPagoId: string
+  onSaved: (predeterminado: boolean) => void | Promise<void>
+  onCancel: () => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [alias, setAlias] = useState('')
+  const [titular, setTitular] = useState('')
+  const [predeterminado, setPredeterminado] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  const guardar = async () => {
+    if (!stripe || !elements) return
+    const cardElement = elements.getElement(CardElement)
+    if (!cardElement) return
+
+    setGuardando(true)
+    setError('')
+    try {
+      const { clientSecret } = await crearSetupIntentTarjeta()
+      const resultado = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: titular.trim() ? { name: titular.trim() } : undefined,
+        },
+      })
+
+      if (resultado.error) {
+        setError(resultado.error.message ?? 'Stripe rechazó la tarjeta. Verifica los datos.')
+        setGuardando(false)
+        return
+      }
+      const setupIntentId = resultado.setupIntent?.id
+      if (!setupIntentId) {
+        setError('No se pudo confirmar la captura de la tarjeta.')
+        setGuardando(false)
+        return
+      }
+
+      const nuevo = await guardarMetodoPagoTarjeta({ setupIntentId, metodoPagoId, alias })
+      if (predeterminado) await marcarMetodoPagoPredeterminado(nuevo.id)
+      await onSaved(predeterminado)
+    } catch (e) {
+      console.error('Error guardando tarjeta:', e)
+      setError(e instanceof Error ? e.message : 'No se pudo guardar la tarjeta. Intenta de nuevo.')
+    }
+    setGuardando(false)
+  }
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+      <div>
+        <Label>Datos de la tarjeta</Label>
+        <div className={inputCls() + ' py-3'}>
+          <CardElement options={stripeElementOptions} />
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1">
+          Tu tarjeta se captura directo con Stripe; nunca pasa por nuestros servidores.
+        </p>
+      </div>
+      <div>
+        <Label>Nombre del titular</Label>
+        <input
+          value={titular} placeholder="COMO APARECE EN LA TARJETA"
+          onChange={e => setTitular(e.target.value.toUpperCase())} className={inputCls()}
+        />
+      </div>
+      <div>
+        <Label>Alias</Label>
+        <input
+          value={alias} placeholder="EJ. TARJETA PRINCIPAL"
+          onChange={e => setAlias(e.target.value.toUpperCase())} className={inputCls()}
+        />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-slate-600 pt-1">
+        <input
+          type="checkbox" checked={predeterminado}
+          onChange={e => setPredeterminado(e.target.checked)} className="rounded border-slate-300"
+        />
+        Usar como método predeterminado
+      </label>
+
+      {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={onCancel}
+          className="flex-1 border border-slate-300 text-slate-600 font-medium py-3 rounded-xl hover:bg-slate-50 transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={guardar} disabled={guardando || !stripe}
+          className="flex-1 bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 disabled:opacity-60 transition-colors"
+        >
+          {guardando ? 'Guardando...' : 'Guardar tarjeta'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function PagosSeccion({ onBack }: { onBack: () => void }) {
   const { usuario } = useApp()
@@ -757,10 +877,8 @@ function PagosSeccion({ onBack }: { onBack: () => void }) {
   const [cargando, setCargando] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    metodoPagoId: '', metodoPagoNombre: '', alias: '', titular: '', ultimosDigitos: '', predeterminado: false,
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [nuevoMetodoPagoId, setNuevoMetodoPagoId] = useState('')
+  const [form, setForm] = useState({ alias: '', predeterminado: false })
   const [guardando, setGuardando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -793,75 +911,59 @@ function PagosSeccion({ onBack }: { onBack: () => void }) {
     return () => { activo = false }
   }, [usuario?.id])
 
-  const set = (k: keyof typeof form, v: string | boolean) => {
-    setForm(f => ({ ...f, [k]: v }))
-    setErrors(e => ({ ...e, [k as string]: '' }))
-  }
-
   const abrirNuevo = () => {
     setEditId(null)
-    setForm({
-      metodoPagoId: catalogo[0]?.id ?? '', metodoPagoNombre: catalogo[0]?.nombre ?? '',
-      alias: '', titular: '', ultimosDigitos: '', predeterminado: metodos.length === 0,
-    })
-    setErrors({}); setErrorGeneral('')
+    setNuevoMetodoPagoId(catalogo[0]?.id ?? '')
+    setForm({ alias: '', predeterminado: metodos.length === 0 })
+    setErrorGeneral('')
     setMostrarForm(true)
   }
 
   const abrirEditar = (m: MetodoPagoUsuario) => {
     setEditId(m.id)
-    setForm({
-      metodoPagoId: m.metodo_pago_id, metodoPagoNombre: m.metodos_pago?.nombre ?? '',
-      alias: m.alias ?? '', titular: m.titular ?? '', ultimosDigitos: m.ultimos_digitos ?? '',
-      predeterminado: m.predeterminado,
-    })
-    setErrors({}); setErrorGeneral('')
+    setForm({ alias: m.alias ?? '', predeterminado: m.predeterminado })
+    setErrorGeneral('')
     setMostrarForm(true)
   }
 
-  const cambiarMetodoCatalogo = (id: string) => {
-    const c = catalogo.find(c => c.id === id)
-    setForm(f => ({ ...f, metodoPagoId: id, metodoPagoNombre: c?.nombre ?? '' }))
-    setErrors(e => ({ ...e, metodoPagoId: '' }))
+  const cerrarForm = () => {
+    setMostrarForm(false)
+    setEditId(null)
+    setErrorGeneral('')
   }
 
-  const requiereDatosTarjeta = esMetodoTarjeta(form.metodoPagoNombre)
+  const metodoNuevoSeleccionado = catalogo.find(c => c.id === nuevoMetodoPagoId)
+  const esNuevaTarjeta = !editId && esMetodoTarjeta(metodoNuevoSeleccionado?.nombre)
 
-  const validate = () => {
-    const e: Record<string, string> = {}
-    if (!editId && !form.metodoPagoId) e.metodoPagoId = 'Selecciona un método'
-    if (form.ultimosDigitos && !/^\d{4}$/.test(form.ultimosDigitos)) e.ultimosDigitos = 'Deben ser 4 dígitos'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  const guardar = async () => {
-    if (!usuario || !validate()) return
+  // Guarda métodos SIN tarjeta (Efectivo, Transferencia...) y la edición
+  // de alias/predeterminado de cualquier método ya existente. La captura
+  // de tarjetas nuevas la maneja FormularioNuevaTarjeta por separado,
+  // porque necesita el flujo de Stripe.
+  const guardarSimple = async () => {
+    if (!usuario) return
     setGuardando(true)
     setErrorGeneral('')
     try {
       let idAfectado = editId
       if (editId) {
-        await actualizarMetodoPagoUsuario(editId, {
-          alias: form.alias, titular: form.titular, ultimosDigitos: form.ultimosDigitos,
-        })
+        await actualizarMetodoPagoUsuario(editId, { alias: form.alias })
       } else {
-        const creado = await agregarMetodoPagoUsuario(usuario.id, {
-          metodoPagoId: form.metodoPagoId, alias: form.alias, titular: form.titular, ultimosDigitos: form.ultimosDigitos,
-        })
+        const creado = await agregarMetodoPagoUsuario(usuario.id, { metodoPagoId: nuevoMetodoPagoId, alias: form.alias })
         idAfectado = creado.id
       }
-      if (form.predeterminado && idAfectado) {
-        await marcarMetodoPagoPredeterminado(idAfectado)
-      }
-      setMostrarForm(false)
-      setEditId(null)
+      if (form.predeterminado && idAfectado) await marcarMetodoPagoPredeterminado(idAfectado)
+      cerrarForm()
       await cargar()
     } catch (e) {
       console.error('Error guardando método de pago:', e)
       setErrorGeneral('No se pudo guardar el método de pago. Intenta de nuevo.')
     }
     setGuardando(false)
+  }
+
+  const tarjetaGuardada = async () => {
+    cerrarForm()
+    await cargar()
   }
 
   const eliminar = async (id: string) => {
@@ -926,7 +1028,7 @@ function PagosSeccion({ onBack }: { onBack: () => void }) {
                         )}
                       </p>
                       <p className="text-xs text-slate-500 truncate">
-                        {m.metodos_pago?.nombre}
+                        {m.marca ? m.marca.toUpperCase() : m.metodos_pago?.nombre}
                         {m.ultimos_digitos ? ` · •••• ${m.ultimos_digitos}` : ''}
                         {m.titular ? ` · ${m.titular}` : ''}
                       </p>
@@ -967,58 +1069,45 @@ function PagosSeccion({ onBack }: { onBack: () => void }) {
           )}
 
           {mostrarForm ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-              {!editId && (
-                <div>
-                  <Label req>Método de pago</Label>
-                  <select
-                    value={form.metodoPagoId} onChange={e => cambiarMetodoCatalogo(e.target.value)}
-                    className={inputCls(errors.metodoPagoId)}
-                  >
-                    {catalogo.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                  <ErrMsg msg={errors.metodoPagoId} />
-                  {catalogo.find(c => c.id === form.metodoPagoId)?.descripcion && (
-                    <p className="text-xs text-slate-400 mt-1">
-                      {catalogo.find(c => c.id === form.metodoPagoId)?.descripcion}
-                    </p>
-                  )}
-                </div>
-              )}
+            !editId && (
+              <div className="mb-3">
+                <Label req>Método de pago</Label>
+                <select
+                  value={nuevoMetodoPagoId} onChange={e => setNuevoMetodoPagoId(e.target.value)}
+                  className={inputCls()}
+                >
+                  {catalogo.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                {metodoNuevoSeleccionado?.descripcion && (
+                  <p className="text-xs text-slate-400 mt-1">{metodoNuevoSeleccionado.descripcion}</p>
+                )}
+              </div>
+            )
+          ) : null}
 
+          {mostrarForm && esNuevaTarjeta ? (
+            <Elements stripe={getStripeBrowserClient()}>
+              <FormularioNuevaTarjeta
+                metodoPagoId={nuevoMetodoPagoId}
+                onSaved={tarjetaGuardada}
+                onCancel={cerrarForm}
+              />
+            </Elements>
+          ) : mostrarForm ? (
+            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
               <div>
                 <Label>Alias</Label>
                 <input
-                  value={form.alias} placeholder="EJ. TARJETA PRINCIPAL"
-                  onChange={e => set('alias', e.target.value.toUpperCase())} className={inputCls()}
+                  value={form.alias} placeholder="EJ. EFECTIVO EN SITIO"
+                  onChange={e => setForm(f => ({ ...f, alias: e.target.value.toUpperCase() }))}
+                  className={inputCls()}
                 />
               </div>
-
-              {requiereDatosTarjeta && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label>Nombre del titular</Label>
-                    <input
-                      value={form.titular} placeholder="COMO APARECE EN LA TARJETA"
-                      onChange={e => set('titular', e.target.value.toUpperCase())} className={inputCls()}
-                    />
-                  </div>
-                  <div>
-                    <Label>Últimos 4 dígitos</Label>
-                    <input
-                      value={form.ultimosDigitos} maxLength={4} placeholder="1234"
-                      onChange={e => set('ultimosDigitos', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      className={inputCls(errors.ultimosDigitos)}
-                    />
-                    <ErrMsg msg={errors.ultimosDigitos} />
-                  </div>
-                </div>
-              )}
-
               <label className="flex items-center gap-2 text-sm text-slate-600 pt-1">
                 <input
                   type="checkbox" checked={form.predeterminado}
-                  onChange={e => set('predeterminado', e.target.checked)} className="rounded border-slate-300"
+                  onChange={e => setForm(f => ({ ...f, predeterminado: e.target.checked }))}
+                  className="rounded border-slate-300"
                 />
                 Usar como método predeterminado
               </label>
@@ -1027,13 +1116,13 @@ function PagosSeccion({ onBack }: { onBack: () => void }) {
 
               <div className="flex gap-2 pt-1">
                 <button
-                  onClick={() => { setMostrarForm(false); setEditId(null); setErrors({}); setErrorGeneral('') }}
+                  onClick={cerrarForm}
                   className="flex-1 border border-slate-300 text-slate-600 font-medium py-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={guardar} disabled={guardando}
+                  onClick={guardarSimple} disabled={guardando}
                   className="flex-1 bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 disabled:opacity-60 transition-colors"
                 >
                   {guardando ? 'Guardando...' : 'Guardar método'}
