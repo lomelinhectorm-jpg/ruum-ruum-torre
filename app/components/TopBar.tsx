@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bars3Icon, BellIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
+import { Bars3Icon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
+import NotificacionesBell from './NotificacionesBell'
 
 interface TopBarProps {
   title: string
@@ -35,10 +36,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         <h2 className="font-display text-xl font-bold text-rr-asphalt">{title}</h2>
       </div>
       <div className="flex items-center gap-4">
-        <button className="relative p-2 text-rr-steel/50 cursor-not-allowed" disabled
-          title="Notificaciones — próximamente">
-          <BellIcon className="w-5 h-5" />
-        </button>
+        <NotificacionesBell />
         <button
           onClick={cerrarSesion}
           disabled={cerrandoSesion}

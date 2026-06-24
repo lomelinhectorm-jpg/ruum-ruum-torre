@@ -370,13 +370,10 @@ function IncidenciaModal({ trip, onClose, onSaved }: { trip: Trip; onClose: () =
       })
       if (error) throw error
 
-      await sb.from('viajes').update({ status: 'En revisión por incidencia' }).eq('id', trip.dbId)
-      await sb.from('timeline_viaje').insert({
-        viaje_id: trip.dbId,
-        evento: 'Incidencia registrada',
-        actor: 'Admin',
-        actor_tipo: 'admin',
-      })
+      // Antes esto era un .update() directo a viajes + un insert manual a
+      // timeline_viaje, sin pasar por ninguna validación del servidor.
+      // updateViajeStatus ya hace ambas cosas de forma atómica via RPC.
+      await updateViajeStatus(trip.dbId, 'En revisión por incidencia', { evento: 'Incidencia registrada' })
 
       onSaved()
       onClose()

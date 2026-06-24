@@ -127,30 +127,26 @@ export async function createViaje(payload: {
 
 // ── ACTUALIZAR ──────────────────────────────────────────────
 
+// Antes hacía un .update({ status }) directo sin validar nada — cualquier
+// transición, desde cualquier estado, sin chequeo en el servidor. Ahora
+// pasa por cambiar_estado_viaje_admin (ver
+// docs/sql/estados_viaje_transiciones_seguras.sql), que valida del lado
+// de Supabase que el viaje no esté ya en un estado final. Solo soporta
+// 'Finalizado' | 'Cancelado' | 'En revisión por incidencia' — que es
+// exactamente lo único que este proyecto usa hoy para esta función.
 export async function updateViajeStatus(
   id: string,
   status: EstatusViaje,
   opts?: { actor?: string; evento?: string }
 ) {
-  const { data, error } = await supabase
-    .from('viajes')
-    .update({ status })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) throw error
-
-  // Registrar en timeline. Si no se pasa un evento explícito, se usa el
-  // texto genérico — pero la mayoría de los llamadores (finalizar,
-  // cancelar) sí pasan su propio texto para que el historial sea legible.
-  await supabase.from('timeline_viaje').insert({
-    viaje_id: id,
-    evento: opts?.evento ?? `Estatus cambiado a: ${status}`,
-    actor: opts?.actor ?? 'Admin',
-    actor_tipo: 'admin',
+  const { data, error } = await supabase.rpc('cambiar_estado_viaje_admin', {
+    p_viaje_id: id,
+    p_nuevo_estado: status,
+    p_actor_nombre: opts?.actor ?? 'Admin',
+    p_evento: opts?.evento ?? null,
   })
 
+  if (error) throw error
   return data
 }
 

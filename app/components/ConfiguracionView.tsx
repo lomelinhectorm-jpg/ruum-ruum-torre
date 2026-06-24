@@ -1090,30 +1090,62 @@ function TabEvidencia() {
 }
 
 // ─── 7. ESTADOS DE VIAJE ──────────────────────────────────────────────────────
+// Estados cuyas transiciones de salida ya se validan de verdad en el
+// servidor (ver docs/sql/estados_viaje_transiciones_seguras.sql). El resto
+// del flujo lo manejan funciones que ya existían en Supabase antes de
+// este cambio (asignar_conductor_admin, aceptar_viaje_conductor,
+// cerrar_viaje_conductor, cancelar_viaje_usuario) — sus cuerpos no están
+// versionados en el repo (ver advertencia en
+// docs/sql/flujo_viaje_reasignaciones.sql), así que esta pantalla no
+// puede mostrar con certeza qué validan internamente.
+// Quién valida la salida de cada estado del lado del servidor — ya con
+// los 5 cuerpos de función recuperados (ver
+// docs/sql/flujo_viaje_reasignaciones.sql) más las 2 RPCs nuevas (ver
+// docs/sql/estados_viaje_transiciones_seguras.sql), todo el flujo normal
+// queda cubierto. Lo único sin "función dedicada" es la salida de
+// En revisión por incidencia, que hoy solo puede resolverla Admin.
+const VALIDADOR_POR_ESTADO: Record<string, string> = {
+  'Solicitud recibida': 'asignar_conductor_admin / cancelar_viaje_usuario',
+  'Pendiente de asignación': 'asignar_conductor_admin / cancelar_viaje_usuario',
+  'Conductor asignado': 'aceptar_viaje_conductor / cancelar_viaje_usuario',
+  'Conductor en camino': 'avanzar_estado_viaje_conductor',
+  'Recolección en proceso': 'guardar_evidencia_conductor',
+  'Evidencia inicial pendiente': 'avanzar_estado_viaje_conductor',
+  'Traslado en curso': 'avanzar_estado_viaje_conductor',
+  'Entrega en proceso': 'guardar_evidencia_conductor',
+  'Evidencia final pendiente': 'cerrar_viaje_conductor',
+}
+
 function TabEstados() {
-  const [estados, setEstados] = useState<{id:string;orden:number;nombre:string;siguiente:string;color:string;auto:boolean}[]>([])
+  const [estados, setEstados] = useState<{id:string;orden:number;nombre:string;siguientes:string[];color:string;auto:boolean}[]>([])
   const [cargando, setCargando] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const getSb = async () => getSupabaseBrowserClient()
 
   const cargar = useCallback(async () => {
     const sb = await getSb()
-    const { data } = await sb.from('estados_viaje').select('id,orden,nombre,siguiente,color,auto').order('orden')
+    const { data } = await sb.from('estados_viaje').select('id,orden,nombre,siguientes,color,auto').order('orden')
     if (data) setEstados(data.map((e: Record<string,unknown>) => ({
       id: String(e.id), orden: Number(e.orden ?? 0), nombre: String(e.nombre ?? ''),
-      siguiente: String(e.siguiente ?? '—'), color: String(e.color ?? 'slate'), auto: Boolean(e.auto),
+      siguientes: Array.isArray(e.siguientes) ? (e.siguientes as string[]) : [],
+      color: String(e.color ?? 'slate'), auto: Boolean(e.auto),
     })))
     setCargando(false)
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
 
-  const guardarSiguiente = async (id: string, siguiente: string, auto: boolean) => {
+  const todosLosNombres = estados.map(e => e.nombre)
+
+  const guardarSiguientes = async (id: string, siguientes: string[], auto: boolean) => {
+    setError('')
     const sb = await getSb()
-    await sb.from('estados_viaje').update({ siguiente, auto }).eq('id', id)
-    setEstados(prev => prev.map(e => e.id === id ? { ...e, siguiente, auto } : e))
-    intentarRegistrarBitacora('Estado de viaje actualizado', 'Estados de viaje', `Estado ID: ${id}, siguiente: ${siguiente}, automático: ${auto}`)
+    const { error: e } = await sb.from('estados_viaje').update({ siguientes, auto }).eq('id', id)
+    if (e) { setError(e.message); return }
+    setEstados(prev => prev.map(es => es.id === id ? { ...es, siguientes, auto } : es))
+    intentarRegistrarBitacora('Estado de viaje actualizado', 'Estados de viaje', `Estado ID: ${id}, siguientes: ${siguientes.join('/') || 'ninguno'}, automático: ${auto}`)
     setEditing(null)
   }
 
@@ -1126,55 +1158,89 @@ function TabEstados() {
   if (cargando) return <div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div>
 
   return (
-    <SCard title="🔄 Estados del ciclo de vida de un viaje" subtitle="Flujo de estados configurado por operaciones">
-      {estados.length === 0 ? (
-        <p className="text-center py-8 text-slate-400 text-xs italic">Sin estados configurados en la tabla estados_viaje.</p>
-      ) : (
-      <ol className="relative border-l-2 border-slate-200 space-y-4 ml-3">
-        {estados.map((e) => (
-          <li key={e.id} className="ml-5">
-            <span className={`absolute -left-2 w-4 h-4 rounded-full flex items-center justify-center ${colorDot[e.color] ?? colorDot.slate}`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-            </span>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-slate-800">
-                  <span className="text-xs text-slate-400 font-normal mr-2">#{e.orden}</span>
-                  {e.nombre}
-                </p>
-                {editing === e.id ? (
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <input defaultValue={e.siguiente} id={`sig-${e.id}`} className="text-xs border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rr-route" />
-                    <label className="flex items-center gap-1 text-xs text-slate-500">
-                      <input type="checkbox" defaultChecked={e.auto} id={`auto-${e.id}`} /> Automático
-                    </label>
-                    <button
-                      onClick={() => {
-                        const sig = (document.getElementById(`sig-${e.id}`) as HTMLInputElement)?.value ?? e.siguiente
-                        const auto = (document.getElementById(`auto-${e.id}`) as HTMLInputElement)?.checked ?? e.auto
-                        guardarSiguiente(e.id, sig, auto)
-                      }}
-                      className="text-xs bg-rr-route text-rr-asphalt px-2 py-1 rounded-lg hover:bg-rr-routeDark">Guardar</button>
-                    <button onClick={() => setEditing(null)} className="text-xs text-slate-500 px-2 py-1 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400">Siguiente: {e.siguiente}</p>
-                )}
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 p-3 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl text-xs text-rr-traceDeep">
+        <p>
+          Además de lo que se edita abajo, cualquier viaje que no esté ya en <strong>Finalizado</strong> o <strong>Cancelado</strong> se
+          puede mover a <strong>Finalizado</strong>, <strong>Cancelado</strong> o <strong>En revisión por incidencia</strong> desde
+          Viajes — esa regla está fija en el servidor, no se edita aquí.
+        </p>
+      </div>
+      <SCard title="🔄 Estados del ciclo de vida de un viaje" subtitle="A qué estados se puede pasar desde cada uno — esto valida el servidor, no solo la UI">
+        {error && <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+        {estados.length === 0 ? (
+          <p className="text-center py-8 text-slate-400 text-xs italic">Sin estados configurados en la tabla estados_viaje.</p>
+        ) : (
+        <ol className="relative border-l-2 border-slate-200 space-y-4 ml-3">
+          {estados.map((e) => {
+            const validador = VALIDADOR_POR_ESTADO[e.nombre]
+            const esTerminal = e.nombre === 'Finalizado' || e.nombre === 'Cancelado'
+            return (
+            <li key={e.id} className="ml-5">
+              <span className={`absolute -left-2 w-4 h-4 rounded-full flex items-center justify-center ${colorDot[e.color] ?? colorDot.slate}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+              </span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    <span className="text-xs text-slate-400 font-normal mr-2">#{e.orden}</span>
+                    {e.nombre}
+                  </p>
+                  {editing === e.id ? (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {todosLosNombres.filter(n => n !== e.nombre).map(n => (
+                          <button key={n} type="button"
+                            onClick={() => setEstados(prev => prev.map(es => es.id === e.id ? { ...es, siguientes: es.siguientes.includes(n) ? es.siguientes.filter(x => x !== n) : [...es.siguientes, n] } : es))}
+                            className={`px-2 py-1 rounded text-xs font-medium ${e.siguientes.includes(n) ? 'bg-[#E8EFFF] text-rr-traceDeep' : 'bg-slate-50 text-slate-400'}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-1 text-xs text-slate-500">
+                        <input type="checkbox" checked={e.auto} onChange={ev => setEstados(prev => prev.map(es => es.id === e.id ? { ...es, auto: ev.target.checked } : es))} /> Automático (sin acción manual — aún no hay nada que lo ejecute)
+                      </label>
+                      <div className="flex gap-2">
+                        <button onClick={() => guardarSiguientes(e.id, e.siguientes, e.auto)} className="text-xs bg-rr-route text-rr-asphalt px-2 py-1 rounded-lg hover:bg-rr-routeDark">Guardar</button>
+                        <button onClick={() => { setEditing(null); cargar() }} className="text-xs text-slate-500 px-2 py-1 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {e.siguientes.length > 0 ? `Puede pasar a: ${e.siguientes.join(', ')}` : 'Sin transiciones propias configuradas aquí'}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {esTerminal && <Badge text="Estado final" color="slate" />}
+                  {!esTerminal && validador && <Badge text={`Validado: ${validador}`} color="green" />}
+                  {!esTerminal && !validador && <Badge text="Sin salida propia — solo Admin" color="amber" />}
+                  {e.auto && <Badge text="Automático" color="blue" />}
+                  <RowActions onEdit={() => setEditing(editing === e.id ? null : e.id)} />
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {e.auto && <Badge text="Automático" color="blue" />}
-                <RowActions onEdit={() => setEditing(editing === e.id ? null : e.id)} />
-              </div>
-            </div>
-          </li>
-        ))}
-      </ol>
-      )}
-    </SCard>
+            </li>
+            )
+          })}
+        </ol>
+        )}
+      </SCard>
+    </div>
   )
 }
 
 // ─── 8. NOTIFICACIONES ────────────────────────────────────────────────────────
+// Tiene que coincidir exactamente con el status resultante del viaje —
+// es justo lo que compara fn_notificar_desde_timeline (ver
+// docs/sql/notificaciones.sql). Antes "Evento" era texto libre, así que
+// un typo aquí significaba que la plantilla nunca disparaba nada y nadie
+// se enteraba.
+const EVENTOS_VIAJE = [
+  'Conductor asignado', 'Conductor en camino', 'Recolección en proceso',
+  'Evidencia inicial pendiente', 'Traslado en curso', 'Entrega en proceso',
+  'Evidencia final pendiente', 'Finalizado', 'Cancelado', 'En revisión por incidencia',
+]
+
 function TabNotificaciones() {
   const [plantillas, setPlantillas] = useState<{id:string;evento:string;canal:string[];activa:boolean;destinatario:string}[]>([])
   const [cargando, setCargando] = useState(true)
@@ -1236,14 +1302,33 @@ function TabNotificaciones() {
     SMS: 'bg-orange-50 text-orange-700', WhatsApp: 'bg-emerald-50 text-emerald-700',
   }
   return (
+    <div className="space-y-4">
+    <div className="flex items-start gap-2 p-3 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl text-xs text-rr-traceDeep">
+      <p>
+        La campanita dentro de cada app (in-app) ya funciona siempre, sin configurar nada aquí.
+        <strong> WhatsApp/SMS solo se envían si la plantilla está activa</strong> y tienes Twilio configurado en el servidor
+        (ver docs/sql/notificaciones.sql) — sin eso, marcar esos canales no tiene efecto. <strong>Email no está implementado todavía.</strong>
+      </p>
+    </div>
     <SCard title="🔔 Plantillas de notificación" subtitle="Configura qué notificaciones se envían y por qué canal"
       action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva plantilla</button>}>
       {showForm && (
         <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
           <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar plantilla' : 'Nueva plantilla'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><label className="text-xs text-slate-500 mb-1 block">Evento*</label><input type="text" placeholder="Ej. Conductor asignado" value={form.evento} onChange={e => setForm(f => ({...f, evento: e.target.value}))} className={iCls()} /></div>
-            <div><label className="text-xs text-slate-500 mb-1 block">Destinatario</label><input type="text" placeholder="Ej. Usuario solicitante" value={form.destinatario} onChange={e => setForm(f => ({...f, destinatario: e.target.value}))} className={iCls()} /></div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Evento*</label>
+              <select value={form.evento} onChange={e => setForm(f => ({...f, evento: e.target.value}))} className={`${iCls()} bg-white`}>
+                <option value="">Seleccionar...</option>
+                {EVENTOS_VIAJE.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs text-slate-500 mb-1 block">Destinatario</label>
+              <select value={form.destinatario} onChange={e => setForm(f => ({...f, destinatario: e.target.value}))} className={`${iCls()} bg-white`}>
+                <option value="">Seleccionar...</option>
+                <option value="Usuario solicitante">Usuario solicitante</option>
+                <option value="Conductor asignado">Conductor asignado</option>
+              </select>
+            </div>
           </div>
           <div>
             <label className="text-xs text-slate-500 mb-1 block">Canales</label>
@@ -1285,6 +1370,7 @@ function TabNotificaciones() {
       </div>
       )}
     </SCard>
+    </div>
   )
 }
 

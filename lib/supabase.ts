@@ -47,6 +47,9 @@ export interface Viaje {
   status: EstatusViaje; tarifa_cliente: number; pago_conductor: number
   gastos_autorizados: number; ajustes: number
   observaciones_conductor: string | null; revision_admin: string | null
+  // Descubiertas al recuperar el cuerpo de cancelar_viaje_usuario — no
+  // estaban en este tipo aunque sí existen en la tabla real.
+  cancelacion_penalizacion: number | null; cancelado_por: string | null; cancelado_at: string | null
   created_at: string; updated_at: string
 }
 

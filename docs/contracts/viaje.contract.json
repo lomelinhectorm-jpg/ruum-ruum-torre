@@ -1,5 +1,7 @@
 {
-  "version": "2026-06-21",
+  "version": "2026-06-24",
+  "recovered": true,
+  "recovered_note": "Cuerpos reales recuperados con pg_get_functiondef() el 24-06-2026 y versionados en docs/sql/flujo_viaje_reasignaciones.sql. Este contrato ya no es la única fuente de verdad de los argumentos — el SQL real lo es.",
   "states": [
     "Solicitud recibida",
     "Pendiente de asignación",
