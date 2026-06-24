@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { MODULOS_SISTEMA as MODULOS_SISTEMA_REGISTRO } from '@/lib/modulosSistema'
+import { ESTADOS_MEXICO } from '@/lib/estadosMexico'
 import {
   ShieldCheckIcon,
   UsersIcon,
@@ -489,6 +490,8 @@ type ZonaOperacion = {
   descripcion: string
   radioKm: number
   activa: boolean
+  estados: string[]
+  municipios: string[]
 }
 
 function TabZonas() {
@@ -496,7 +499,7 @@ function TabZonas() {
   const [cargando, setCargando] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState({ nombre: '', descripcion: '', radioKm: '' })
+  const [form, setForm] = useState({ nombre: '', descripcion: '', radioKm: '', estados: [] as string[], municipiosTexto: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -508,7 +511,7 @@ function TabZonas() {
     setError('')
     try {
       const sb = await getSb()
-      const { data, error: e } = await sb.from('zonas').select('id,nombre,descripcion,radio_km,activa').order('created_at')
+      const { data, error: e } = await sb.from('zonas').select('id,nombre,descripcion,radio_km,activa,estados,municipios').order('created_at')
       if (e) {
         setError(e.message)
         return
@@ -519,6 +522,8 @@ function TabZonas() {
         descripcion: String(z.descripcion ?? ''),
         radioKm: Number(z.radio_km ?? 0),
         activa: Boolean(z.activa),
+        estados: Array.isArray(z.estados) ? (z.estados as string[]) : [],
+        municipios: Array.isArray(z.municipios) ? (z.municipios as string[]) : [],
       })))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudieron cargar las zonas.')
@@ -541,8 +546,17 @@ function TabZonas() {
     intentarRegistrarBitacora('Zona activada/desactivada', 'Zonas y cobertura', `Zona ID: ${id}, activa: ${!activa}`)
   }
 
-  const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radioKm: '' }); setError(''); setShowForm(true) }
-  const abrirEditar = (z: ZonaOperacion) => { setEditId(z.id); setForm({ nombre: z.nombre, descripcion: z.descripcion, radioKm: String(z.radioKm) }); setError(''); setShowForm(true) }
+  const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radioKm: '', estados: [], municipiosTexto: '' }); setError(''); setShowForm(true) }
+  const abrirEditar = (z: ZonaOperacion) => {
+    setEditId(z.id)
+    setForm({ nombre: z.nombre, descripcion: z.descripcion, radioKm: String(z.radioKm), estados: z.estados, municipiosTexto: z.municipios.join(', ') })
+    setError('')
+    setShowForm(true)
+  }
+
+  const toggleEstadoForm = (estado: string) => {
+    setForm(f => ({ ...f, estados: f.estados.includes(estado) ? f.estados.filter(e => e !== estado) : [...f.estados, estado] }))
+  }
 
   const guardar = async () => {
     if (!form.nombre.trim()) {
@@ -553,7 +567,14 @@ function TabZonas() {
     setError('')
     try {
       const sb = await getSb()
-      const payload = { nombre: form.nombre.trim().toUpperCase(), descripcion: form.descripcion.trim(), radio_km: Number(form.radioKm) || 0 }
+      const municipios = form.municipiosTexto.split(',').map(m => m.trim().toUpperCase()).filter(Boolean)
+      const payload = {
+        nombre: form.nombre.trim().toUpperCase(),
+        descripcion: form.descripcion.trim(),
+        radio_km: Number(form.radioKm) || 0,
+        estados: form.estados,
+        municipios,
+      }
       const { error: e } = editId
         ? await sb.from('zonas').update(payload).eq('id', editId)
         : await sb.from('zonas').insert({ ...payload, activa: true })
@@ -563,7 +584,7 @@ function TabZonas() {
       }
       setShowForm(false)
       setEditId(null)
-      await intentarRegistrarBitacora(editId ? 'Zona actualizada' : 'Zona creada', 'Zonas y cobertura', `Zona: ${payload.nombre}`)
+      await intentarRegistrarBitacora(editId ? 'Zona actualizada' : 'Zona creada', 'Zonas y cobertura', `Zona: ${payload.nombre}, estados: ${form.estados.join('/') || 'ninguno'}`)
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar la zona.')
@@ -586,15 +607,34 @@ function TabZonas() {
   }
 
   return (
-    <SCard title="📍 Zonas de operación" subtitle="Define las áreas de cobertura del servicio"
+    <SCard title="📍 Zonas de operación" subtitle="Define en qué estados/municipios operamos — esto es lo que valida la cobertura al solicitar un viaje"
       action={<button onClick={() => (showForm ? setShowForm(false) : abrirNueva())} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nueva zona</button>}>
       {showForm && (
         <div className="mb-4 p-4 bg-[#E8EFFF] border border-[#C7D7FF] rounded-xl space-y-3">
           <p className="text-xs font-semibold text-rr-traceDeep uppercase">{editId ? 'Editar zona' : 'Nueva zona'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="text-xs text-slate-500 mb-1 block">Nombre*</label><input type="text" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value.toUpperCase()}))} className={iCls()} /></div>
-            <div><label className="text-xs text-slate-500 mb-1 block">Radio (km)</label><input type="number" min="0" value={form.radioKm} onChange={e => setForm(f => ({...f, radioKm: e.target.value}))} className={iCls()} /></div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Radio (km) — informativo, no valida cobertura</label>
+              <input type="number" min="0" value={form.radioKm} onChange={e => setForm(f => ({...f, radioKm: e.target.value}))} className={iCls()} />
+            </div>
             <div className="sm:col-span-2"><label className="text-xs text-slate-500 mb-1 block">Descripción</label><input type="text" value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} className={iCls()} /></div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Estados que cubre esta zona*</label>
+            <div className="flex flex-wrap gap-1.5">
+              {ESTADOS_MEXICO.map(estado => (
+                <button key={estado} type="button" onClick={() => toggleEstadoForm(estado)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${form.estados.includes(estado) ? 'bg-rr-trace text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                  {estado}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Municipios incluidos (separados por coma) — déjalo vacío para cubrir todo el estado</label>
+            <input type="text" value={form.municipiosTexto} onChange={e => setForm(f => ({...f, municipiosTexto: e.target.value}))}
+              placeholder="Ej. Naucalpan, Tlalnepantla, Coyoacán" className={iCls()} />
           </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => { setShowForm(false); setEditId(null) }} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
@@ -605,19 +645,24 @@ function TabZonas() {
       {error && <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
       {cargando ? <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-slate-100 animate-pulse rounded-xl" />)}</div> : (
       <div className="space-y-2">
-        {zonas.length === 0 && <p className="text-center py-8 text-slate-400 text-xs italic">Sin zonas registradas.</p>}
+        {zonas.length === 0 && <p className="text-center py-8 text-slate-400 text-xs italic">Sin zonas registradas. Sin al menos una zona activa con estados marcados, la app de clientes no bloqueará ninguna solicitud por cobertura.</p>}
         {zonas.map(z => (
           <div key={z.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${z.activa ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${z.activa ? 'bg-[#E8EFFF]' : 'bg-slate-100'}`}>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className={`p-2 rounded-lg flex-shrink-0 ${z.activa ? 'bg-[#E8EFFF]' : 'bg-slate-100'}`}>
                 <MapPinIcon className={`w-4 h-4 ${z.activa ? 'text-rr-trace' : 'text-slate-400'}`} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium text-slate-800 text-sm">{z.nombre}</p>
-                <p className="text-xs text-slate-400">{z.descripcion} · Radio: {z.radioKm} km</p>
+                <p className="text-xs text-slate-400">{z.descripcion}</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {z.estados.length === 0 && <Badge text="Sin estados — no cubre nada" color="amber" />}
+                  {z.estados.map(e => <Badge key={e} text={e} color="blue" />)}
+                </div>
+                {z.municipios.length > 0 && <p className="text-xs text-slate-400 mt-1">Municipios: {z.municipios.join(', ')}</p>}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <Toggle value={z.activa} onChange={() => toggleZona(z.id, z.activa)} />
               {confirmDelete === z.id ? (
                 <span className="inline-flex items-center gap-1.5">
