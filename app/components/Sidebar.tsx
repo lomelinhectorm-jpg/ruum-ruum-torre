@@ -44,9 +44,14 @@ interface SidebarProps {
   isOpen: boolean
   isMobile: boolean
   onClose?: () => void
+  /** ids de vista que el usuario actual puede ver (ver useAdminPerfil). */
+  vistasPermitidas: string[]
+  nombre?: string
+  apellido?: string
+  rolNombre?: string
 }
 
-export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onClose }: SidebarProps) {
+export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onClose, vistasPermitidas, nombre, apellido, rolNombre }: SidebarProps) {
   const handleNavigate = (viewId: string) => {
     onNavigate(viewId)
     if (isMobile && onClose) {
@@ -55,6 +60,9 @@ export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onCl
   }
 
   if (!isOpen && isMobile) return null
+
+  const itemsVisibles = navItems.filter(item => vistasPermitidas.includes(item.id))
+  const nombreCompleto = `${nombre ?? ''} ${apellido ?? ''}`.trim() || 'Usuario interno'
 
   return (
     <aside className={`
@@ -73,7 +81,7 @@ export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onCl
 
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1">
-          {navItems.map((item) => (
+          {itemsVisibles.map((item) => (
             <li key={item.id}>
               <button
                 onClick={() => handleNavigate(item.id)}
@@ -89,14 +97,14 @@ export default function Sidebar({ activeView, onNavigate, isOpen, isMobile, onCl
 
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3">
-          <img 
-            src="https://ui-avatars.com/api/?name=Admin+Ops&background=FFC400&color=14141A" 
-            alt="Admin"
+          <img
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(nombreCompleto)}&background=FFC400&color=14141A`}
+            alt={nombreCompleto}
             className="w-9 h-9 rounded-full"
           />
           <div>
-            <p className="text-sm font-medium">Operaciones</p>
-            <p className="text-xs text-rr-steelLight">Super Administrador</p>
+            <p className="text-sm font-medium">{nombreCompleto}</p>
+            <p className="text-xs text-rr-steelLight">{rolNombre || 'Sin rol asignado'}</p>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
+import { MODULOS_SISTEMA as MODULOS_SISTEMA_REGISTRO } from '@/lib/modulosSistema'
 import {
   ShieldCheckIcon,
   UsersIcon,
@@ -78,8 +79,22 @@ function configWriteError(error: { code?: string; message?: string }, fallback: 
   return error.message || fallback
 }
 
+async function bitacoraHabilitada(sb: ReturnType<typeof getSupabaseBrowserClient>): Promise<boolean> {
+  try {
+    const { data } = await sb.from('configuracion').select('valor').eq('clave', 'seguridad').maybeSingle()
+    if (!data?.valor) return true
+    const parsed = JSON.parse(String(data.valor))
+    // Si el admin desactivó "Registro de actividad" en Seguridad, respetamos esa decisión.
+    return parsed.registroActividad !== false
+  } catch {
+    // Ante cualquier duda (config ausente o corrupta) preferimos seguir registrando.
+    return true
+  }
+}
+
 async function registrarBitacora(accion: string, modulo: string, detalle: string) {
   const sb = getSupabaseBrowserClient()
+  if (!(await bitacoraHabilitada(sb))) return
   const { data } = await sb.auth.getUser()
   const authId = data.user?.id ?? null
   const email = data.user?.email ?? 'Admin'
@@ -125,7 +140,11 @@ function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete?: () =>
 }
 
 // ─── 1. ROLES Y PERMISOS ─────────────────────────────────────────────────────
-const MODULOS_SISTEMA = ['Dashboard','Viajes','Conductores','Usuarios','Evidencia','Incidencias','Pagos','Documentos','Tarifas','Empresas','Reportes','Configuración']
+// Antes esta lista vivía solo aquí, separada de Sidebar/page.tsx, y le
+// faltaba "Vehículos" (esa vista existe pero nunca fue una opción marcable
+// en Roles y permisos). Ahora viene del mismo registro que usa el resto
+// del panel para filtrar el menú según el rol — ver lib/modulosSistema.ts.
+const MODULOS_SISTEMA = MODULOS_SISTEMA_REGISTRO.map(m => m.label)
 
 function TabRoles() {
   const [roles, setRoles] = useState<{id:string;nombre:string;descripcion:string;permisos:string[];activo:boolean;color:string}[]>([])
@@ -155,12 +174,20 @@ function TabRoles() {
   const toggleActivo = async (id: string, activo: boolean) => {
     const sb = await getSb(); await sb.from('roles').update({ activo: !activo }).eq('id', id)
     setRoles(prev => prev.map(r => r.id === id ? { ...r, activo: !activo } : r))
+    const rol = roles.find(r => r.id === id)
+    intentarRegistrarBitacora(!activo ? 'Rol activado' : 'Rol desactivado', 'Roles y permisos', `Rol: ${rol?.nombre ?? id}`)
   }
 
   const togglePermiso = async (id: string, permisos: string[], modulo: string) => {
     const nuevos = permisos.includes(modulo) ? permisos.filter(m => m !== modulo) : [...permisos, modulo]
     const sb = await getSb(); await sb.from('roles').update({ permisos: nuevos }).eq('id', id)
     setRoles(prev => prev.map(r => r.id === id ? { ...r, permisos: nuevos } : r))
+    const rol = roles.find(r => r.id === id)
+    intentarRegistrarBitacora(
+      'Permisos de rol actualizados',
+      'Roles y permisos',
+      `Rol: ${rol?.nombre ?? id}, módulo "${modulo}" ${nuevos.includes(modulo) ? 'habilitado' : 'deshabilitado'}`
+    )
   }
 
   const handleCrear = async () => {
@@ -177,7 +204,7 @@ function TabRoles() {
     setForm({ nombre: '', descripcion: '', color: 'blue', permisos: [] })
     setShowForm(false)
     setGuardando(false)
-    intentarRegistrarBitacora('Rol creado', 'Configuración', `Rol: ${form.nombre.toUpperCase()}`)
+    intentarRegistrarBitacora('Rol creado', 'Roles y permisos', `Rol: ${form.nombre.toUpperCase()}`)
     cargar()
   }
 
@@ -189,6 +216,14 @@ function TabRoles() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800">
+        <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500 mt-0.5" />
+        <p>
+          Los módulos marcados aquí ahora sí controlan qué ve cada rol en el menú lateral.
+          <strong> Super administrador</strong> siempre ve todo. Para los demás roles, revisa que tengan
+          marcados todos los módulos que necesitan antes de que alguien con ese rol vuelva a entrar al panel.
+        </p>
+      </div>
       <SCard title="🛡️ Roles del sistema" subtitle="Define qué puede ver y hacer cada rol"
         action={<button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rr-route hover:bg-rr-routeDark text-rr-asphalt rounded-lg text-xs font-medium"><PlusIcon className="w-3.5 h-3.5" />Nuevo rol</button>}>
         {showForm && (
@@ -338,6 +373,12 @@ function TabUsuariosInternos() {
       setGuardando(false)
       return
     }
+    const rolNombre = rolesDisponibles.find(r => r.id === form.rolId)?.nombre ?? form.rolId
+    intentarRegistrarBitacora(
+      editId ? 'Usuario interno actualizado' : 'Usuario interno creado',
+      'Usuarios internos',
+      `Usuario: ${payload.nombre} ${payload.apellido} (${payload.email}), rol: ${rolNombre}`
+    )
     setForm({ nombre: '', apellido: '', email: '', rolId: '' })
     setEditId(null)
     setShowForm(false)
@@ -349,13 +390,25 @@ function TabUsuariosInternos() {
     const sb = getSupabaseBrowserClient()
     await sb.from('usuarios_internos').update({ activo: !activo }).eq('id', id)
     setUsuarios(prev => prev.map(u => u.id === id ? { ...u, activo: !activo } : u))
+    const usuario = usuarios.find(u => u.id === id)
+    intentarRegistrarBitacora(
+      !activo ? 'Usuario interno activado' : 'Usuario interno desactivado',
+      'Usuarios internos',
+      `Usuario: ${usuario?.nombre ?? ''} ${usuario?.apellido ?? ''} (${usuario?.email ?? id})`
+    )
   }
 
   const eliminar = async (id: string) => {
     const sb = getSupabaseBrowserClient()
+    const usuario = usuarios.find(u => u.id === id)
     await sb.from('usuarios_internos').delete().eq('id', id)
     setUsuarios(prev => prev.filter(u => u.id !== id))
     setConfirmDelete(null)
+    intentarRegistrarBitacora(
+      'Usuario interno eliminado',
+      'Usuarios internos',
+      `Usuario: ${usuario?.nombre ?? ''} ${usuario?.apellido ?? ''} (${usuario?.email ?? id})`
+    )
   }
 
   const iCls2 = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rr-route'
@@ -485,7 +538,7 @@ function TabZonas() {
       return
     }
     setZonas(prev => prev.map(z => z.id === id ? { ...z, activa: !activa } : z))
-    intentarRegistrarBitacora('Zona activada/desactivada', 'Configuración', `Zona ID: ${id}, activa: ${!activa}`)
+    intentarRegistrarBitacora('Zona activada/desactivada', 'Zonas y cobertura', `Zona ID: ${id}, activa: ${!activa}`)
   }
 
   const abrirNueva = () => { setEditId(null); setForm({ nombre: '', descripcion: '', radioKm: '' }); setError(''); setShowForm(true) }
@@ -510,7 +563,7 @@ function TabZonas() {
       }
       setShowForm(false)
       setEditId(null)
-      await intentarRegistrarBitacora(editId ? 'Zona actualizada' : 'Zona creada', 'Configuración', `Zona: ${payload.nombre}`)
+      await intentarRegistrarBitacora(editId ? 'Zona actualizada' : 'Zona creada', 'Zonas y cobertura', `Zona: ${payload.nombre}`)
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar la zona.')
@@ -529,7 +582,7 @@ function TabZonas() {
     }
     setZonas(prev => prev.filter(z => z.id !== id))
     setConfirmDelete(null)
-    intentarRegistrarBitacora('Zona eliminada', 'Configuración', `Zona ID: ${id}`)
+    intentarRegistrarBitacora('Zona eliminada', 'Zonas y cobertura', `Zona ID: ${id}`)
   }
 
   return (
@@ -609,6 +662,9 @@ function TabServicios() {
   const toggle = async (id: string, field: string, val: boolean) => {
     const sb = await getSb(); await sb.from('tipos_servicio').update({ [field]: !val }).eq('id', id)
     setServicios(prev => prev.map(s => s.id === id ? { ...s, [field === 'requiere_evidencia' ? 'requiereEvidencia' : field === 'requiere_firma' ? 'requiereFirma' : 'activo']: !val } : s))
+    const servicio = servicios.find(s => s.id === id)
+    const etiquetas: Record<string, string> = { requiere_evidencia: 'Requiere evidencia', requiere_firma: 'Requiere firma', activo: 'Activo' }
+    intentarRegistrarBitacora('Tipo de servicio actualizado', 'Tipos de servicio', `Servicio: ${servicio?.nombre ?? id}, ${etiquetas[field] ?? field}: ${!val}`)
   }
 
   const abrirNuevo = () => { setEditId(null); setForm({ nombre: '', descripcion: '', icono: '🚘', requiereEvidencia: true, requiereFirma: true }); setError(''); setShowForm(true) }
@@ -628,14 +684,17 @@ function TabServicios() {
       setGuardando(false)
       return
     }
+    intentarRegistrarBitacora(editId ? 'Tipo de servicio actualizado' : 'Tipo de servicio creado', 'Tipos de servicio', `Servicio: ${payload.nombre}`)
     setShowForm(false); setEditId(null); setGuardando(false)
     cargar()
   }
 
   const eliminar = async (id: string) => {
+    const servicio = servicios.find(s => s.id === id)
     const sb = await getSb(); await sb.from('tipos_servicio').delete().eq('id', id)
     setServicios(prev => prev.filter(s => s.id !== id))
     setConfirmDelete(null)
+    intentarRegistrarBitacora('Tipo de servicio eliminado', 'Tipos de servicio', `Servicio: ${servicio?.nombre ?? id}`)
   }
 
   return (
@@ -776,7 +835,7 @@ function TabVehiculos() {
     try {
       const actual = tipos.find(t => t.id === id)
       await guardarTipos(tipos.map(t => t.id === id ? { ...t, activo: !t.activo } : t))
-      await intentarRegistrarBitacora('Tipo de vehículo activado/desactivado', 'Configuración', `Tipo: ${actual?.nombre ?? id}, activo: ${!(actual?.activo ?? false)}`)
+      await intentarRegistrarBitacora('Tipo de vehículo activado/desactivado', 'Tipos de vehículo', `Tipo: ${actual?.nombre ?? id}, activo: ${!(actual?.activo ?? false)}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo actualizar el tipo de vehículo.')
     }
@@ -803,7 +862,7 @@ function TabVehiculos() {
       }
       const next = editId ? tipos.map(t => t.id === editId ? payload : t) : [payload, ...tipos]
       await guardarTipos(next)
-      await intentarRegistrarBitacora(editId ? 'Tipo de vehículo actualizado' : 'Tipo de vehículo creado', 'Configuración', `Tipo: ${payload.nombre}`)
+      await intentarRegistrarBitacora(editId ? 'Tipo de vehículo actualizado' : 'Tipo de vehículo creado', 'Tipos de vehículo', `Tipo: ${payload.nombre}`)
       setShowForm(false)
       setEditId(null)
     } catch (e) {
@@ -818,7 +877,7 @@ function TabVehiculos() {
     try {
       const eliminado = tipos.find(t => t.id === id)
       await guardarTipos(tipos.filter(t => t.id !== id))
-      await intentarRegistrarBitacora('Tipo de vehículo eliminado', 'Configuración', `Tipo: ${eliminado?.nombre ?? id}`)
+      await intentarRegistrarBitacora('Tipo de vehículo eliminado', 'Tipos de vehículo', `Tipo: ${eliminado?.nombre ?? id}`)
       setConfirmDelete(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo eliminar el tipo de vehículo.')
@@ -908,7 +967,7 @@ function TabEvidencia() {
     const { error: e } = await sb.from('configuracion').upsert({ clave: 'reglas_evidencia', valor: JSON.stringify(reglas) }, { onConflict: 'clave' })
     setGuardando(false)
     if (e) { setError(e.message); return }
-    intentarRegistrarBitacora('Reglas de evidencia actualizadas', 'Configuración', 'Se actualizaron requisitos de evidencia')
+    intentarRegistrarBitacora('Reglas de evidencia actualizadas', 'Reglas de evidencia', 'Se actualizaron requisitos de evidencia')
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
   }
@@ -1009,7 +1068,7 @@ function TabEstados() {
     const sb = await getSb()
     await sb.from('estados_viaje').update({ siguiente, auto }).eq('id', id)
     setEstados(prev => prev.map(e => e.id === id ? { ...e, siguiente, auto } : e))
-    intentarRegistrarBitacora('Estado de viaje actualizado', 'Configuración', `Estado ID: ${id}, siguiente: ${siguiente}, automático: ${auto}`)
+    intentarRegistrarBitacora('Estado de viaje actualizado', 'Estados de viaje', `Estado ID: ${id}, siguiente: ${siguiente}, automático: ${auto}`)
     setEditing(null)
   }
 
@@ -1102,7 +1161,7 @@ function TabNotificaciones() {
       return
     }
     setPlantillas(prev => prev.map(p => p.id === id ? { ...p, activa: !activa } : p))
-    intentarRegistrarBitacora('Plantilla de notificación activada/desactivada', 'Configuración', `Plantilla ID: ${id}, activa: ${!activa}`)
+    intentarRegistrarBitacora('Plantilla de notificación activada/desactivada', 'Notificaciones', `Plantilla ID: ${id}, activa: ${!activa}`)
   }
 
   const abrirNueva = () => { setEditId(null); setForm({ evento: '', destinatario: '', canal: [] }); setError(''); setShowForm(true) }
@@ -1122,7 +1181,7 @@ function TabNotificaciones() {
       setGuardando(false)
       return
     }
-    intentarRegistrarBitacora(editId ? 'Plantilla de notificación actualizada' : 'Plantilla de notificación creada', 'Configuración', `Evento: ${payload.evento}`)
+    intentarRegistrarBitacora(editId ? 'Plantilla de notificación actualizada' : 'Plantilla de notificación creada', 'Notificaciones', `Evento: ${payload.evento}`)
     setShowForm(false); setEditId(null); setGuardando(false)
     cargar()
   }
@@ -1222,7 +1281,7 @@ function TabPagos() {
       return
     }
     setMetodos(prev => prev.map(m => m.id === id ? { ...m, activo: !activo } : m))
-    intentarRegistrarBitacora('Método de pago activado/desactivado', 'Configuración', `Método ID: ${id}, activo: ${!activo}`)
+    intentarRegistrarBitacora('Método de pago activado/desactivado', 'Métodos de pago', `Método ID: ${id}, activo: ${!activo}`)
   }
 
   const abrirNuevoMetodo = () => { setEditId(null); setForm({ nombre: '', descripcion: '' }); setError(''); setShowForm(true) }
@@ -1241,7 +1300,7 @@ function TabPagos() {
       setGuardando(false)
       return
     }
-    intentarRegistrarBitacora(editId ? 'Método de pago actualizado' : 'Método de pago creado', 'Configuración', `Método: ${form.nombre}`)
+    intentarRegistrarBitacora(editId ? 'Método de pago actualizado' : 'Método de pago creado', 'Métodos de pago', `Método: ${form.nombre}`)
     setForm({ nombre: '', descripcion: '' }); setEditId(null); setShowForm(false); setGuardando(false)
     cargar()
   }
@@ -1256,7 +1315,7 @@ function TabPagos() {
     }
     setMetodos(prev => prev.filter(m => m.id !== id))
     setConfirmDelete(null)
-    intentarRegistrarBitacora('Método de pago eliminado', 'Configuración', `Método ID: ${id}`)
+    intentarRegistrarBitacora('Método de pago eliminado', 'Métodos de pago', `Método ID: ${id}`)
   }
 
   const guardarCiclo = async () => {
@@ -1267,7 +1326,7 @@ function TabPagos() {
     const { error: e } = await sb.from('configuracion').upsert({ clave: 'ciclo_pago', valor: JSON.stringify(ciclo) }, { onConflict: 'clave' })
     setGuardandoCiclo(false)
     if (e) { setErrorCiclo(configWriteError(e, 'No se pudo guardar el ciclo de pago.')); return }
-    intentarRegistrarBitacora('Ciclo de pago actualizado', 'Configuración', `${ciclo.frecuencia} / ${ciclo.diaPago}`)
+    intentarRegistrarBitacora('Ciclo de pago actualizado', 'Métodos de pago', `${ciclo.frecuencia} / ${ciclo.diaPago}`)
     setCicloGuardado(true)
     setTimeout(() => setCicloGuardado(false), 2500)
   }
@@ -1378,7 +1437,7 @@ function TabFiscal() {
       setError(configWriteError(e, 'No se pudieron guardar los datos fiscales.'))
       return
     }
-    intentarRegistrarBitacora('Datos fiscales actualizados', 'Configuración', `RFC: ${form.rfc || 'Sin RFC'}`)
+    intentarRegistrarBitacora('Datos fiscales actualizados', 'Datos fiscales', `RFC: ${form.rfc || 'Sin RFC'}`)
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2500)
   }
@@ -1460,7 +1519,7 @@ function TabSeguridad() {
     const sb = await getSb()
     const { error: e } = await sb.from('configuracion').upsert({ clave: 'seguridad', valor: JSON.stringify(config) }, { onConflict: 'clave' })
     setGuardando(false)
-    if (!e) intentarRegistrarBitacora('Configuración de seguridad actualizada', 'Configuración', 'Se actualizaron parámetros de seguridad')
+    if (!e) intentarRegistrarBitacora('Configuración de seguridad actualizada', 'Seguridad', 'Se actualizaron parámetros de seguridad')
   }
 
   const ejecutarBackup = async () => {
@@ -1468,14 +1527,16 @@ function TabSeguridad() {
     setBackupMsg('')
     setBackupError('')
     try {
-      await registrarBitacora('Backup manual ejecutado', 'Configuración', 'Respaldo manual solicitado desde Seguridad')
+      // Nota: esto únicamente deja constancia en la bitácora de que se solicitó un backup.
+      // No dispara ningún respaldo real; eso depende del mecanismo de backup configurado en Supabase.
+      await registrarBitacora('Solicitud de backup registrada', 'Seguridad', 'Respaldo manual solicitado desde Seguridad')
     } catch (e) {
       setEjecutandoBackup(false)
       setBackupError(configWriteError(e as { code?: string; message?: string }, 'No se pudo registrar la solicitud de backup.'))
       return
     }
     setEjecutandoBackup(false)
-    setBackupMsg('Solicitud de backup registrada correctamente.')
+    setBackupMsg('Solicitud registrada en la bitácora. La ejecución del respaldo depende del proceso configurado en Supabase.')
   }
 
   if (cargando) return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 animate-pulse rounded-xl" />)}</div>
@@ -1534,7 +1595,7 @@ function TabSeguridad() {
           </div>
           <div className="flex items-end">
             <button onClick={ejecutarBackup} disabled={ejecutandoBackup} className="w-full border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
-              <ArrowPathIcon className={`w-4 h-4 ${ejecutandoBackup ? 'animate-spin' : ''}`} />{ejecutandoBackup ? 'Ejecutando...' : 'Ejecutar backup ahora'}
+              <ArrowPathIcon className={`w-4 h-4 ${ejecutandoBackup ? 'animate-spin' : ''}`} />{ejecutandoBackup ? 'Registrando...' : 'Solicitar backup manual'}
             </button>
           </div>
         </div>
@@ -1546,58 +1607,113 @@ function TabSeguridad() {
 }
 
 // ─── 12. BITÁCORA ─────────────────────────────────────────────────────────────
+// Módulos que realmente escriben en la bitácora hoy (ver llamadas a
+// intentarRegistrarBitacora / registrarBitacora en este archivo). Si en el
+// futuro otras vistas del panel (Incidencias, Pagos, Documentos, etc.)
+// empiezan a registrar acciones propias, agrega aquí su nombre de módulo.
+const MODULOS_BITACORA = [
+  'Todos',
+  'Roles y permisos',
+  'Usuarios internos',
+  'Zonas y cobertura',
+  'Tipos de servicio',
+  'Tipos de vehículo',
+  'Reglas de evidencia',
+  'Estados de viaje',
+  'Notificaciones',
+  'Métodos de pago',
+  'Datos fiscales',
+  'Seguridad',
+]
+
+const BITACORA_PAGINA = 50
+
+type RegistroBitacora = { id: string; usuario: string; accion: string; modulo: string; detalle: string; ip: string; fecha: string; fechaRaw: string }
+
 function TabBitacora() {
-  const [registros, setRegistros] = useState<{id:string;usuario:string;accion:string;modulo:string;detalle:string;ip:string;fecha:string}[]>([])
+  const [registros, setRegistros] = useState<RegistroBitacora[]>([])
   const [cargando, setCargando] = useState(true)
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [hayMas, setHayMas] = useState(false)
   const [filtroModulo, setFiltroModulo] = useState('Todos')
   const [error, setError] = useState('')
 
-  const cargar = useCallback(async () => {
+  const obtenerPagina = useCallback(async (modulo: string, antesDe?: string) => {
     const sb = getSupabaseBrowserClient()
-    setError('')
-    const { data, error: e } = await sb.from('bitacora').select('id,usuario_nombre,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(200)
-    if (e) {
-      setError(e.message)
-      setCargando(false)
-      return
-    }
-    if (data) setRegistros(data.map((r: Record<string,unknown>) => {
-      return {
-        id: String(r.id), usuario: String(r.usuario_nombre ?? 'Sistema'), accion: String(r.accion ?? ''),
-        modulo: String(r.modulo ?? 'Sistema'), detalle: String(r.detalle ?? ''), ip: String(r.ip ?? '—'),
-        fecha: String((r.created_at as string)?.slice(0,16).replace('T',' ') ?? '—'),
-      }
+    let query = sb.from('bitacora').select('id,usuario_nombre,accion,modulo,detalle,ip,created_at').order('created_at', { ascending: false }).limit(BITACORA_PAGINA)
+    if (modulo !== 'Todos') query = query.eq('modulo', modulo)
+    if (antesDe) query = query.lt('created_at', antesDe)
+    const { data, error: e } = await query
+    if (e) throw e
+    const filas: RegistroBitacora[] = (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id), usuario: String(r.usuario_nombre ?? 'Sistema'), accion: String(r.accion ?? ''),
+      modulo: String(r.modulo ?? 'Sistema'), detalle: String(r.detalle ?? ''), ip: String(r.ip ?? '—'),
+      fecha: String((r.created_at as string)?.slice(0, 16).replace('T', ' ') ?? '—'),
+      fechaRaw: String(r.created_at ?? ''),
     }))
-    setCargando(false)
+    return filas
   }, [])
 
-  useEffect(() => { cargar() }, [cargar])
+  // Cuando cambia el filtro, se vuelve a consultar desde el inicio (no solo
+  // se filtra lo ya cargado): así un módulo poco frecuente no se ve vacío
+  // por estar fuera de la primera página de resultados.
+  useEffect(() => {
+    let vigente = true
+    setCargando(true)
+    setError('')
+    obtenerPagina(filtroModulo)
+      .then(filas => {
+        if (!vigente) return
+        setRegistros(filas)
+        setHayMas(filas.length === BITACORA_PAGINA)
+      })
+      .catch(e => { if (vigente) setError(e instanceof Error ? e.message : 'No se pudo cargar la bitácora.') })
+      .finally(() => { if (vigente) setCargando(false) })
+    return () => { vigente = false }
+  }, [filtroModulo, obtenerPagina])
+
+  const cargarMas = async () => {
+    const ultimo = registros[registros.length - 1]
+    if (!ultimo) return
+    setCargandoMas(true)
+    setError('')
+    try {
+      const filas = await obtenerPagina(filtroModulo, ultimo.fechaRaw)
+      setRegistros(prev => [...prev, ...filas])
+      setHayMas(filas.length === BITACORA_PAGINA)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar más registros.')
+    } finally {
+      setCargandoMas(false)
+    }
+  }
 
   const exportarCSV = () => {
-    const filas = registros.filter(r => filtroModulo === 'Todos' || r.modulo === filtroModulo)
-    const header = ['Usuario','Acción','Módulo','Detalle','IP','Fecha'].join(',')
-    const body = filas.map(r => [r.usuario, r.accion, r.modulo, r.detalle, r.ip, r.fecha].map(v => `"${v.replace(/"/g,'""')}"`).join(',')).join('\n')
+    const header = ['Usuario', 'Acción', 'Módulo', 'Detalle', 'IP', 'Fecha'].join(',')
+    const body = registros.map(r => [r.usuario, r.accion, r.modulo, r.detalle, r.ip, r.fecha].map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `bitacora_${new Date().toISOString().slice(0,10)}.csv`
+    a.download = `bitacora_${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const moduloColor: Record<string, string> = {
-    Tarifas: 'blue', Viajes: 'purple', Pagos: 'emerald', Documentos: 'amber',
-    Conductores: 'indigo', Incidencias: 'rose', Configuración: 'slate', Reportes: 'teal', Sistema: 'slate',
+    'Roles y permisos': 'indigo', 'Usuarios internos': 'blue', 'Zonas y cobertura': 'green',
+    'Tipos de servicio': 'purple', 'Tipos de vehículo': 'amber', 'Reglas de evidencia': 'red',
+    'Estados de viaje': 'indigo', 'Notificaciones': 'purple', 'Métodos de pago': 'blue',
+    'Datos fiscales': 'amber', 'Seguridad': 'red', Sistema: 'slate',
   }
 
   return (
-    <SCard title="📋 Bitácora de cambios" subtitle="Registro de todas las acciones relevantes del sistema"
-      action={<button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+    <SCard title="📋 Bitácora de cambios" subtitle="Registro de las acciones realizadas en Configuración"
+      action={<button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" title="Exporta los registros actualmente cargados en esta pantalla">
         Exportar CSV
       </button>}>
       <div className="flex flex-wrap gap-1.5 mb-4">
-        {(['Todos','Tarifas','Viajes','Pagos','Documentos','Conductores','Incidencias','Configuración','Reportes']).map(m => (
+        {MODULOS_BITACORA.map(m => (
           <button key={m} onClick={() => setFiltroModulo(m)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filtroModulo === m ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
             {m}
@@ -1606,6 +1722,7 @@ function TabBitacora() {
       </div>
       {error && <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
       {cargando ? <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded-lg" />)}</div> : (
+      <>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
@@ -1619,10 +1736,10 @@ function TabBitacora() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {registros.filter(r => filtroModulo === 'Todos' || r.modulo === filtroModulo).length === 0 && (
+            {registros.length === 0 && (
               <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-xs italic">Sin registros en la bitácora.</td></tr>
             )}
-            {registros.filter(r => filtroModulo === 'Todos' || r.modulo === filtroModulo).map(r => (
+            {registros.map(r => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-800 text-xs whitespace-nowrap">{r.usuario}</td>
                 <td className="px-4 py-3 text-slate-700 text-xs">{r.accion}</td>
@@ -1635,6 +1752,14 @@ function TabBitacora() {
           </tbody>
         </table>
       </div>
+      {hayMas && (
+        <div className="flex justify-center mt-4">
+          <button onClick={cargarMas} disabled={cargandoMas} className="px-4 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 rounded-lg transition-colors">
+            {cargandoMas ? 'Cargando...' : 'Cargar más'}
+          </button>
+        </div>
+      )}
+      </>
       )}
     </SCard>
   )
