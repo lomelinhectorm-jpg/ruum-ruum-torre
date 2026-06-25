@@ -19,11 +19,10 @@ import {
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
-import type { CertificacionConductor, DisponibilidadConductor } from '@/lib/constants/estados'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-type EstatusDisponibilidad = DisponibilidadConductor | 'En viaje'
-type EstatusCertificacion = CertificacionConductor | 'Pendiente de validación' | 'Activo' | 'Documentación incompleta'
+type EstatusDisponibilidad = 'Disponible' | 'No disponible' | 'En viaje'
+type EstatusCertificacion  = 'Pendiente de validación' | 'Activo' | 'Suspendido' | 'Bloqueado' | 'Documentación incompleta'
 
 interface Documento {
   tipo: string
@@ -96,11 +95,6 @@ const avatarColors = [
 ]
 
 const certStyle: Record<EstatusCertificacion, string> = {
-  'Borrador':                  'bg-slate-100 text-slate-600',
-  'Pendiente de documentos':   'bg-amber-100 text-amber-700',
-  'En revision':               'bg-blue-100 text-blue-700',
-  'Correccion requerida':      'bg-orange-100 text-orange-700',
-  'Certificado':               'bg-green-100 text-green-700',
   'Activo':                   'bg-green-100 text-green-700',
   'Pendiente de validación':  'bg-amber-100 text-amber-700',
   'Suspendido':               'bg-red-100 text-red-700',
@@ -111,16 +105,12 @@ const certStyle: Record<EstatusCertificacion, string> = {
 const dispStyle: Record<EstatusDisponibilidad, string> = {
   'Disponible':    'bg-green-50 text-green-600',
   'No disponible': 'bg-slate-100 text-slate-500',
-  'Ocupado':        'bg-[#E8EFFF] text-rr-trace',
-  'Pausado por sistema': 'bg-amber-50 text-amber-700',
   'En viaje':      'bg-[#E8EFFF] text-rr-trace',
 }
 
 const dispDot: Record<EstatusDisponibilidad, string> = {
   'Disponible':    'bg-green-500',
   'No disponible': 'bg-slate-400',
-  'Ocupado':        'bg-rr-trace',
-  'Pausado por sistema': 'bg-amber-500',
   'En viaje':      'bg-rr-trace',
 }
 
@@ -251,11 +241,7 @@ function ConductorDetalle({
 
   const cambiarCert = async (nuevo: EstatusCertificacion) => {
     const sb = getSupabaseBrowserClient()
-    await sb.from('conductores').update({
-      certificacion: nuevo,
-      certificacion_estado: nuevo,
-      certificacion_actualizada_at: new Date().toISOString(),
-    }).eq('id', conductor.id)
+    await sb.from('conductores').update({ certificacion: nuevo }).eq('id', conductor.id)
     setCert(nuevo)
     onUpdate({ ...conductor, certificacion: nuevo })
   }
@@ -314,20 +300,20 @@ function ConductorDetalle({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {(cert === 'Pendiente de validación' || cert === 'Pendiente de documentos' || cert === 'En revision') && (
-                <button onClick={() => cambiarCert('Certificado')}
+              {cert === 'Pendiente de validación' && (
+                <button onClick={() => cambiarCert('Activo')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                   <CheckCircleIcon className="w-3.5 h-3.5" />Validar
                 </button>
               )}
-              {(cert === 'Activo' || cert === 'Certificado') && (
+              {cert === 'Activo' && (
                 <button onClick={() => cambiarCert('Suspendido')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                   <ExclamationTriangleIcon className="w-3.5 h-3.5" />Suspender
                 </button>
               )}
               {(cert === 'Suspendido' || cert === 'Bloqueado') && (
-                <button onClick={() => cambiarCert('Certificado')}
+                <button onClick={() => cambiarCert('Activo')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                   <CheckCircleIcon className="w-3.5 h-3.5" />Reactivar
                 </button>
@@ -667,9 +653,7 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
         cuenta_clabe:      form.clabe || null,
         cuenta_titular:    form.titular.toUpperCase() || null,
         disponibilidad: 'No disponible',
-        certificacion:  'Pendiente de documentos',
-        certificacion_estado: 'Pendiente de documentos',
-        certificacion_actualizada_at: new Date().toISOString(),
+        certificacion:  'Pendiente de validación',
         calificacion:   0,
       })
       if (error) throw error
@@ -695,7 +679,7 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
           <div>
             <h2 className="font-bold text-slate-800 text-lg">Nuevo Conductor</h2>
-            <p className="text-xs text-slate-400">Se registrará en estado "Pendiente de documentos"</p>
+            <p className="text-xs text-slate-400">Se registrará en estado "Pendiente de validación"</p>
           </div>
           <button onClick={onClose}><XMarkIcon className="w-5 h-5 text-slate-400" /></button>
         </div>
@@ -730,7 +714,7 @@ function NuevoConductorForm({ onClose, onSave }: { onClose: () => void; onSave: 
             </div>
           </div>
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700">
-            ⚠️ El conductor quedará en estado <strong>Pendiente de documentos</strong>. Para activarlo deberás aprobar sus documentos desde su perfil.
+            ⚠️ El conductor quedará en estado <strong>Pendiente de validación</strong>. Para activarlo deberás aprobar sus documentos desde su perfil.
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex justify-between items-center">
@@ -787,7 +771,7 @@ export default function ConductoresView() {
       .select(`
         id, nombre, apellido, curp, telefono, email,
         municipio, estado_geo,
-        disponibilidad, certificacion, certificacion_estado, calificacion,
+        disponibilidad, certificacion, calificacion,
         cuenta_banco, cuenta_clabe, cuenta_titular,
         created_at
       `)
@@ -806,7 +790,7 @@ export default function ConductoresView() {
         estado: String(c.estado_geo ?? ''),
         foto: '',
         disponibilidad: (c.disponibilidad as EstatusDisponibilidad) ?? 'No disponible',
-        certificacion: ((c.certificacion_estado ?? c.certificacion) as EstatusCertificacion) ?? 'Pendiente de documentos',
+        certificacion: (c.certificacion as EstatusCertificacion) ?? 'Pendiente de validación',
         calificacion: Number(c.calificacion ?? 0),
         viajesRealizados: 0,
         gananciasTotal: 0,
@@ -837,9 +821,9 @@ export default function ConductoresView() {
 
   const counts = {
     total:       conductores.length,
-    activos:     conductores.filter(c => c.certificacion === 'Activo' || c.certificacion === 'Certificado').length,
+    activos:     conductores.filter(c => c.certificacion === 'Activo').length,
     disponibles: conductores.filter(c => c.disponibilidad === 'Disponible').length,
-    pendientes:  conductores.filter(c => ['Pendiente de validación','Pendiente de documentos','En revision'].includes(c.certificacion)).length,
+    pendientes:  conductores.filter(c => c.certificacion === 'Pendiente de validación').length,
     suspendidos: conductores.filter(c => c.certificacion === 'Suspendido').length,
   }
 
@@ -886,7 +870,7 @@ export default function ConductoresView() {
         <div className="p-5 border-b border-slate-200 space-y-3">
           {/* Certificación chips */}
           <div className="flex flex-wrap gap-1.5">
-            {(['Todos','Certificado','Pendiente de documentos','En revision','Correccion requerida','Suspendido','Bloqueado'] as (EstatusCertificacion | 'Todos')[]).map(c => (
+            {(['Todos','Activo','Pendiente de validación','Suspendido','Bloqueado','Documentación incompleta'] as (EstatusCertificacion | 'Todos')[]).map(c => (
               <button key={c} onClick={() => setCertFiltro(c)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                   certFiltro === c ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -896,7 +880,7 @@ export default function ConductoresView() {
           {/* Disponibilidad + search + new */}
           <div className="flex flex-col sm:flex-row justify-between gap-3">
             <div className="flex gap-2">
-              {(['Todos','Disponible','No disponible','Ocupado','Pausado por sistema'] as (EstatusDisponibilidad | 'Todos')[]).map(d => (
+              {(['Todos','Disponible','No disponible','En viaje'] as (EstatusDisponibilidad | 'Todos')[]).map(d => (
                 <button key={d} onClick={() => setDispFiltro(d)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
                     dispFiltro === d ? 'bg-slate-700 text-white border-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
